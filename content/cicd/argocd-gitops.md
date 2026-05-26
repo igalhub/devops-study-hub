@@ -158,6 +158,8 @@ metadata:
   name: myapp-environments
   namespace: argocd
 spec:
+  goTemplate: true                          # modern Go template syntax (recommended)
+  goTemplateOptions: ["missingkey=error"]   # fail if a template variable is missing
   generators:
     - list:
         elements:
@@ -169,15 +171,15 @@ spec:
             namespace: production
   template:
     metadata:
-      name: 'myapp-{{cluster}}'
+      name: 'myapp-{{.cluster}}'           # dot notation required with goTemplate: true
     spec:
       source:
         repoURL: https://github.com/myorg/k8s-manifests
-        path: 'apps/myapp/overlays/{{cluster}}'
+        path: 'apps/myapp/overlays/{{.cluster}}'
         targetRevision: main
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{namespace}}'
+        namespace: '{{.namespace}}'
       syncPolicy:
         automated:
           prune: true

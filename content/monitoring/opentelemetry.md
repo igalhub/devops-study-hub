@@ -42,10 +42,10 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 
 resource = Resource.create({
-    "service.name": "myapp",
+    SERVICE_NAME: "myapp",                      # use the constant, not the raw string
     "service.version": "1.2.3",
     "deployment.environment": "production",
 })
@@ -69,7 +69,7 @@ from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExp
 
 reader = PeriodicExportingMetricReader(
     OTLPMetricExporter(endpoint="http://otel-collector:4317"),
-    export_interval_millis=60000  # export every 60s
+    export_interval_millis=60_000  # export every 60s
 )
 meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
 metrics.set_meter_provider(meter_provider)
