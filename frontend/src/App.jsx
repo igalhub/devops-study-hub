@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import ThemeToggle from './components/ThemeToggle'
 import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
-import LessonViewer from './pages/LessonViewer'
 import { useTheme } from './store/themeStore'
 import { fetchModules, fetchProgress } from './store/curriculumStore'
+
+const LessonViewer = lazy(() => import('./pages/LessonViewer'))
 
 export default function App() {
   const { dark, toggle } = useTheme()
@@ -35,7 +36,7 @@ export default function App() {
   )
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className={dark ? 'dark' : ''}>
         <div className="flex min-h-screen bg-white dark:bg-gray-900">
           <Sidebar modules={modules} progress={progress} />
@@ -52,7 +53,9 @@ export default function App() {
                   <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} />
                 } />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
-                  <LessonViewer progress={progress} onProgressUpdate={loadData} />
+                  <Suspense fallback={<div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>}>
+                    <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} />
+                  </Suspense>
                 } />
               </Routes>
             </main>
