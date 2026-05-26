@@ -140,6 +140,22 @@ CURRICULUM = [
                 {'slug': 'agents-templates', 'title': 'Agents & Templates', 'duration_min': 20, 'difficulty': 'intermediate'},
                 {'slug': 'triggers-alerts', 'title': 'Triggers & Alerting', 'duration_min': 20, 'difficulty': 'intermediate'},
             ]},
+            {'slug': 'elasticsearch', 'title': 'Elasticsearch', 'lessons': [
+                {'slug': 'es-architecture', 'title': 'Architecture & Data Model', 'duration_min': 20, 'difficulty': 'beginner'},
+                {'slug': 'indexing-querying', 'title': 'Indexing & Querying', 'duration_min': 25, 'difficulty': 'intermediate'},
+                {'slug': 'es-cluster', 'title': 'Cluster Management', 'duration_min': 20, 'difficulty': 'intermediate'},
+                {'slug': 'es-security', 'title': 'Security & Access Control', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
+            {'slug': 'logstash', 'title': 'Logstash', 'lessons': [
+                {'slug': 'logstash-pipelines', 'title': 'Pipeline Configuration', 'duration_min': 20, 'difficulty': 'beginner'},
+                {'slug': 'inputs-filters-outputs', 'title': 'Inputs, Filters & Outputs', 'duration_min': 25, 'difficulty': 'intermediate'},
+                {'slug': 'logstash-performance', 'title': 'Performance Tuning', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
+            {'slug': 'kibana', 'title': 'Kibana', 'lessons': [
+                {'slug': 'kibana-discover', 'title': 'Discover & Search', 'duration_min': 15, 'difficulty': 'beginner'},
+                {'slug': 'kibana-dashboards', 'title': 'Dashboards & Visualizations', 'duration_min': 20, 'difficulty': 'intermediate'},
+                {'slug': 'kibana-alerts', 'title': 'Alerting & Reporting', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
         ],
     },
 ]
