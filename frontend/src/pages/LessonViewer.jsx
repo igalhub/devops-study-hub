@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { fetchLesson, markLessonComplete } from '../store/curriculumStore'
+import CodePlayground from '../components/CodePlayground'
 
 const DIFFICULTY_COLOR = {
   beginner: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
@@ -106,6 +107,8 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
           Content for this lesson is coming soon.
         </div>
       )}
+
+      <CodePlayground key={lessonSlug} />
 
       <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
         {done ? (

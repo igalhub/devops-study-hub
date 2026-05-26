@@ -8,6 +8,7 @@ from routes.modules import router as modules_router
 from routes.progress import router as progress_router
 from routes.lessons import router as lessons_router
 from routes.ai import router as ai_router
+from routes.sandbox import router as sandbox_router
 
 app = FastAPI(title='DevOps Study Hub API')
 
@@ -28,6 +29,7 @@ app.include_router(modules_router)
 app.include_router(progress_router)
 app.include_router(lessons_router)
 app.include_router(ai_router)
+app.include_router(sandbox_router)
 
 
 @app.get('/health')
