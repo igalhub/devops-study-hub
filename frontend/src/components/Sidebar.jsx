@@ -1,0 +1,84 @@
+import { Link, useParams } from 'react-router-dom'
+
+const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs']
+
+function Badge({ status, pct }) {
+  if (status === 'complete')
+    return <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 font-medium">Done</span>
+  if (status === 'in_progress')
+    return <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-medium">{pct}%</span>
+  return <span className="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 font-medium">Locked</span>
+}
+
+export default function Sidebar({ modules, progress }) {
+  const { moduleSlug } = useParams()
+
+  const grouped = GROUP_ORDER.map(group => ({
+    group,
+    modules: modules.filter(m => m.group === group),
+  }))
+
+  const getModuleStatus = (mod) => {
+    if (mod.is_locked) return { status: 'locked', pct: 0 }
+    const lessons = mod.lessons || []
+    if (!lessons.length) return { status: 'not_started', pct: 0 }
+    const done = lessons.filter(l => progress[String(l.id)] === 'complete').length
+    const pct = Math.round((done / lessons.length) * 100)
+    if (pct === 100) return { status: 'complete', pct: 100 }
+    if (pct > 0) return { status: 'in_progress', pct }
+    return { status: 'not_started', pct: 0 }
+  }
+
+  const totalLessons = modules.flatMap(m => m.lessons || []).length
+  const doneLessons = Object.values(progress).filter(s => s === 'complete').length
+  const overallPct = totalLessons ? Math.round((doneLessons / totalLessons) * 100) : 0
+
+  return (
+    <aside className="w-[220px] shrink-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0 overflow-y-auto">
+      <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="text-sm font-semibold tracking-widest uppercase text-gray-800 dark:text-gray-100">
+          DevOps <span className="text-emerald-500">Hub</span>
+        </div>
+        <div className="mt-2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${overallPct}%` }} />
+        </div>
+        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{overallPct}% complete</div>
+      </div>
+
+      <nav className="flex-1 py-2">
+        {grouped.map(({ group, modules: mods }) => (
+          <div key={group} className="mb-1">
+            <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">
+              {group}
+            </div>
+            {mods.map(mod => {
+              const { status, pct } = getModuleStatus(mod)
+              const active = mod.slug === moduleSlug
+              const locked = status === 'locked'
+              const baseClass = `flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors`
+              const activeClass = 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
+              const idleClass = locked
+                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-60'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+              return locked ? (
+                <div key={mod.slug} className={`${baseClass} ${idleClass}`}>
+                  <span className="truncate">{mod.title}</span>
+                  <Badge status={status} pct={pct} />
+                </div>
+              ) : (
+                <Link
+                  key={mod.slug}
+                  to={`/module/${mod.slug}`}
+                  className={`${baseClass} ${active ? activeClass : idleClass}`}
+                >
+                  <span className="truncate">{mod.title}</span>
+                  <Badge status={status} pct={pct} />
+                </Link>
+              )
+            })}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  )
+}
