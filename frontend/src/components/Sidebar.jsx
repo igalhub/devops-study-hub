@@ -50,7 +50,31 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
       </div>
 
       <nav className="flex-1 py-2">
-        <div className="mb-2">
+        {grouped.map(({ group, modules: mods }) => (
+          <div key={group} className="mb-1">
+            <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">
+              {group}
+            </div>
+            {mods.map(mod => {
+              const { status, pct } = getModuleStatus(mod)
+              const active = mod.slug === moduleSlug
+              const baseClass = `flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors`
+              const activeClass = 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
+              const idleClass = 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+              return (
+                <Link
+                  key={mod.slug}
+                  to={`/module/${mod.slug}`}
+                  className={`${baseClass} ${active ? activeClass : idleClass}`}
+                >
+                  <span className="truncate">{mod.title}</span>
+                  <Badge status={status} pct={pct} />
+                </Link>
+              )
+            })}
+          </div>
+        ))}
+        <div className="mb-1">
           <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">
             Tools
           </div>
@@ -80,30 +104,6 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
             Interview Prep
           </Link>
         </div>
-        {grouped.map(({ group, modules: mods }) => (
-          <div key={group} className="mb-1">
-            <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">
-              {group}
-            </div>
-            {mods.map(mod => {
-              const { status, pct } = getModuleStatus(mod)
-              const active = mod.slug === moduleSlug
-              const baseClass = `flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors`
-              const activeClass = 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
-              const idleClass = 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-              return (
-                <Link
-                  key={mod.slug}
-                  to={`/module/${mod.slug}`}
-                  className={`${baseClass} ${active ? activeClass : idleClass}`}
-                >
-                  <span className="truncate">{mod.title}</span>
-                  <Badge status={status} pct={pct} />
-                </Link>
-              )
-            })}
-          </div>
-        ))}
       </nav>
     </aside>
   )
