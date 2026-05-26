@@ -55,16 +55,6 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
             Tools
           </div>
           <Link
-            to="/interview"
-            className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
-              interviewActive
-                ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
-            Interview Prep
-          </Link>
-          <Link
             to="/review"
             className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
               reviewActive
@@ -78,6 +68,16 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
                 {reviewDue}
               </span>
             )}
+          </Link>
+          <Link
+            to="/interview"
+            className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+              interviewActive
+                ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            Interview Prep
           </Link>
         </div>
         {grouped.map(({ group, modules: mods }) => (
