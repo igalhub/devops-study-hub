@@ -30,6 +30,10 @@ export function fetchXp() {
   return apiFetch('/xp')
 }
 
+export function fetchStreak() {
+  return apiFetch('/streaks')
+}
+
 export function fetchQuiz(slug) {
   return apiFetch(`/quiz/${slug}`)
 }

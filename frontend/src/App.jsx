@@ -8,11 +8,11 @@ import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
 import InterviewPrep from './pages/InterviewPrep'
 import { useTheme } from './store/themeStore'
-import { fetchModules, fetchProgress, fetchXp } from './store/curriculumStore'
+import { fetchModules, fetchProgress, fetchXp, fetchStreak } from './store/curriculumStore'
 
 const LessonViewer = lazy(() => import('./pages/LessonViewer'))
 
-function AppLayout({ modules, progress, loadData, loading, xp, onXpEarned }) {
+function AppLayout({ modules, progress, loadData, loading, xp, streak, onXpEarned }) {
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
@@ -32,9 +32,16 @@ function AppLayout({ modules, progress, loadData, loading, xp, onXpEarned }) {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="text-xs text-gray-400 dark:text-gray-500">DevOps Study Hub</div>
-            {xp > 0 && (
-              <div className="text-xs font-medium text-amber-600 dark:text-amber-400">⚡ {xp} XP</div>
-            )}
+            <div className="flex items-center gap-3">
+              {streak.current > 0 && (
+                <div className={`text-xs font-medium ${streak.today_done ? 'text-orange-500 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  🔥 {streak.current}
+                </div>
+              )}
+              {xp > 0 && (
+                <div className="text-xs font-medium text-amber-600 dark:text-amber-400">⚡ {xp} XP</div>
+              )}
+            </div>
             <ThemeToggle dark={dark} toggle={toggle} />
           </header>
           <div className="flex-1 flex overflow-hidden">
@@ -89,13 +96,17 @@ export default function App() {
   const [progress, setProgress] = useState({})
   const [loading, setLoading] = useState(true)
   const [xp, setXp] = useState(0)
+  const [streak, setStreak] = useState({ current: 0, longest: 0, today_done: false })
 
   const loadData = async () => {
     try {
-      const [mods, prog, xpData] = await Promise.all([fetchModules(), fetchProgress(), fetchXp()])
+      const [mods, prog, xpData, streakData] = await Promise.all([
+        fetchModules(), fetchProgress(), fetchXp(), fetchStreak()
+      ])
       setModules(mods)
       setProgress(prog)
       setXp(xpData.xp_total)
+      setStreak({ current: streakData.current_streak, longest: streakData.longest_streak, today_done: streakData.today_done })
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
@@ -115,6 +126,7 @@ export default function App() {
         loadData={loadData}
         loading={loading}
         xp={xp}
+        streak={streak}
         onXpEarned={handleXpEarned}
       />
     </BrowserRouter>
