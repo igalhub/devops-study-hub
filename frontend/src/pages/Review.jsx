@@ -29,7 +29,7 @@ export default function Review({ onXpEarned, onComplete }) {
   }
 
   const handleSelect = async (idx) => {
-    if (revealed) return
+    if (selected !== null) return
     setSelected(idx)
     setRevealed(true)
 
@@ -99,7 +99,12 @@ export default function Review({ onXpEarned, onComplete }) {
           <div className="text-xs font-medium text-amber-600 dark:text-amber-400">+{xpEarned} XP earned</div>
         )}
         <button
-          onClick={() => setPhase('idle')}
+          onClick={() => {
+            fetchReviewQueue()
+              .then(data => setQueue(data))
+              .catch(() => {})
+            setPhase('idle')
+          }}
           className="mt-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
         >
           Done

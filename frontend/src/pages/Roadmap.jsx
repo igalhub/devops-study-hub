@@ -9,6 +9,7 @@ function ModuleCard({ mod, progress }) {
   const colors = {
     complete: 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950',
     in_progress: 'border-amber-400 bg-amber-50 dark:bg-amber-950',
+    not_started: 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
     locked: 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
   }
 
