@@ -14,6 +14,10 @@ export function fetchProgress() {
   return apiFetch('/progress')
 }
 
+export function fetchLesson(slug) {
+  return apiFetch(`/lessons/${slug}`)
+}
+
 export function markLessonComplete(lessonId) {
   return apiFetch(`/progress/${lessonId}`, {
     method: 'POST',

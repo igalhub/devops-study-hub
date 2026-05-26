@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from db import init_db
 from routes.modules import router as modules_router
 from routes.progress import router as progress_router
+from routes.lessons import router as lessons_router
 
 app = FastAPI(title='DevOps Study Hub API')
 
@@ -21,6 +22,7 @@ def startup():
 
 app.include_router(modules_router)
 app.include_router(progress_router)
+app.include_router(lessons_router)
 
 
 @app.get('/health')
