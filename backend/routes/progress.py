@@ -50,6 +50,7 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
             (lesson_id, body.status, now if body.status == 'complete' else None)
         )
 
+        unlocked_module = None
         if body.status == 'complete' and not already_complete:
             conn.execute("INSERT INTO xp_log (source, points) VALUES ('lesson', ?)", (XP_LESSON_COMPLETE,))
 
@@ -72,13 +73,15 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
 
             if total > 0 and done / total >= UNLOCK_THRESHOLD:
                 next_mod = conn.execute(
-                    """SELECT id FROM modules
+                    """SELECT id, slug, title FROM modules
                        WHERE order_index > (SELECT order_index FROM modules WHERE id = ?)
+                         AND is_locked = 1
                        ORDER BY order_index LIMIT 1""",
                     (module_id,)
                 ).fetchone()
                 if next_mod:
                     conn.execute("UPDATE modules SET is_locked = 0 WHERE id = ?", (next_mod['id'],))
+                    unlocked_module = {'slug': next_mod['slug'], 'title': next_mod['title']}
 
         today = date.today().isoformat()
         conn.execute(
@@ -90,7 +93,7 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
         xp_total = conn.execute(
             "SELECT COALESCE(SUM(points), 0) as total FROM xp_log"
         ).fetchone()['total']
-        return {'status': body.status, 'xp_total': xp_total}
+        return {'status': body.status, 'xp_total': xp_total, 'unlocked_module': unlocked_module}
     finally:
         conn.close()
 
