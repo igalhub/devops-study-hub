@@ -135,7 +135,7 @@ kubectl exec -it myapp-abc123 -- /bin/bash
 kubectl exec -it myapp-abc123 -c sidecar -- /bin/sh
 
 # Run an ephemeral debug container (K8s 1.23+)
-kubectl debug -it myapp-abc123 --image=busybox --target=app
+kubectl debug -it myapp-abc123 --image=busybox:1.37 --target=app
 
 # Port-forward (access a pod directly without a Service)
 kubectl port-forward pod/myapp-abc123 8080:8080

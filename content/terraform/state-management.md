@@ -8,7 +8,7 @@ exercises: 4
 ---
 
 ## Overview
-Terraform state is the source of truth about what infrastructure Terraform manages. Local state (`terraform.tfstate`) works for experimentation but breaks in teams — no sharing, no locking, real risk of conflicting writes. Remote state, stored in S3 (or GCS, Azure Blob) with DynamoDB locking, is mandatory for any shared or production configuration.
+Terraform state is the source of truth about what infrastructure Terraform manages. Local state (`terraform.tfstate`) works for experimentation but breaks in teams — no sharing, no locking, real risk of conflicting writes. Remote state, stored in S3 (or GCS, Azure Blob), is mandatory for any shared or production configuration. S3 locking can be done with DynamoDB (traditional, all Terraform versions) or with native S3 file locking (Terraform 1.10+, no extra infrastructure needed).
 
 ## Concepts
 
@@ -31,20 +31,35 @@ terraform state show aws_s3_bucket.app_assets
 ```
 
 ### Remote State (S3 Backend)
+Two locking options — choose one:
+
 ```hcl
-# backend.tf
+# backend.tf — Option A: DynamoDB locking (works with all Terraform versions)
 terraform {
   backend "s3" {
     bucket         = "mycompany-terraform-state"
-    key            = "prod/myapp/terraform.tfstate"   # path within bucket
+    key            = "prod/myapp/terraform.tfstate"
     region         = "us-east-1"
-    encrypt        = true                              # server-side encryption
-    dynamodb_table = "terraform-state-lock"           # locking table
+    encrypt        = true
+    dynamodb_table = "terraform-state-lock"   # requires a DynamoDB table
+  }
+}
+
+# Option B: Native S3 file locking (Terraform 1.10+ — no DynamoDB required)
+terraform {
+  backend "s3" {
+    bucket       = "mycompany-terraform-state"
+    key          = "prod/myapp/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true   # S3 conditional writes provide the lock
   }
 }
 ```
 
-Create the S3 bucket and DynamoDB table first (usually in a bootstrap config):
+**Prefer Option B** for new configs on Terraform 1.10+ — one less resource to manage. Use Option A when you need to support older Terraform versions or already have DynamoDB infrastructure.
+
+Create the S3 bucket (and optionally DynamoDB table for Option A) first:
 ```hcl
 resource "aws_s3_bucket" "tf_state" {
   bucket = "mycompany-terraform-state"
@@ -66,6 +81,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_state" {
   }
 }
 
+# Option A only: DynamoDB lock table
 resource "aws_dynamodb_table" "tf_lock" {
   name         = "terraform-state-lock"
   billing_mode = "PAY_PER_REQUEST"
@@ -78,10 +94,10 @@ resource "aws_dynamodb_table" "tf_lock" {
 }
 ```
 
-After creating these, run `terraform init` to migrate local state to S3.
+After creating the bucket (and table if using Option A), run `terraform init` to migrate local state to S3.
 
 ### State Locking
-When Terraform runs, it writes a lock to DynamoDB. Any concurrent `apply` by another user or CI job gets an error:
+When Terraform runs, it acquires a lock (DynamoDB item or S3 lock file depending on backend config). Any concurrent `apply` by another user or CI job gets an error:
 
 ```
 Error: Error acquiring the state lock

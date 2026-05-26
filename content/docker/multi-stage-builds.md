@@ -45,7 +45,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 ### Syntax
 ```dockerfile
 # Name stages with AS <name>
-FROM golang:1.22 AS builder
+FROM golang:1.24 AS builder
 # ...build...
 
 FROM alpine:3.19 AS tester
@@ -66,7 +66,7 @@ ENTRYPOINT ["/binary"]
 
 #### Go Binary (Minimal Final Image)
 ```dockerfile
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -196,7 +196,7 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 ## Exercises
 
-1. Write a multi-stage Dockerfile for a Go program (`main.go` with `fmt.Println("hello")`): build stage with `golang:1.22-alpine`, final stage with `alpine:3.19`. Compare `docker images` sizes before and after.
+1. Write a multi-stage Dockerfile for a Go program (`main.go` with `fmt.Println("hello")`): build stage with `golang:1.24-alpine`, final stage with `alpine:3.19`. Compare `docker images` sizes before and after.
 2. Add a `test` stage to an existing Dockerfile that runs `pytest` before the production build. Use `docker build --target test` to verify tests run, and `docker build --target production` to get the final image.
 3. Write a multi-stage Dockerfile for a Node.js app with separate stages for: (1) installing all dependencies, (2) building/transpiling, (3) production image with only prod deps + built output.
 4. Use `COPY --from=<image>` to copy SSL certificates from `alpine:3.19` into a `scratch`-based Go container, enabling HTTPS calls from the binary. Verify the container can reach an HTTPS endpoint.
