@@ -12,11 +12,11 @@ export default function InterviewPrep({ modules, progress }) {
   const { moduleSlug: urlSlug } = useParams()
 
   const studiedModules = modules.filter(
-    m => !m.is_locked && (m.lessons || []).some(l => progress[String(l.id)])
+    m => (m.lessons || []).some(l => progress[String(l.id)])
   )
   const availableModules = studiedModules.length
     ? studiedModules
-    : modules.filter(m => !m.is_locked)
+    : modules
 
   const initialSlug = urlSlug && modules.find(m => m.slug === urlSlug)
     ? urlSlug

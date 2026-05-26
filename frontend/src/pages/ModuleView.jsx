@@ -13,8 +13,12 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
   const lessons = mod.lessons || []
 
   const handleComplete = async (lessonId) => {
-    await markLessonComplete(lessonId)
-    onProgressUpdate()
+    try {
+      await markLessonComplete(lessonId)
+      onProgressUpdate()
+    } catch (e) {
+      console.error('Failed to mark lesson complete:', e)
+    }
   }
 
   return (

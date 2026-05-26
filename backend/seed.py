@@ -135,6 +135,10 @@ def seed():
                 "INSERT OR IGNORE INTO modules (slug, title, group_name, order_index, is_locked) VALUES (?, ?, ?, ?, ?)",
                 (mod['slug'], mod['title'], group_name, group_idx * 100 + mod_idx, 0)
             )
+            conn.execute(
+                "UPDATE modules SET is_locked = 0 WHERE slug = ?",
+                (mod['slug'],)
+            )
             conn.commit()
             module_id = conn.execute("SELECT id FROM modules WHERE slug = ?", (mod['slug'],)).fetchone()['id']
 

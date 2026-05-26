@@ -76,8 +76,12 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const done = progress[String(lesson.id)] === 'complete'
 
   const handleComplete = async () => {
-    await markLessonComplete(lesson.id)
-    onProgressUpdate()
+    try {
+      await markLessonComplete(lesson.id)
+      onProgressUpdate()
+    } catch (e) {
+      console.error('Failed to mark lesson complete:', e)
+    }
   }
 
   return (
