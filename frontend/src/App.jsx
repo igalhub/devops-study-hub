@@ -70,7 +70,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               </Routes>
             </main>
             {lessonMatch && (
-              <aside className="w-[280px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-900">
+              <aside className="w-[380px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-900">
                 <div className="flex shrink-0 border-b border-gray-200 dark:border-gray-700">
                   {['tutor', 'quiz'].map(tab => (
                     <button
