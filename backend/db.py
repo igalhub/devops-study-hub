@@ -39,6 +39,15 @@ def init_db():
             completed_at TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS quiz_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER NOT NULL REFERENCES lessons(id),
+            question TEXT NOT NULL,
+            options TEXT NOT NULL,
+            correct_index INTEGER NOT NULL,
+            explanation TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS quiz_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lesson_id INTEGER NOT NULL REFERENCES lessons(id),

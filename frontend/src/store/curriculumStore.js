@@ -25,3 +25,19 @@ export function markLessonComplete(lessonId) {
     body: JSON.stringify({ status: 'complete' }),
   })
 }
+
+export function fetchXp() {
+  return apiFetch('/xp')
+}
+
+export function fetchQuiz(slug) {
+  return apiFetch(`/quiz/${slug}`)
+}
+
+export function logAttempt(questionId, isCorrect) {
+  return apiFetch('/quiz/attempt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question_id: questionId, is_correct: isCorrect }),
+  })
+}
