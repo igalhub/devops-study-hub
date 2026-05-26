@@ -8,9 +8,6 @@ backend/hub.db
 frontend/node_modules/
 frontend/dist/
 
-# Env
-.env
-
 # IDE
 .idea/
 *.iml
