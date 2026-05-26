@@ -1,7 +1,7 @@
 from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from db import get_conn
 
 router = APIRouter()
@@ -103,5 +103,40 @@ def get_xp():
             "SELECT COALESCE(SUM(points), 0) as total FROM xp_log"
         ).fetchone()['total']
         return {'xp_total': total}
+    finally:
+        conn.close()
+
+
+@router.get('/streaks')
+def get_streaks():
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT date FROM streaks WHERE completed = 1 ORDER BY date DESC"
+        ).fetchall()
+        dates = {row['date'] for row in rows}
+
+        today = date.today()
+        today_done = today.isoformat() in dates
+
+        # Current streak: consecutive days ending today; if today not done yet,
+        # yesterday is still the active tail (streak not broken until midnight)
+        current = 0
+        check = today if today_done else today - timedelta(days=1)
+        while check.isoformat() in dates:
+            current += 1
+            check -= timedelta(days=1)
+
+        # Longest streak: walk sorted dates counting consecutive runs
+        longest = 0
+        run = 0
+        prev = None
+        for d_str in sorted(dates):
+            d_obj = date.fromisoformat(d_str)
+            run = run + 1 if prev and (d_obj - prev).days == 1 else 1
+            longest = max(longest, run)
+            prev = d_obj
+
+        return {'current_streak': current, 'longest_streak': longest, 'today_done': today_done}
     finally:
         conn.close()
