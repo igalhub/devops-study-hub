@@ -36,8 +36,14 @@ const mdComponents = {
   },
 }
 
-export default function LessonViewer({ progress, onProgressUpdate }) {
+export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const { moduleSlug, lessonSlug } = useParams()
+
+  const mod = modules?.find(m => m.slug === moduleSlug)
+  const lessons = mod?.lessons || []
+  const currentIdx = lessons.findIndex(l => l.slug === lessonSlug)
+  const prevLesson = currentIdx > 0 ? lessons[currentIdx - 1] : null
+  const nextLesson = currentIdx < lessons.length - 1 ? lessons[currentIdx + 1] : null
   const [lesson, setLesson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -101,7 +107,7 @@ export default function LessonViewer({ progress, onProgressUpdate }) {
         </div>
       )}
 
-      <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
         {done ? (
           <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">✓ Lesson complete</span>
         ) : (
@@ -112,6 +118,25 @@ export default function LessonViewer({ progress, onProgressUpdate }) {
             Mark as complete
           </button>
         )}
+
+        <div className="flex items-center justify-between pt-2">
+          {prevLesson ? (
+            <Link
+              to={`/module/${moduleSlug}/lesson/${prevLesson.slug}`}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            >
+              ← {prevLesson.title}
+            </Link>
+          ) : <div />}
+          {nextLesson ? (
+            <Link
+              to={`/module/${moduleSlug}/lesson/${nextLesson.slug}`}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            >
+              {nextLesson.title} →
+            </Link>
+          ) : <div />}
+        </div>
       </div>
     </div>
   )
