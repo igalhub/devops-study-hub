@@ -90,7 +90,7 @@ spec:
 
   containers:
     - name: postgres
-      image: postgres:16
+      image: postgres:17
       volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
@@ -117,7 +117,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
@@ -190,7 +190,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16-alpine
+          image: postgres:17-alpine
           env:
             - name: POSTGRES_PASSWORD
               valueFrom:

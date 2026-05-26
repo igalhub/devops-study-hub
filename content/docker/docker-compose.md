@@ -34,9 +34,10 @@ services:
     depends_on:
       db:
         condition: service_healthy  # wait for healthcheck to pass
+        restart: true               # restart app if db restarts (Compose 2.17+)
 
   db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_DB: myapp
       POSTGRES_USER: myuser
@@ -177,7 +178,7 @@ services:
     image: myapp:latest
 
   db:
-    image: postgres:16
+    image: postgres:17
 
   pgadmin:
     image: dpage/pgadmin4
@@ -192,7 +193,7 @@ docker compose up -d --profile tools   # starts all including pgadmin
 ### Healthchecks and Dependencies
 ```yaml
 db:
-  image: postgres:16
+  image: postgres:17
   healthcheck:
     test: ["CMD-SHELL", "pg_isready -U myuser"]
     interval: 5s
@@ -204,6 +205,7 @@ app:
   depends_on:
     db:
       condition: service_healthy   # won't start until db is healthy
+      restart: true                # restart app if db restarts (Compose 2.17+)
 ```
 
 ## Examples
@@ -235,7 +237,7 @@ services:
         condition: service_started
 
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: ${DB_PASS}
