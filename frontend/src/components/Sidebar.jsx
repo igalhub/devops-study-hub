@@ -1,4 +1,4 @@
-import { Link, useMatch } from 'react-router-dom'
+import { Link, useMatch, useLocation } from 'react-router-dom'
 
 const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs']
 
@@ -14,6 +14,8 @@ export default function Sidebar({ modules, progress }) {
   const moduleMatch = useMatch('/module/:moduleSlug')
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const moduleSlug = (moduleMatch || lessonMatch)?.params?.moduleSlug
+  const { pathname } = useLocation()
+  const interviewActive = pathname.startsWith('/interview')
 
   const grouped = GROUP_ORDER.map(group => ({
     group,
@@ -48,6 +50,21 @@ export default function Sidebar({ modules, progress }) {
       </div>
 
       <nav className="flex-1 py-2">
+        <div className="mb-2">
+          <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">
+            Tools
+          </div>
+          <Link
+            to="/interview"
+            className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+              interviewActive
+                ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            Interview Prep
+          </Link>
+        </div>
         {grouped.map(({ group, modules: mods }) => (
           <div key={group} className="mb-1">
             <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">

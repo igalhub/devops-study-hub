@@ -48,6 +48,12 @@ def init_db():
             explanation TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS interview_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL REFERENCES modules(id),
+            question TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS quiz_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lesson_id INTEGER NOT NULL REFERENCES lessons(id),

@@ -41,3 +41,15 @@ export function logAttempt(questionId, isCorrect) {
     body: JSON.stringify({ question_id: questionId, is_correct: isCorrect }),
   })
 }
+
+export function fetchInterviewQuestions(slug) {
+  return apiFetch(`/interview/questions/${slug}`)
+}
+
+export function evaluateAnswer(moduleSlug, question, answer) {
+  return apiFetch('/interview/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ module_slug: moduleSlug, question, answer }),
+  })
+}
