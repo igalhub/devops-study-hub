@@ -156,6 +156,11 @@ CURRICULUM = [
                 {'slug': 'kibana-dashboards', 'title': 'Dashboards & Visualizations', 'duration_min': 20, 'difficulty': 'intermediate'},
                 {'slug': 'kibana-alerts', 'title': 'Alerting & Reporting', 'duration_min': 20, 'difficulty': 'intermediate'},
             ]},
+            {'slug': 'opsgenie', 'title': 'Opsgenie', 'lessons': [
+                {'slug': 'oncall-schedules', 'title': 'On-Call Schedules & Escalations', 'duration_min': 20, 'difficulty': 'beginner'},
+                {'slug': 'alert-routing', 'title': 'Integrations & Alert Routing', 'duration_min': 20, 'difficulty': 'intermediate'},
+                {'slug': 'incident-workflow', 'title': 'Incident Management Workflow', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
         ],
     },
 ]
