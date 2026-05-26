@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchInterviewQuestions, evaluateAnswer } from '../store/curriculumStore'
 
@@ -35,6 +35,14 @@ export default function InterviewPrep({ modules, progress }) {
   const [error, setError] = useState(null)
 
   const selectedModule = modules.find(m => m.slug === selectedSlug)
+  const topRef = useRef(null)
+
+  useEffect(() => {
+    if (phase === 'reviewed' && topRef.current) {
+      const main = topRef.current.closest('main')
+      if (main) main.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [phase])
 
   const start = async () => {
     setPhase('loading')
@@ -178,7 +186,7 @@ export default function InterviewPrep({ modules, progress }) {
   // Active / Evaluating / Reviewed -----------------------------------------
   const q = questions[qIndex]
   return (
-    <div className="p-6 max-w-2xl">
+    <div ref={topRef} className="p-6 max-w-2xl">
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400">{selectedModule?.title}</p>
