@@ -102,6 +102,9 @@ journalctl -u nginx --since "2024-01-15 10:00:00" --until "2024-01-15 11:00:00"
 # All logs from last boot, newest first
 journalctl -b -r
 
+# Force full output — never truncate long lines
+journalctl --full -u nginx
+
 # Kernel messages only
 journalctl -k
 ```
@@ -112,7 +115,11 @@ Create `/etc/systemd/system/myapp.service`:
 ```ini
 [Unit]
 Description=My Application Server
-After=network.target          # start after network is up
+# After=network.target — network stack initialized; fine if your app retries connections
+# After=network-online.target + Wants=network-online.target — waits until network is
+# actually reachable; use only if the service truly cannot start without connectivity
+After=network-online.target
+Wants=network-online.target
 Requires=postgresql.service   # hard dependency
 
 [Service]
