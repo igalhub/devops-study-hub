@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from anthropic import Anthropic
@@ -106,6 +107,39 @@ def get_quiz(lesson_slug: str):
     return _fetch_questions(lesson["id"])
 
 
+def _update_srs(conn, question_id: int, is_correct: bool) -> None:
+    row = conn.execute(
+        "SELECT interval_days, ease, reviews FROM srs_schedule WHERE question_id = ?",
+        (question_id,)
+    ).fetchone()
+
+    if row is None:
+        interval, ease, reviews = 1, 2.5, 1
+    else:
+        interval = row['interval_days']
+        ease = row['ease']
+        reviews = row['reviews'] + 1
+
+    if is_correct:
+        new_interval = max(1, round(interval * ease))
+        new_ease = min(3.5, ease + 0.1)
+    else:
+        new_interval = 1
+        new_ease = max(1.3, ease - 0.2)
+
+    next_review = (date.today() + timedelta(days=new_interval)).isoformat()
+    conn.execute(
+        """INSERT INTO srs_schedule (question_id, interval_days, ease, next_review, reviews)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(question_id) DO UPDATE SET
+               interval_days = excluded.interval_days,
+               ease = excluded.ease,
+               next_review = excluded.next_review,
+               reviews = excluded.reviews""",
+        (question_id, new_interval, new_ease, next_review, reviews)
+    )
+
+
 class AttemptRequest(BaseModel):
     question_id: int
     is_correct: bool
@@ -136,6 +170,7 @@ def log_attempt(req: AttemptRequest):
         )
         if xp > 0:
             conn.execute("INSERT INTO xp_log (source, points) VALUES ('quiz', ?)", (xp,))
+        _update_srs(conn, req.question_id, req.is_correct)
         conn.commit()
 
         xp_total = conn.execute(
@@ -145,3 +180,36 @@ def log_attempt(req: AttemptRequest):
         conn.close()
 
     return {"xp_earned": xp, "xp_total": xp_total}
+
+
+@router.get("/review/queue")
+def get_review_queue():
+    conn = get_conn()
+    try:
+        today = date.today().isoformat()
+        rows = conn.execute(
+            """SELECT q.id, q.question, q.options, q.correct_index, q.explanation,
+                      l.title as lesson_title, m.title as module_title
+               FROM srs_schedule s
+               JOIN quiz_questions q ON s.question_id = q.id
+               JOIN lessons l ON q.lesson_id = l.id
+               JOIN modules m ON l.module_id = m.id
+               WHERE s.next_review <= ?
+               ORDER BY s.next_review
+               LIMIT 20""",
+            (today,)
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "question": r["question"],
+                "options": json.loads(r["options"]),
+                "correct_index": r["correct_index"],
+                "explanation": r["explanation"],
+                "lesson_title": r["lesson_title"],
+                "module_title": r["module_title"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
