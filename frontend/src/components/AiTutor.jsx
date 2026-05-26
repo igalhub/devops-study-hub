@@ -87,12 +87,7 @@ export default function AiTutor({ lessonSlug }) {
   }
 
   return (
-    <aside className="w-[280px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-900">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
-        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">AI Tutor</div>
-        <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Ask anything about this lesson</div>
-      </div>
-
+    <>
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
         {messages.length === 0 && (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-6 px-2">
@@ -121,7 +116,7 @@ export default function AiTutor({ lessonSlug }) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-gray-200 dark:border-gray-700 p-3 shrink-0">
+      <div className="border-t border-gray-200 dark:border-gray-700 p-3 shrink-0 bg-gray-50 dark:bg-gray-900">
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -139,6 +134,6 @@ export default function AiTutor({ lessonSlug }) {
           {streaming ? 'Thinking…' : 'Send'}
         </button>
       </div>
-    </aside>
+    </>
   )
 }
