@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import ThemeToggle from './components/ThemeToggle'
 import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
+import LessonViewer from './pages/LessonViewer'
 import { useTheme } from './store/themeStore'
 import { fetchModules, fetchProgress } from './store/curriculumStore'
 
@@ -49,6 +50,9 @@ export default function App() {
                 <Route path="/roadmap" element={<Roadmap modules={modules} progress={progress} />} />
                 <Route path="/module/:moduleSlug" element={
                   <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} />
+                } />
+                <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
+                  <LessonViewer progress={progress} onProgressUpdate={loadData} />
                 } />
               </Routes>
             </main>

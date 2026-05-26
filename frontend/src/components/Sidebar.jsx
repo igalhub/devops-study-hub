@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useMatch } from 'react-router-dom'
 
 const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs']
 
@@ -11,7 +11,9 @@ function Badge({ status, pct }) {
 }
 
 export default function Sidebar({ modules, progress }) {
-  const { moduleSlug } = useParams()
+  const moduleMatch = useMatch('/module/:moduleSlug')
+  const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
+  const moduleSlug = (moduleMatch || lessonMatch)?.params?.moduleSlug
 
   const grouped = GROUP_ORDER.map(group => ({
     group,
