@@ -40,7 +40,10 @@ def _generate_and_store(lesson_id: int, title: str, content: str) -> None:
     if text.startswith("```"):
         parts = text.split("```")
         text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
-    questions = json.loads(text)
+    try:
+        questions = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Claude returned unparseable JSON: {e}")
 
     conn = get_conn()
     try:
