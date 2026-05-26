@@ -6,6 +6,7 @@ import AiTutor from './components/AiTutor'
 import Quiz from './components/Quiz'
 import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
+import InterviewPrep from './pages/InterviewPrep'
 import { useTheme } from './store/themeStore'
 import { fetchModules, fetchProgress, fetchXp } from './store/curriculumStore'
 
@@ -44,6 +45,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, onXpEarned }) {
                 <Route path="/module/:moduleSlug" element={
                   <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} />
                 } />
+                <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} />} />
+                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
                   <Suspense fallback={<div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>}>
                     <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} />

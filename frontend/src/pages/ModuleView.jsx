@@ -1,8 +1,9 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { markLessonComplete } from '../store/curriculumStore'
 
 export default function ModuleView({ modules, progress, onProgressUpdate }) {
   const { moduleSlug } = useParams()
+  const navigate = useNavigate()
   const mod = modules.find(m => m.slug === moduleSlug)
 
   if (!mod) return (
@@ -18,8 +19,18 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
 
   return (
     <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{mod.title}</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{lessons.length} lessons</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{mod.title}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{lessons.length} lessons</p>
+        </div>
+        <button
+          onClick={() => navigate(`/interview/${moduleSlug}`)}
+          className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+        >
+          Practice Interview
+        </button>
+      </div>
 
       <div className="space-y-2">
         {lessons.map(lesson => {
