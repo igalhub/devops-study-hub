@@ -7,12 +7,13 @@ import Quiz from './components/Quiz'
 import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
 import InterviewPrep from './pages/InterviewPrep'
+import Review from './pages/Review'
 import { useTheme } from './store/themeStore'
-import { fetchModules, fetchProgress, fetchXp, fetchStreak } from './store/curriculumStore'
+import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue } from './store/curriculumStore'
 
 const LessonViewer = lazy(() => import('./pages/LessonViewer'))
 
-function AppLayout({ modules, progress, loadData, loading, xp, streak, onXpEarned }) {
+function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue, onXpEarned }) {
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
@@ -28,7 +29,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, onXpEarne
   return (
     <div className={dark ? 'dark' : ''}>
       <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
-        <Sidebar modules={modules} progress={progress} />
+        <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="text-xs text-gray-400 dark:text-gray-500">DevOps Study Hub</div>
@@ -54,6 +55,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, onXpEarne
                 } />
                 <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} />} />
+                <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
                   <Suspense fallback={<div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>}>
                     <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} />
@@ -97,16 +99,18 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [xp, setXp] = useState(0)
   const [streak, setStreak] = useState({ current: 0, longest: 0, today_done: false })
+  const [reviewDue, setReviewDue] = useState(0)
 
   const loadData = async () => {
     try {
-      const [mods, prog, xpData, streakData] = await Promise.all([
-        fetchModules(), fetchProgress(), fetchXp(), fetchStreak()
+      const [mods, prog, xpData, streakData, reviewQueue] = await Promise.all([
+        fetchModules(), fetchProgress(), fetchXp(), fetchStreak(), fetchReviewQueue()
       ])
       setModules(mods)
       setProgress(prog)
       setXp(xpData.xp_total)
       setStreak({ current: streakData.current_streak, longest: streakData.longest_streak, today_done: streakData.today_done })
+      setReviewDue(reviewQueue.length)
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
@@ -127,6 +131,7 @@ export default function App() {
         loading={loading}
         xp={xp}
         streak={streak}
+        reviewDue={reviewDue}
         onXpEarned={handleXpEarned}
       />
     </BrowserRouter>

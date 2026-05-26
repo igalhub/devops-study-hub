@@ -10,12 +10,13 @@ function Badge({ status, pct }) {
   return <span className="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 font-medium">Locked</span>
 }
 
-export default function Sidebar({ modules, progress }) {
+export default function Sidebar({ modules, progress, reviewDue = 0 }) {
   const moduleMatch = useMatch('/module/:moduleSlug')
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const moduleSlug = (moduleMatch || lessonMatch)?.params?.moduleSlug
   const { pathname } = useLocation()
   const interviewActive = pathname.startsWith('/interview')
+  const reviewActive = pathname === '/review'
 
   const grouped = GROUP_ORDER.map(group => ({
     group,
@@ -63,6 +64,21 @@ export default function Sidebar({ modules, progress }) {
             }`}
           >
             Interview Prep
+          </Link>
+          <Link
+            to="/review"
+            className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+              reviewActive
+                ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <span className="truncate">Spaced Review</span>
+            {reviewDue > 0 && (
+              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 font-medium">
+                {reviewDue}
+              </span>
+            )}
           </Link>
         </div>
         {grouped.map(({ group, modules: mods }) => (

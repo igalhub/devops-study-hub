@@ -34,6 +34,10 @@ export function fetchStreak() {
   return apiFetch('/streaks')
 }
 
+export function fetchReviewQueue() {
+  return apiFetch('/review/queue')
+}
+
 export function fetchQuiz(slug) {
   return apiFetch(`/quiz/${slug}`)
 }

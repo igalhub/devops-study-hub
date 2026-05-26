@@ -75,6 +75,14 @@ def init_db():
             date TEXT UNIQUE NOT NULL,
             completed INTEGER NOT NULL DEFAULT 0
         );
+
+        CREATE TABLE IF NOT EXISTS srs_schedule (
+            question_id INTEGER PRIMARY KEY REFERENCES quiz_questions(id),
+            interval_days INTEGER NOT NULL DEFAULT 1,
+            ease REAL NOT NULL DEFAULT 2.5,
+            next_review TEXT NOT NULL,
+            reviews INTEGER NOT NULL DEFAULT 0
+        );
     """)
       conn.commit()
     finally:
