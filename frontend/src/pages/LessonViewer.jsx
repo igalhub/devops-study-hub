@@ -37,7 +37,7 @@ const mdComponents = {
   },
 }
 
-export default function LessonViewer({ modules, progress, onProgressUpdate }) {
+export default function LessonViewer({ modules, progress, onProgressUpdate, onModuleUnlocked }) {
   const { moduleSlug, lessonSlug } = useParams()
 
   const mod = modules?.find(m => m.slug === moduleSlug)
@@ -76,7 +76,8 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const done = progress[String(lesson.id)] === 'complete'
 
   const handleComplete = async () => {
-    await markLessonComplete(lesson.id)
+    const result = await markLessonComplete(lesson.id)
+    if (result?.unlocked_module) onModuleUnlocked?.(result.unlocked_module.title)
     onProgressUpdate()
   }
 

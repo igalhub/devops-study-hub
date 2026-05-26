@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { markLessonComplete } from '../store/curriculumStore'
 
-export default function ModuleView({ modules, progress, onProgressUpdate }) {
+export default function ModuleView({ modules, progress, onProgressUpdate, onModuleUnlocked }) {
   const { moduleSlug } = useParams()
   const navigate = useNavigate()
   const mod = modules.find(m => m.slug === moduleSlug)
@@ -13,7 +13,8 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
   const lessons = mod.lessons || []
 
   const handleComplete = async (lessonId) => {
-    await markLessonComplete(lessonId)
+    const result = await markLessonComplete(lessonId)
+    if (result?.unlocked_module) onModuleUnlocked?.(result.unlocked_module.title)
     onProgressUpdate()
   }
 
