@@ -14,6 +14,7 @@ export default function AiTutor({ lessonSlug }) {
   useEffect(() => {
     setMessages([])
     setInput('')
+    return () => abortRef.current?.abort()
   }, [lessonSlug])
 
   useEffect(() => {

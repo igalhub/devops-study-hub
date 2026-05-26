@@ -21,14 +21,16 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
 @router.get('/lessons/{slug}')
 def get_lesson(slug: str):
     conn = get_conn()
-    row = conn.execute(
-        """SELECT l.id, l.title, l.slug, l.duration_min, l.difficulty, l.md_path,
-                  m.slug AS module_slug, m.title AS module_title
-           FROM lessons l JOIN modules m ON l.module_id = m.id
-           WHERE l.slug = ?""",
-        (slug,)
-    ).fetchone()
-    conn.close()
+    try:
+        row = conn.execute(
+            """SELECT l.id, l.title, l.slug, l.duration_min, l.difficulty, l.md_path,
+                      m.slug AS module_slug, m.title AS module_title
+               FROM lessons l JOIN modules m ON l.module_id = m.id
+               WHERE l.slug = ?""",
+            (slug,)
+        ).fetchone()
+    finally:
+        conn.close()
 
     if not row:
         raise HTTPException(status_code=404, detail='Lesson not found')

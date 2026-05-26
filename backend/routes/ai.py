@@ -25,10 +25,12 @@ class ChatRequest(BaseModel):
 
 def _lesson_context(slug: str) -> tuple[str, str | None]:
     conn = get_conn()
-    row = conn.execute(
-        "SELECT l.title, l.md_path FROM lessons l WHERE l.slug = ?", (slug,)
-    ).fetchone()
-    conn.close()
+    try:
+        row = conn.execute(
+            "SELECT l.title, l.md_path FROM lessons l WHERE l.slug = ?", (slug,)
+        ).fetchone()
+    finally:
+        conn.close()
     if not row:
         return slug, None
     md_file = PROJECT_ROOT / row['md_path']
