@@ -23,7 +23,7 @@ A firewall is a set of rules applied to network packets. Rules match on:
 Rules are evaluated in order; the first match wins.
 
 ### iptables (Linux kernel firewall)
-iptables is the traditional Linux firewall. It organizes rules into **chains** within **tables**:
+iptables is the traditional Linux firewall interface. On Ubuntu 20.04+ and RHEL 9+, the actual backend is `nftables` — `iptables` commands are translated via a compatibility shim (`iptables-nft`). The syntax and behavior below remain the same; the shim is transparent. It organizes rules into **chains** within **tables**:
 - `filter` table (default) — accept/drop/reject packets
 - `nat` table — address translation
 - `mangle` table — packet modification
