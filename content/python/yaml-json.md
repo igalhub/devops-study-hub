@@ -73,15 +73,15 @@ config["tags"]                   # ["prod", "eu-west"]
 with open("deployment.yaml") as f:
     manifest = yaml.safe_load(f)
 
-# Write YAML
-print(yaml.dump(config, default_flow_style=False))
+# Write YAML (safe_dump handles basic Python types: dict, list, str, int, float, bool)
+print(yaml.safe_dump(config, default_flow_style=False))
 
 # Write YAML file
 with open("output.yaml", "w") as f:
-    yaml.dump(config, f, default_flow_style=False)
+    yaml.safe_dump(config, f, default_flow_style=False)
 ```
 
-**Always use `yaml.safe_load()`**, never `yaml.load()` — the unsafe version can execute arbitrary Python when parsing attacker-controlled input.
+**Always use `yaml.safe_load()`**, never `yaml.load()` — the unsafe version can execute arbitrary Python when parsing attacker-controlled input. On the write side, `yaml.safe_dump()` is the consistent counterpart; `yaml.dump()` also works for basic types but can serialize arbitrary Python objects.
 
 ### Multi-Document YAML
 Kubernetes manifests often contain multiple documents separated by `---`:
@@ -106,7 +106,7 @@ with open("values.yaml") as f:
 values["image"]["tag"] = "v2.3.1"
 
 with open("values.yaml", "w") as f:
-    yaml.dump(values, f, default_flow_style=False)
+    yaml.safe_dump(values, f, default_flow_style=False)
 ```
 
 #### Merge Configs

@@ -76,10 +76,10 @@ response = s3.list_objects_v2(Bucket="my-bucket", Prefix="logs/2024/")
 for obj in response.get("Contents", []):
     print(obj["Key"], obj["Size"])
 
-# Upload file
+# Upload file — uses S3 Transfer Manager internally (multipart, retries, concurrency)
 s3.upload_file("local.txt", "my-bucket", "remote/path/local.txt")
 
-# Download file
+# Download file — same: multipart for large files, automatic retries
 s3.download_file("my-bucket", "remote/path/local.txt", "local_copy.txt")
 
 # Read object content directly (no temp file)
