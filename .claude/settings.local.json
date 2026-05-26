@@ -11,9 +11,7 @@
       "Bash(git *)",
       "Bash(.venv/bin/uvicorn backend.main:app --port 8000)",
       "Bash(pkill -f uvicorn)",
-      "Bash(curl -s http://localhost:8000/health)",
-      "Bash(curl -s http://localhost:8000/modules)",
-      "Bash(curl -s -o /dev/null -w \"Frontend HTTP %{http_code}\" http://localhost:5173)",
+      "Bash(curl *)",
       "Bash(/home/igalv/claudecode/projects/devops-study-hub/.venv/bin/pip install *)",
       "Bash(/home/igalv/claudecode/projects/devops-study-hub/.venv/bin/pip list *)",
       "Bash(/home/igalv/claudecode/projects/devops-study-hub/.venv/bin/pip show *)",
@@ -26,19 +24,17 @@
       "mcp__playwright__browser_snapshot",
       "mcp__ide__getDiagnostics",
       "Bash(./start-frontend.sh *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(./start-backend.sh)",
       "mcp__playwright__browser_take_screenshot",
       "Bash(xargs cat)",
       "mcp__playwright__browser_click",
-      "Bash(.venv/bin/pip show *)",
       "mcp__playwright__browser_type",
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_evaluate",
       "Bash(xdg-open *)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
-      "Bash(.venv/bin/python3 *)"
+      "Bash(/home/igalv/claudecode/projects/devops-study-hub/.venv/bin/python3 *)"
     ]
   }
 }
