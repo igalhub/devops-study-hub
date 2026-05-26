@@ -48,15 +48,26 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [lesson, setLesson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [activeExercise, setActiveExercise] = useState(null)
 
   useEffect(() => {
     setLoading(true)
     setError(null)
+    setActiveExercise(null)
     fetchLesson(lessonSlug)
       .then(setLesson)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [lessonSlug])
+
+  const exerciseLang = lesson?.module_slug === 'python' ? 'python' : 'bash'
+
+  const makeStarter = (text, lang) => {
+    const shebang = lang === 'python' ? '#!/usr/bin/env python3\n' : '#!/bin/bash\n'
+    return `${shebang}# ${text}\n\n`
+  }
+
+  const toggleExercise = (idx) => setActiveExercise(prev => prev === idx ? null : idx)
 
   if (loading) return <div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>
@@ -108,7 +119,44 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
         </div>
       )}
 
-      <CodePlayground key={lessonSlug} />
+      {lesson.exercises?.length > 0 ? (
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Exercises</h2>
+          <div className="space-y-3">
+            {lesson.exercises.map((ex, i) => (
+              <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="flex items-start justify-between gap-4 px-4 py-3 bg-white dark:bg-gray-800">
+                  <div className="flex gap-3 min-w-0">
+                    <span className="shrink-0 text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      {i + 1}.
+                    </span>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ex}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleExercise(i)}
+                    className={`shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      activeExercise === i
+                        ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {activeExercise === i ? 'Close' : '▶ Try it'}
+                  </button>
+                </div>
+                {activeExercise === i && (
+                  <CodePlayground
+                    key={i}
+                    initialLanguage={exerciseLang}
+                    initialCode={makeStarter(ex, exerciseLang)}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <CodePlayground key={lessonSlug} />
+      )}
 
       <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
         {done ? (

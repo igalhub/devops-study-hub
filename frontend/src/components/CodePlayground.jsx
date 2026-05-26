@@ -20,10 +20,10 @@ function useDarkMode() {
   return dark
 }
 
-export default function CodePlayground() {
+export default function CodePlayground({ initialCode, initialLanguage }) {
   const dark = useDarkMode()
-  const [language, setLanguage] = useState('bash')
-  const [code, setCode] = useState(STARTER.bash)
+  const [language, setLanguage] = useState(initialLanguage ?? 'bash')
+  const [code, setCode] = useState(initialCode ?? STARTER[initialLanguage ?? 'bash'])
   const [output, setOutput] = useState(null)
   const [running, setRunning] = useState(false)
 
