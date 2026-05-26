@@ -30,7 +30,8 @@ def init_db():
             duration_min INTEGER DEFAULT 15,
             difficulty TEXT DEFAULT 'beginner',
             order_index INTEGER NOT NULL DEFAULT 0,
-            md_path TEXT NOT NULL
+            md_path TEXT NOT NULL,
+            UNIQUE(module_id, slug)
         );
 
         CREATE TABLE IF NOT EXISTS progress (

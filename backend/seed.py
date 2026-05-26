@@ -121,6 +121,27 @@ CURRICULUM = [
             ]},
         ],
     },
+    {
+        'group': 'Observability',
+        'modules': [
+            {'slug': 'prometheus', 'title': 'Prometheus', 'lessons': [
+                {'slug': 'intro-metrics', 'title': 'Intro & Metrics Model', 'duration_min': 20, 'difficulty': 'beginner'},
+                {'slug': 'promql', 'title': 'PromQL', 'duration_min': 25, 'difficulty': 'intermediate'},
+                {'slug': 'alertmanager', 'title': 'Alertmanager', 'duration_min': 20, 'difficulty': 'intermediate'},
+                {'slug': 'exporters', 'title': 'Exporters & Service Discovery', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
+            {'slug': 'grafana', 'title': 'Grafana', 'lessons': [
+                {'slug': 'dashboards', 'title': 'Dashboards & Visualizations', 'duration_min': 20, 'difficulty': 'beginner'},
+                {'slug': 'data-sources', 'title': 'Data Sources & Plugins', 'duration_min': 15, 'difficulty': 'intermediate'},
+                {'slug': 'grafana-alerts', 'title': 'Alerting & Notifications', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
+            {'slug': 'zabbix', 'title': 'Zabbix', 'lessons': [
+                {'slug': 'zabbix-architecture', 'title': 'Architecture & Installation', 'duration_min': 20, 'difficulty': 'beginner'},
+                {'slug': 'agents-templates', 'title': 'Agents & Templates', 'duration_min': 20, 'difficulty': 'intermediate'},
+                {'slug': 'triggers-alerts', 'title': 'Triggers & Alerting', 'duration_min': 20, 'difficulty': 'intermediate'},
+            ]},
+        ],
+    },
 ]
 
 

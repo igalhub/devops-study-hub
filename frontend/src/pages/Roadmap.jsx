@@ -1,4 +1,4 @@
-const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs']
+const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs', 'Observability']
 
 function ModuleCard({ mod, progress }) {
   const lessons = mod.lessons || []

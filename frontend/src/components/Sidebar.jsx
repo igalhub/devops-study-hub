@@ -1,6 +1,6 @@
 import { Link, useMatch, useLocation } from 'react-router-dom'
 
-const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs']
+const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs', 'Observability']
 
 function Badge({ status, pct }) {
   if (status === 'complete')
