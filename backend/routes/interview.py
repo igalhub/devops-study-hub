@@ -54,6 +54,8 @@ def _generate_and_store(module_id: int, title: str) -> None:
         questions = json.loads(text)
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"Claude returned unparseable JSON: {e}")
+    if not isinstance(questions, list) or not all(isinstance(q, str) for q in questions):
+        raise HTTPException(status_code=502, detail="Claude returned unexpected format: expected array of strings")
 
     conn = get_conn()
     try:
