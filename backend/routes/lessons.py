@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
 from db import get_conn
@@ -16,6 +17,36 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         return {}, text
     body = text[end + 3:].strip()
     return {}, body
+
+
+def _parse_exercises(body: str) -> list[str]:
+    if '## Exercises' not in body:
+        return []
+    section = body.split('## Exercises', 1)[1]
+    section = re.split(r'\n## ', section)[0]
+    items = []
+    current = None
+    for line in section.split('\n'):
+        m = re.match(r'^\d+\.\s+(.+)$', line.strip())
+        if m:
+            if current is not None:
+                items.append(current.strip())
+            current = m.group(1)
+        elif current is not None and line.strip():
+            current += ' ' + line.strip()
+    if current is not None:
+        items.append(current.strip())
+    return items
+
+
+def _strip_exercises(body: str) -> str:
+    if '## Exercises' not in body:
+        return body
+    before, rest = body.split('## Exercises', 1)
+    next_section = re.search(r'\n## ', rest)
+    if next_section:
+        return before.rstrip() + '\n' + rest[next_section.start():]
+    return before.rstrip()
 
 
 @router.get('/lessons/{slug}')
@@ -37,8 +68,11 @@ def get_lesson(slug: str):
 
     md_file = PROJECT_ROOT / row['md_path']
     content = None
+    exercises = []
     if md_file.exists():
-        _, content = _parse_frontmatter(md_file.read_text())
+        _, body = _parse_frontmatter(md_file.read_text())
+        exercises = _parse_exercises(body)
+        content = _strip_exercises(body) if exercises else body
 
     return {
         'id': row['id'],
@@ -49,4 +83,5 @@ def get_lesson(slug: str):
         'module_slug': row['module_slug'],
         'module_title': row['module_title'],
         'content': content,
+        'exercises': exercises,
     }
