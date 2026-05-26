@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useMatch } from 'react-router-dom'
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import ThemeToggle from './components/ThemeToggle'
 import AiTutor from './components/AiTutor'
@@ -17,12 +17,6 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
-  const [toast, setToast] = useState(null)
-
-  const handleModuleUnlocked = useCallback((title) => {
-    setToast(title)
-    setTimeout(() => setToast(null), 4000)
-  }, [])
 
   if (loading) return (
     <div className={dark ? 'dark' : ''}>
@@ -57,14 +51,14 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/" element={<Navigate to="/roadmap" replace />} />
                 <Route path="/roadmap" element={<Roadmap modules={modules} progress={progress} />} />
                 <Route path="/module/:moduleSlug" element={
-                  <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} onModuleUnlocked={handleModuleUnlocked} />
+                  <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} />
                 } />
                 <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
                   <Suspense fallback={<div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>}>
-                    <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} onModuleUnlocked={handleModuleUnlocked} />
+                    <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} />
                   </Suspense>
                 } />
               </Routes>
@@ -95,11 +89,6 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
           </div>
         </div>
       </div>
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in">
-          🔓 {toast} unlocked
-        </div>
-      )}
     </div>
   )
 }

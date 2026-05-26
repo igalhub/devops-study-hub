@@ -7,7 +7,7 @@ function Badge({ status, pct }) {
     return <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 font-medium">Done</span>
   if (status === 'in_progress')
     return <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-medium">{pct}%</span>
-  return <span className="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-400 font-medium">Locked</span>
+  return null
 }
 
 export default function Sidebar({ modules, progress, reviewDue = 0 }) {
@@ -24,7 +24,6 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
   }))
 
   const getModuleStatus = (mod) => {
-    if (mod.is_locked) return { status: 'locked', pct: 0 }
     const lessons = mod.lessons || []
     if (!lessons.length) return { status: 'not_started', pct: 0 }
     const done = lessons.filter(l => progress[String(l.id)] === 'complete').length
@@ -89,18 +88,10 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
             {mods.map(mod => {
               const { status, pct } = getModuleStatus(mod)
               const active = mod.slug === moduleSlug
-              const locked = status === 'locked'
               const baseClass = `flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors`
               const activeClass = 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
-              const idleClass = locked
-                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-60'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-              return locked ? (
-                <div key={mod.slug} className={`${baseClass} ${idleClass}`}>
-                  <span className="truncate">{mod.title}</span>
-                  <Badge status={status} pct={pct} />
-                </div>
-              ) : (
+              const idleClass = 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+              return (
                 <Link
                   key={mod.slug}
                   to={`/module/${mod.slug}`}

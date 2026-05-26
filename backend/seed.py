@@ -128,15 +128,12 @@ def seed():
     init_db()
     conn = get_conn()
 
-    first_module = True
     for group_idx, group_data in enumerate(CURRICULUM):
         group_name = group_data['group']
         for mod_idx, mod in enumerate(group_data['modules']):
-            is_locked = 0 if first_module else 1
-            first_module = False
             conn.execute(
                 "INSERT OR IGNORE INTO modules (slug, title, group_name, order_index, is_locked) VALUES (?, ?, ?, ?, ?)",
-                (mod['slug'], mod['title'], group_name, group_idx * 100 + mod_idx, is_locked)
+                (mod['slug'], mod['title'], group_name, group_idx * 100 + mod_idx, 0)
             )
             conn.commit()
             module_id = conn.execute("SELECT id FROM modules WHERE slug = ?", (mod['slug'],)).fetchone()['id']
