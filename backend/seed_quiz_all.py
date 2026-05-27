@@ -60,14 +60,14 @@ correct_index is 0-based (0 = first option is correct).
 def _strip_frontmatter(text: str) -> str:
     if text.startswith("---"):
         try:
-            end = text.index("---", 3)
-            return text[end + 3:].strip()
+            end = text.index("\n---", 3)
+            return text[end + 4:].strip()
         except ValueError:
             pass
     return text
 
 
-def _generate_questions(lesson_id: int, title: str, content: str, client: Anthropic) -> list[dict]:
+def _generate_questions(title: str, content: str, client: Anthropic) -> list[dict]:
     prompt = PROMPT_TEMPLATE.format(title=title, content=content)
     response = client.messages.create(
         model=CLAUDE_MODEL,
@@ -77,7 +77,7 @@ def _generate_questions(lesson_id: int, title: str, content: str, client: Anthro
     text = response.content[0].text.strip()
     if text.startswith("```"):
         parts = text.split("```")
-        text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
+        text = parts[1].removeprefix("json").strip() if len(parts) > 1 else text
     return json.loads(text)
 
 
@@ -163,7 +163,7 @@ def main() -> None:
 
         for attempt in range(3):
             try:
-                questions = _generate_questions(lesson["id"], lesson["title"], content, client)
+                questions = _generate_questions(lesson["title"], content, client)
                 if len(questions) != 5:
                     raise ValueError(f"Expected 5 questions, got {len(questions)}")
                 _store_questions(lesson["id"], questions)
