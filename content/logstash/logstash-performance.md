@@ -76,6 +76,16 @@ curl -s http://localhost:9600/_node/stats/pipelines/main | \
 
 **Checkpoint tuning:** `queue.checkpoint.writes: 1024` means one fsync per 1024 page writes. On spinning disks or high-durability requirements, lower to 128–256. On NVMe with a deadline scheduler, the default is fine. Use `iostat -x 1` to verify you're not saturating disk write throughput.
 
+```bash
+# Verify disk write throughput is not saturated — look at %util for the PQ device
+iostat -x 1 5 /dev/nvme0n1
+
+# Check current PQ directory size vs configured max
+du -sh /var/lib/logstash/queue/
+```
+
+**queue.drain trade-off:** Setting `queue.drain: true` means Logstash will not shut down until the persistent queue is empty. This guarantees no events are lost on graceful shutdown, but can delay a restart by minutes if the queue is deep. In practice, leave it `false` and rely on the PQ's durability guarantee — events will be replayed from the last checkpoint after restart.
+
 ### JVM Heap Settings
 
 Logstash runs on the JVM; heap is the most common source of performance problems after pipeline misconfiguration. Heap is set in `/etc/logstash/jvm.options` (or `config/jvm.options` in non-packaged installs).
@@ -162,6 +172,8 @@ AFTER=$(curl -s http://localhost:9600/_node/stats/pipelines/main | jq '.pipeline
 echo "Events/sec: $(( (AFTER - BEFORE) / 10 ))"
 ```
 
+**Integrating with Prometheus:** The monitoring API returns JSON — wrap it with a small exporter (e.g., `logstash_exporter`) to scrape into Prometheus and build dashboards in Grafana. In production environments this is preferable to polling the API by hand, and allows alerting on queue depth, GC time, and non-retryable failure rates.
+
 ### Profiling with slow_log
 
 `slow_log` logs warnings when individual events exceed per-plugin time thresholds. It is the most direct way to identify which specific filter (or which input pattern) is causing latency spikes on individual events — as opposed to aggregate duration statistics from the API.
@@ -191,6 +203,20 @@ Slow log entries appear in `logstash-slowlog-plain.log` (location configured by 
 | DNS lookup filter with no cache | Each event doing a live DNS query | Enable `hit_cache_size` and `hit_cache_ttl` in dns filter |
 | JDBC lookup filter at high rate | Long queue waits in jdbc_streaming | Add `cache_expiration` and `cache_size` options |
 | Large `translate` filter file | File loaded per event instead of cached | Ensure `refresh_interval` is set to avoid constant reloads |
+
+**Grok pattern optimisation:** Catastrophic backtracking in grok is the single most common cause of extreme per-event latency. The pattern `%{GREEDYDATA}` before a literal string forces the regex engine to backtrack across the entire event string for every position. Replace with anchored alternatives:
+
+```ruby
+# Problematic — GREEDYDATA before a literal causes exponential backtracking
+grok {
+  match => { "message" => "%{GREEDYDATA:junk} ERROR %{GREEDYDATA:msg}" }
+}
+
+# Better — anchor the pattern and use a non-greedy alternative
+grok {
+  match => { "message" => "^%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{GREEDYDATA:msg}" }
+}
+```
 
 ### Beats + Logstash + Elasticsearch Pipeline Scaling
 
@@ -240,3 +266,320 @@ output.logstash:
 ### When to Use Filebeat Directly vs via Logstash
 
 Adding Logstash means another JVM process to monitor, another set of queues to size, and another failure point. It is justified when Logstash provides functionality that cannot be reproduced in Filebeat processors or Elasticsearch ingest node pipelines.
+
+| Requirement | Filebeat processors | ES ingest node | Logstash |
+|---|---|---|---|
+| Simple field rename / drop | ✓ | ✓ | ✓ |
+| Grok parsing of custom formats | Limited | ✓ | ✓ |
+| Multi-line event assembly | ✓ | ✗ | ✓ |
+| Enrichment from external DB (JDBC) | ✗ | ✗ | ✓ |
+| Fan-out to multiple outputs | ✗ | ✗ | ✓ |
+| Conditional routing to different indices | ✗ | ✓ (limited) | ✓ |
+| Protocol translation (syslog → ES) | ✗ | ✗ | ✓ |
+| Persistent queue with backpressure | ✗ | ✗ | ✓ |
+
+**Decision rule:** if your only requirement is field parsing and enrichment against a single Elasticsearch cluster, evaluate ES ingest pipelines first — they run inside Elasticsearch, require no extra host, and are managed via the Kibana Stack Management UI. Reach for Logstash when you need fan-out, external enrichment, protocol translation, or a durable intermediate buffer separate from Elasticsearch.
+
+---
+
+## Examples
+
+### Example 1: Diagnosing and Fixing an Elasticsearch Output Bottleneck
+
+**Scenario:** A production Logstash node is ingesting ~8,000 events/sec from Filebeat but the persistent queue is growing steadily. Elasticsearch bulk indexing latency has increased from 50 ms to 800 ms over the past hour.
+
+**Step 1 — Confirm the bottleneck is downstream, not filter CPU:**
+
+```bash
+# Check CPU usage of the Logstash process
+top -p $(pgrep -f logstash) -b -n 1 | awk 'NR>7 {print $9, $10, $12}'
+
+# Pull pipeline stats — compare events.in vs events.out
+curl -s http://localhost:9600/_node/stats/pipelines/main | \
+  jq '.pipelines.main | {
+    in: .events.in,
+    out: .events.out,
+    queue_depth: .queue.events,
+    workers: .reloads
+  }'
+```
+
+Expected output shows `queue.events` growing and a widening gap between `events.in` and `events.out`, with CPU under 60%. This confirms the filter stage is not the bottleneck — the output cannot keep up.
+
+**Step 2 — Increase workers to push more concurrent bulk requests to Elasticsearch:**
+
+```yaml
+# /etc/logstash/logstash.yml
+pipeline.workers: 8          # was 4; each worker sends one bulk request per batch
+pipeline.batch.size: 500     # was 250; larger batches reduce per-request overhead
+pipeline.batch.delay: 50
+```
+
+```bash
+# Apply without restart by using the reload API (if config.reload.automatic is enabled)
+# Or restart cleanly — PQ preserves in-flight events
+systemctl restart logstash
+
+# Verify after 2 minutes — queue depth should stabilise or fall
+watch -n 5 "curl -s http://localhost:9600/_node/stats/pipelines/main | \
+  jq '.pipelines.main.queue.events'"
+```
+
+**Step 3 — If ES bulk rejections appear in Logstash logs, tune Elasticsearch:**
+
+```bash
+# Check for bulk rejection errors in Logstash output plugin stats
+curl -s http://localhost:9600/_node/stats/pipelines/main | \
+  jq '.pipelines.main.plugins.outputs[] | select(.name == "elasticsearch") |
+      {successes: .documents.successes, failures: .documents.non_retryable_failures}'
+
+# On the Elasticsearch side — check write thread pool queue depth
+curl -s http://es-node-1:9200/_cat/thread_pool/write?v&h=node_name,queue,rejected,completed
+```
+
+If `rejected` is non-zero, increase the write thread pool queue size in `elasticsearch.yml`:
+
+```yaml
+# elasticsearch.yml — on each data node
+thread_pool.write.queue_size: 1000   # default 200
+```
+
+---
+
+### Example 2: JVM Heap Tuning After OOM Crash
+
+**Scenario:** Logstash crashed with `java.lang.OutOfMemoryError: Java heap space`. The host has 32 GB RAM. Current heap is set to 1 GB (the default).
+
+**Step 1 — Identify the current heap configuration:**
+
+```bash
+grep -E "Xms|Xmx" /etc/logstash/jvm.options
+# Output: -Xms1g  -Xmx1g  (dangerously low for production)
+```
+
+**Step 2 — Calculate correct heap and update:**
+
+```bash
+# Host RAM: 32 GB → recommended heap: 8–12 GB (≤ 50% of RAM, < 31 GB OOPs limit)
+sudo tee /etc/logstash/jvm.options.d/heap.options <<'EOF'
+# Set equal to prevent heap resize GC pauses
+-Xms8g
+-Xmx8g
+# G1GC for predictable pause times with Logstash's mixed object lifetimes
+-XX:+UseG1GC
+-XX:G1ReservePercent=25
+# Start GC earlier — reduces likelihood of promotion failure
+-XX:InitiatingHeapOccupancyPercent=30
+EOF
+
+sudo systemctl restart logstash
+```
+
+**Step 3 — Verify heap is being used efficiently (not exhausted):**
+
+```bash
+# Poll heap usage every 30 seconds for 5 minutes
+for i in $(seq 1 10); do
+  curl -s http://localhost:9600/_node/stats/jvm | \
+    jq '[.jvm.mem.heap_used_percent, .jvm.gc.collectors.old.collection_time_in_millis]'
+  sleep 30
+done
+```
+
+Healthy output: `heap_used_percent` stays under 75%; `collection_time_in_millis` grows slowly (seconds per minute, not hundreds of ms per second).
+
+**Step 4 — If heap usage is still climbing, reduce batch size:**
+
+```bash
+# Reduce per-worker event accumulation to lower peak heap allocation
+# Edit logstash.yml:
+# pipeline.batch.size: 125   # back to default — halves peak heap per worker
+sudo sed -i 's/pipeline.batch.size: 500/pipeline.batch.size: 125/' /etc/logstash/logstash.yml
+sudo systemctl restart logstash
+```
+
+---
+
+### Example 3: Using slow_log to Fix a Catastrophic Grok Pattern
+
+**Scenario:** The monitoring API shows that filter `grok_main` accounts for 92% of `events.duration_in_millis`, but CPU is only at 40%. This combination (high filter duration, low CPU) indicates a blocking regex, not a throughput problem.
+
+**Step 1 — Enable slow log to capture the offending events:**
+
+```yaml
+# logstash.yml — temporarily enable during this debugging session only
+slowlog.threshold.warn: 500ms
+slowlog.threshold.info: 100ms
+```
+
+```bash
+sudo systemctl restart logstash
+
+# Tail the slow log — entries appear within seconds if backtracking is severe
+sudo tail -f /var/log/logstash/logstash-slowlog-plain.log
+```
+
+Slow log output (condensed):
+
+```
+[WARN][logstash.filters.grok] slow filter execution
+  plugin_params=>{"match"=>{"message"=>"%{GREEDYDATA:prefix} user=%{WORD:user} %{GREEDYDATA:suffix}"}},
+  took_in_millis=>1847,
+  event_as_string=>{"message"=>"GET /api/health?check=true 200 12ms"}
+```
+
+The event `GET /api/health?check=true 200 12ms` does not contain `user=` — the regex backtracks across the full string trying every position. Time: 1847 ms for a single event.
+
+**Step 2 — Fix the pattern and verify:**
+
+```ruby
+# logstash pipeline config — before
+filter {
+  grok {
+    match => { "message" => "%{GREEDYDATA:prefix} user=%{WORD:user} %{GREEDYDATA:suffix}" }
+  }
+}
+
+# After — use a conditional so non-user events skip the expensive match entirely
+filter {
+  if [message] =~ /user=/ {
+    grok {
+      match => { "message" => "^%{GREEDYDATA:prefix} user=%{WORD:user} %{GREEDYDATA:suffix}$" }
+    }
+  }
+}
+```
+
+```bash
+# After config reload, verify filter duration has dropped in the stats API
+curl -s http://localhost:9600/_node/stats/pipelines/main | \
+  jq '.pipelines.main.plugins.filters[] |
+      select(.name == "grok") | {id: .id, duration_ms: .events.duration_in_millis}'
+```
+
+**Step 3 — Disable slow log after confirming the fix:**
+
+```yaml
+# logstash.yml — remove or comment slowlog thresholds
+# slowlog.threshold.warn: 500ms
+```
+
+---
+
+### Example 4: Multi-Pipeline Configuration for Workload Isolation
+
+**Scenario:** A single Logstash node handles both high-volume access logs (10,000 events/sec, lightweight parsing) and low-volume security audit logs (50 events/sec, expensive JDBC enrichment lookups). The security pipeline's slow JDBC lookups are adding latency to the access log pipeline because they share the same worker pool.
+
+**Solution:** Use `pipelines.yml` to give each pipeline independent worker and queue settings.
+
+```yaml
+# /etc/logstash/pipelines.yml
+- pipeline.id: access_logs
+  path.config: "/etc/logstash/conf.d/access_logs.conf"
+  pipeline.workers: 8           # high throughput, lightweight filters
+  pipeline.batch.size: 500
+  queue.type: persisted
+  queue.max_bytes: 4gb
+
+- pipeline.id: security_audit
+  path.config: "/etc/logstash/conf.d/security_audit.conf"
+  pipeline.workers: 2           # low volume; don't waste workers on JDBC wait time
+  pipeline.batch.size: 50       # small batches keep latency low for security alerting
+  queue.type: persisted
+  queue.max_bytes: 512mb        # small queue — security events must not be silently buffered for long
+```
+
+```bash
+# Verify both pipelines are running after restart
+curl -s http://localhost:9600/_node/stats/pipelines | \
+  jq '.pipelines | keys'
+# Expected: ["access_logs", "security_audit"]
+
+# Confirm each pipeline's stats are independent
+curl -s http://localhost:9600/_node/stats/pipelines/access_logs | \
+  jq '.pipelines.access_logs.events'
+curl -s http://localhost:9600/_node/stats/pipelines/security_audit | \
+  jq '.pipelines.security_audit.events'
+```
+
+**Benefit:** The JDBC lookup latency in `security_audit` no longer delays batches in `access_logs`. Each pipeline has its own queue, its own worker pool, and independent backpressure. A stall in the security pipeline will not cause the access log queue to fill.
+
+---
+
+## Exercises
+
+### Exercise 1: Establish a Performance Baseline and Identify a Bottleneck
+
+Set up a local Logstash instance with a generator input to produce synthetic load, then use the monitoring API to characterise the pipeline's behaviour under different worker and batch size configurations.
+
+1. Create a pipeline config that generates events at high rate and parses them with a moderate grok pattern:
+
+```ruby
+# /etc/logstash/conf.d/bench.conf
+input {
+  generator {
+    message => "2024-01-15T12:00:00Z INFO user=alice action=login src_ip=10.0.0.1 status=success"
+    count => 0   # 0 = infinite
+    threads => 2
+  }
+}
+filter {
+  grok {
+    match => { "message" => "%{TIMESTAMP_ISO8601:ts} %{LOGLEVEL:level} user=%{WORD:user} action=%{WORD:action} src_ip=%{IP:src_ip} status=%{WORD:status}" }
+  }
+  date { match => ["ts", "ISO8601"] }
+}
+output {
+  null {}   # discard output — we're measuring filter throughput only
+}
+```
+
+2. Start with `pipeline.workers: 1` and `pipeline.batch.size: 125`. Record events/sec using the rate script from the Monitoring API section.
+3. Double `pipeline.workers` to 2, then 4. Record events/sec at each step. At what point does adding workers stop improving throughput? Note the CPU % at that point.
+4. With `pipeline.workers` at your optimal value, vary `pipeline.batch.size`: try 50, 125, 250, 500. Record events/sec and watch `jvm.mem.heap_used_percent`. What trade-off do you observe?
+
+**Expected outcome:** You should be able to produce a 2×2 table (workers × batch size → throughput) and identify the diminishing-returns point for workers on your hardware.
+
+---
+
+### Exercise 2: Reproduce and Resolve a Persistent Queue Backpressure Event
+
+This exercise simulates an output bottleneck filling the persistent queue and demonstrates backpressure propagation.
+
+1. Configure a pipeline with a small queue and a slow output:
+
+```ruby
+# /etc/logstash/conf.d/pq_test.conf
+input {
+  generator {
+    message => "test event for pq exercise"
+    count => 0
+    threads => 4
+  }
+}
+filter {
+  mutate { add_field => { "processed" => "true" } }
+}
+output {
+  # Simulate a slow output with a sleep — not for production use
+  ruby {
+    code => "sleep 0.01"  # 10ms per event = max ~100 events/sec output
+  }
+  null {}
+}
+```
+
+```yaml
+# logstash.yml — small queue to make the fill-up observable quickly
+queue.type: persisted
+queue.max_bytes: 64mb
+```
+
+2. Start Logstash and immediately begin polling queue depth every 5 seconds:
+
+```bash
+watch -n 5 "curl -s http://localhost:9600/_node/stats/pipelines/main | \
+  jq '.pipelines.main.queue | {events: .events, storage_bytes: .data.storage_size_in_bytes}'"
+```
+
+3. Observe the queue
