@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -14,9 +15,10 @@ from routes.interview import router as interview_router
 
 app = FastAPI(title='DevOps Study Hub API')
 
+_cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:5173'],
+    allow_origins=[o.strip() for o in _cors_origins],
     allow_methods=['*'],
     allow_headers=['*'],
 )

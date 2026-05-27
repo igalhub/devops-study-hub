@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useMatch } from 'react-router-dom'
 import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
+import SearchModal from './components/SearchModal'
 import ThemeToggle from './components/ThemeToggle'
 import AiTutor from './components/AiTutor'
 import Quiz from './components/Quiz'
@@ -17,6 +18,18 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(o => !o)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   if (loading) return (
     <div className={dark ? 'dark' : ''}>
@@ -28,6 +41,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
 
   return (
     <div className={dark ? 'dark' : ''}>
+      {searchOpen && <SearchModal modules={modules} onClose={() => setSearchOpen(false)} />}
       <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
         <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -42,6 +56,13 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               {xp > 0 && (
                 <div className="text-xs font-medium text-amber-600 dark:text-amber-400">⚡ {xp} XP</div>
               )}
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
+                <span>⌕</span>
+                <kbd className="hidden sm:inline px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-[10px]">Ctrl K</kbd>
+              </button>
             </div>
             <ThemeToggle dark={dark} toggle={toggle} />
           </header>
