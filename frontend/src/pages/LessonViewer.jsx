@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -72,8 +72,11 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [activeExercise, setActiveExercise] = useState(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [moduleBanner, setModuleBanner] = useState(false)
+  const currentSlugRef = useRef(lessonSlug)
+  currentSlugRef.current = lessonSlug
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setError(null)
     setActiveExercise(null)
@@ -81,6 +84,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     setBookmarked(isBookmarked(lessonSlug))
     fetchLesson(lessonSlug)
       .then(data => {
+        if (cancelled) return
         setLesson(data)
         addRecentLesson({
           moduleSlug,
@@ -89,8 +93,9 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
           lessonTitle: data.title,
         })
       })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
+      .catch(e => { if (!cancelled) setError(e.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [lessonSlug])
 
   useEffect(() => {
@@ -148,8 +153,10 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   }
 
   const handleComplete = async () => {
+    const slug = lessonSlug
     try {
       const result = await markLessonComplete(lesson.id)
+      if (currentSlugRef.current !== slug) return
       onProgressUpdate()
       if (result.module_completed) setModuleBanner(true)
     } catch (e) {
