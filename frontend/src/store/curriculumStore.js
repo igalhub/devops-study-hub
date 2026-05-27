@@ -69,3 +69,23 @@ export function evaluateAnswer(moduleSlug, question, answer) {
     body: JSON.stringify({ module_slug: moduleSlug, question, answer }),
   })
 }
+
+export function fetchNote(lessonSlug) {
+  return apiFetch(`/notes/${lessonSlug}`)
+}
+
+export function saveNote(lessonSlug, content) {
+  return apiFetch(`/notes/${lessonSlug}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  })
+}
+
+export function fetchModuleQuiz(moduleSlug) {
+  return apiFetch(`/quiz/module/${moduleSlug}`)
+}
+
+export function searchContent(q) {
+  return apiFetch(`/search?q=${encodeURIComponent(q)}`)
+}

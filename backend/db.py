@@ -85,6 +85,12 @@ def init_db():
             next_review TEXT NOT NULL,
             reviews INTEGER NOT NULL DEFAULT 0
         );
+
+        CREATE TABLE IF NOT EXISTS lesson_notes (
+            lesson_id INTEGER PRIMARY KEY REFERENCES lessons(id),
+            content TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     """)
       conn.commit()
     finally:
