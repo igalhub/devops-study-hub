@@ -8,7 +8,11 @@ export default function Notes({ lessonSlug }) {
   useEffect(() => {
     setContent('')
     setStatus('idle')
-    fetchNote(lessonSlug).then(d => setContent(d.content)).catch(() => {})
+    let cancelled = false
+    fetchNote(lessonSlug)
+      .then(d => { if (!cancelled) setContent(d.content) })
+      .catch(() => {})
+    return () => { cancelled = true }
   }, [lessonSlug])
 
   useEffect(() => {

@@ -28,6 +28,7 @@ def get_progress():
 def update_progress(lesson_id: int, body: ProgressUpdate):
     conn = get_conn()
     try:
+        conn.execute("BEGIN EXCLUSIVE")
         lesson = conn.execute("SELECT id, module_id FROM lessons WHERE id = ?", (lesson_id,)).fetchone()
         if not lesson:
             raise HTTPException(status_code=404, detail="Lesson not found")

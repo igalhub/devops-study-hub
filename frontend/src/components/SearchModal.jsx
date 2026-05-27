@@ -36,28 +36,28 @@ export default function SearchModal({ modules, progress = {}, onClose }) {
     debounceRef.current = setTimeout(() => {
       setContentLoading(true)
       searchContent(q)
-        .then(data => {
-          // exclude lessons already in titleResults
-          const titleKeys = new Set(titleResults.map(r => r.lessonSlug))
-          setContentResults(data.filter(r => !titleKeys.has(r.lesson_slug)).slice(0, 5))
-        })
+        .then(data => setContentResults(data))
         .catch(() => setContentResults([]))
         .finally(() => setContentLoading(false))
     }, 300)
     return () => clearTimeout(debounceRef.current)
   }, [q])
 
+  const titleSlugs = new Set(titleResults.map(r => r.lessonSlug))
   const allResults = [
     ...titleResults.map(r => ({ ...r, type: 'title' })),
-    ...contentResults.map(r => ({
-      moduleSlug: r.module_slug,
-      moduleTitle: r.module_title,
-      lessonSlug: r.lesson_slug,
-      lessonTitle: r.lesson_title,
-      done: progress[String(r.lesson_id)] === 'complete',
-      snippet: r.snippet,
-      type: 'content',
-    })),
+    ...contentResults
+      .filter(r => !titleSlugs.has(r.lesson_slug))
+      .slice(0, 5)
+      .map(r => ({
+        moduleSlug: r.module_slug,
+        moduleTitle: r.module_title,
+        lessonSlug: r.lesson_slug,
+        lessonTitle: r.lesson_title,
+        done: progress[String(r.lesson_id)] === 'complete',
+        snippet: r.snippet,
+        type: 'content',
+      })),
   ]
 
   useEffect(() => { setActiveIdx(0) }, [query])

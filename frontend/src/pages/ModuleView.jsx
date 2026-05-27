@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { markLessonComplete, resetLessonProgress } from '../store/curriculumStore'
 
@@ -6,6 +6,7 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
   const { moduleSlug } = useParams()
   const navigate = useNavigate()
   const [completedBanner, setCompletedBanner] = useState(false)
+  useEffect(() => { setCompletedBanner(false) }, [moduleSlug])
   const mod = modules.find(m => m.slug === moduleSlug)
 
   if (!mod) return (

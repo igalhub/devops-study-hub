@@ -71,6 +71,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [error, setError] = useState(null)
   const [activeExercise, setActiveExercise] = useState(null)
   const [bookmarked, setBookmarked] = useState(false)
+  const [moduleBanner, setModuleBanner] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -147,8 +148,9 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
 
   const handleComplete = async () => {
     try {
-      await markLessonComplete(lesson.id)
+      const result = await markLessonComplete(lesson.id)
       onProgressUpdate()
+      if (result.module_completed) setModuleBanner(true)
     } catch (e) {
       console.error('Failed to mark lesson complete:', e)
     }
@@ -267,6 +269,20 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
       )}
 
       <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+        {moduleBanner && (
+          <div className="flex items-start justify-between gap-4 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800">
+            <div>
+              <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Module complete!</div>
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">+50 XP module bonus earned.</div>
+            </div>
+            <button
+              onClick={() => setModuleBanner(false)}
+              className="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 text-sm leading-none"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {done ? (
           <div className="flex items-center gap-3">
             <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">✓ Lesson complete</span>
