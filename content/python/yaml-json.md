@@ -8,204 +8,369 @@ exercises: 4
 ---
 
 ## Overview
-DevOps config files are either YAML or JSON — Kubernetes manifests, Docker Compose, Terraform outputs, GitHub Actions workflows, Ansible inventories. Python reads and writes both natively (JSON) or with one library (PyYAML). This lesson covers the full read/write/validate cycle you'll use daily.
+
+DevOps work is inseparable from structured text files. Kubernetes manifests, Helm values, Docker Compose stacks, Terraform outputs, GitHub Actions workflows, Ansible inventories, and virtually every CI/CD pipeline configuration is expressed in YAML or JSON. Python is the dominant scripting language for gluing these systems together — reading a manifest to patch an image tag, comparing two config snapshots, or extracting Terraform outputs to pass into a deployment script are daily tasks for a DevOps engineer. Knowing how to parse, transform, and write both formats reliably is a foundational skill, not a nice-to-have.
+
+JSON is part of Python's standard library — no installation required. YAML requires the `PyYAML` package (`pip install pyyaml`), which is available in virtually every DevOps container base image and CI runner. Both formats map cleanly onto Python's native data structures (dicts, lists, strings, numbers, booleans, None), which means once you've parsed a document you work with ordinary Python — no special API, no query language.
+
+In the broader DevOps toolchain these skills connect upward to infrastructure automation (Ansible, Terraform), container orchestration (Kubernetes), and GitOps pipelines (Argo CD, Flux), all of which expect you to programmatically produce or consume structured config. They also connect downward to basic shell scripting — `jq` and `yq` handle simple one-liners, but Python is what you reach for when logic, validation, or multi-file merging is involved.
+
+---
 
 ## Concepts
 
-### JSON — Built In
+### JSON — Built-In Parsing and Serialization
+
+Python's `json` module handles the full read/write cycle. The two most important distinctions to internalize: `json.loads` / `json.load` (note the `s` = string) and `json.dumps` / `json.dump` (note the `s` = string).
+
+| Function | Input | Output | Use when |
+|---|---|---|---|
+| `json.loads(s)` | JSON string | Python object | Parsing API responses, subprocess output |
+| `json.load(f)` | File object | Python object | Reading a `.json` file from disk |
+| `json.dumps(obj)` | Python object | JSON string | Sending to an API, printing to stdout |
+| `json.dump(obj, f)` | Python object + file | Writes to file | Persisting a `.json` file to disk |
+
 ```python
 import json
 
-# Parse JSON string
-text = '{"host": "db.example.com", "port": 5432, "ssl": true}'
-config = json.loads(text)        # dict
-config["host"]                   # "db.example.com"
+# Parse a JSON string (common when reading subprocess output or HTTP responses)
+text = '{"host": "db.example.com", "port": 5432, "ssl": true, "tags": null}'
+config = json.loads(text)
+print(config["host"])    # "db.example.com"
+print(config["tags"])    # None  — JSON null maps to Python None
+print(config["ssl"])     # True  — JSON boolean maps to Python bool
 
-# Parse JSON file
+# Read from a file
 with open("config.json") as f:
-    data = json.load(f)          # json.load reads a file object
+    data = json.load(f)
 
-# Serialize to string
-json.dumps(config, indent=2)     # pretty-print
-json.dumps(config)               # compact
+# Serialize: indent=2 is the standard choice for human-readable output
+print(json.dumps(config, indent=2))
 
-# Write JSON file
+# sort_keys=True makes diffs cleaner — key order is stable across writes
 with open("output.json", "w") as f:
-    json.dump(config, f, indent=2)
+    json.dump(config, f, indent=2, sort_keys=True)
 ```
 
-**Type mapping:** JSON object → `dict`, array → `list`, string → `str`, number → `int`/`float`, boolean → `bool`, null → `None`.
+**Type mapping — memorize this table:**
 
-### JSON Edge Cases
+| JSON type | Python type |
+|---|---|
+| `object` `{}` | `dict` |
+| `array` `[]` | `list` |
+| `string` `""` | `str` |
+| `number` (integer) | `int` |
+| `number` (float) | `float` |
+| `true` / `false` | `True` / `False` |
+| `null` | `None` |
+
+**`sort_keys=True` gotcha:** it flattens key order globally. If your downstream system expects a specific key order (rare, but some legacy tools do), don't sort. Otherwise always sort — it makes version-controlled JSON files produce clean `git diff` output.
+
+---
+
+### JSON Edge Cases and Error Handling
+
+Real-world JSON from APIs, Terraform, and CI tools is often messier than examples suggest.
+
 ```python
-# Non-serializable types will raise TypeError
+import json
 import datetime
-json.dumps({"ts": datetime.datetime.now()})  # TypeError!
+from pathlib import Path
 
-# Fix: use a custom encoder or convert first
-json.dumps({"ts": datetime.datetime.now().isoformat()})  # OK
+# --- Non-serializable types ---
+# datetime objects are not JSON-serializable by default
+event = {"ts": datetime.datetime.utcnow(), "level": "info"}
+# json.dumps(event)  →  TypeError: Object of type datetime is not JSON serializable
 
-# Parsing unknown JSON safely
-try:
-    data = json.loads(raw)
-except json.JSONDecodeError as e:
-    print(f"Invalid JSON at line {e.lineno}: {e.msg}")
+# Fix 1: convert before serializing
+event["ts"] = event["ts"].isoformat()
+json.dumps(event)  # OK: "ts": "2024-01-15T10:30:00"
+
+# Fix 2: custom encoder for systematic handling across a codebase
+class DevOpsEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        if isinstance(obj, Path):
+            return str(obj)
+        return super().default(obj)
+
+json.dumps({"ts": datetime.datetime.utcnow()}, cls=DevOpsEncoder)
+
+# --- Robust parsing with error context ---
+def parse_json_safe(raw: str, source: str = "<unknown>") -> dict | None:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        # e.lineno, e.colno, e.msg give you exact location
+        print(f"[ERROR] Invalid JSON from {source} at line {e.lineno} col {e.colno}: {e.msg}")
+        return None
+
+# --- Handling large numbers ---
+# Python int handles arbitrary precision; JSON spec doesn't cap integers
+big = json.loads('{"id": 99999999999999999999}')
+print(type(big["id"]))  # <class 'int'> — Python handles it fine
+
+# --- Float precision ---
+# JSON floats can have precision surprises
+data = json.loads('{"ratio": 0.1}')
+print(data["ratio"])          # 0.1
+print(data["ratio"] + 0.2)   # 0.30000000000000004 — standard float behavior
 ```
 
-### YAML — PyYAML
+**Trailing commas:** JSON does not allow trailing commas (`{"a": 1,}` is invalid). YAML does not have this problem. If you're consuming hand-edited JSON configs and hitting parse errors, trailing commas are a common culprit. Consider `json5` or `commentjson` packages for human-edited files, or enforce a linter.
+
+---
+
+### YAML — PyYAML Fundamentals
+
+YAML is a superset of JSON but far more common in infrastructure tooling because it supports comments, multi-line strings, and a cleaner syntax for nested structures.
+
 ```python
 import yaml
 
-# Parse YAML string
+# safe_load parses a YAML string into a Python dict
 text = """
+# Database configuration
 host: db.example.com
 port: 5432
 replicas: 3
 ssl: true
+credentials:
+  username: app_user
+  password: "${DB_PASSWORD}"   # variable reference — stays as a string
 tags:
   - prod
-  - eu-west
+  - eu-west-1
 """
-config = yaml.safe_load(text)    # dict
-config["tags"]                   # ["prod", "eu-west"]
 
-# Parse YAML file
+config = yaml.safe_load(text)
+print(config["credentials"]["username"])  # "app_user"
+print(config["tags"])                     # ["prod", "eu-west-1"]
+
+# Parse from a file
 with open("deployment.yaml") as f:
     manifest = yaml.safe_load(f)
 
-# Write YAML (safe_dump handles basic Python types: dict, list, str, int, float, bool)
+# Write YAML — default_flow_style=False forces block style (human-readable)
 print(yaml.safe_dump(config, default_flow_style=False))
 
-# Write YAML file
-with open("output.yaml", "w") as f:
-    yaml.safe_dump(config, f, default_flow_style=False)
+# Write to file with explicit encoding
+with open("output.yaml", "w", encoding="utf-8") as f:
+    yaml.safe_dump(config, f, default_flow_style=False, allow_unicode=True)
 ```
 
-**Always use `yaml.safe_load()`**, never `yaml.load()` — the unsafe version can execute arbitrary Python when parsing attacker-controlled input. On the write side, `yaml.safe_dump()` is the consistent counterpart; `yaml.dump()` also works for basic types but can serialize arbitrary Python objects.
+**Always use `yaml.safe_load()`, never `yaml.load()`.**  
+`yaml.load()` with the default `Loader` can deserialize arbitrary Python objects — including executing code — from attacker-controlled YAML. This is a real CVE class. `safe_load` restricts deserialization to basic types only. There is no legitimate use case in DevOps scripting that requires `yaml.load()`.
+
+**`default_flow_style=False`:** without this flag, `safe_dump` may render short lists and dicts on a single line (`{host: db.example.com, port: 5432}`). Setting it to `False` forces block style throughout, which is what Kubernetes and Helm tooling expect.
+
+---
+
+### YAML Type Coercion Traps
+
+YAML's automatic type inference is convenient but has sharp edges that have caused production incidents.
+
+```python
+import yaml
+
+# YAML booleans — these all parse as True/False in YAML 1.1 (PyYAML default)
+booleans = yaml.safe_load("""
+a: true
+b: yes
+c: on
+d: True
+e: YES
+f: false
+g: no
+h: off
+""")
+print(booleans)
+# {'a': True, 'b': True, 'c': True, 'd': True, 'e': True,
+#  'f': False, 'g': False, 'h': False}
+
+# This matters for Ansible variables, Helm values, and k8s configs
+# A field named "enabled: yes" in a Helm values.yaml is boolean True, not string "yes"
+
+# Octal integers — YAML 1.1 parses 0-prefixed numbers as octal
+octal_trap = yaml.safe_load("mode: 0755")
+print(octal_trap["mode"])   # 493 (decimal) — NOT the string "0755"
+# For file modes, always quote: mode: "0755"
+
+# Null coercion
+nulls = yaml.safe_load("""
+a: null
+b: ~
+c:          # empty value
+""")
+print(nulls)  # {'a': None, 'b': None, 'c': None}
+
+# The Norway Problem — country code "NO" parses as False
+country = yaml.safe_load("country: NO")
+print(country)  # {'country': False}  ← production bug waiting to happen
+# Fix: always quote strings that could be confused with booleans
+country_fixed = yaml.safe_load("country: 'NO'")
+print(country_fixed)  # {'country': 'NO'}
+```
+
+**Norway Problem summary:** in YAML 1.1, `NO`, `Yes`, `On`, `Off`, and variants are booleans. Country codes, environment names, and feature flags often match these strings. **Quote any string value that could be mistaken for a boolean or null.** YAML 1.2 fixes this, but PyYAML implements 1.1.
+
+---
 
 ### Multi-Document YAML
-Kubernetes manifests often contain multiple documents separated by `---`:
+
+Kubernetes manifests routinely bundle multiple resources (Deployment, Service, ConfigMap) in a single file, separated by `---`.
+
 ```python
+import yaml
+
+# safe_load_all returns a generator — wrap in list() to iterate multiple times
 with open("manifests.yaml") as f:
-    docs = list(yaml.safe_load_all(f))   # returns a generator
+    docs = list(yaml.safe_load_all(f))
+
+# Filter to a specific kind
+deployments = [d for d in docs if d and d.get("kind") == "Deployment"]
 
 for doc in docs:
-    print(doc.get("kind"), doc.get("metadata", {}).get("name"))
+    if doc is None:
+        continue  # trailing --- produces a None document
+    kind = doc.get("kind", "Unknown")
+    name = doc.get("metadata", {}).get("name", "unnamed")
+    ns   = doc.get("metadata", {}).get("namespace", "default")
+    print(f"{kind}/{name} in {ns}")
+
+# Write multiple documents back out
+with open("patched.yaml", "w") as f:
+    yaml.dump_all(docs, f, default_flow_style=False)
 ```
+
+**`safe_load_all` returns a generator:** if you consume it once (e.g., in a for loop), it's exhausted. Call `list()` on it immediately if you need to iterate more than once or check the length.
+
+**`None` documents:** a file that ends with `---` or has `---` followed immediately by another `---` produces `None` entries in the generator. Always guard with `if doc is None: continue`.
+
+---
 
 ### Practical Patterns
 
 #### Read → Modify → Write
+
+The most common DevOps scripting task: load a config, change one value, write it back.
+
 ```python
 import yaml
 
-with open("values.yaml") as f:
-    values = yaml.safe_load(f)
+def patch_image_tag(values_path: str, new_tag: str) -> None:
+    with open(values_path) as f:
+        values = yaml.safe_load(f)
 
-# Bump image tag
-values["image"]["tag"] = "v2.3.1"
+    # Navigate nested structure safely with .get() chains
+    if "image" not in values:
+        raise KeyError(f"'image' key not found in {values_path}")
 
-with open("values.yaml", "w") as f:
-    yaml.safe_dump(values, f, default_flow_style=False)
+    old_tag = values["image"].get("tag", "<unset>")
+    values["image"]["tag"] = new_tag
+    print(f"Tag: {old_tag} → {new_tag}")
+
+    with open(values_path, "w") as f:
+        # sort_keys=False preserves original key order (important for Helm values)
+        yaml.safe_dump(values, f, default_flow_style=False, sort_keys=False)
+
+patch_image_tag("helm/values.yaml", "v2.3.1")
 ```
 
-#### Merge Configs
+**Comment stripping warning:** PyYAML does not preserve comments. Loading and re-dumping a YAML file will silently strip all `#` comments. If your values files have important inline documentation, consider `ruamel.yaml` instead, which round-trips comments.
+
+#### Deep Merge for Environment Overrides
+
+A base config plus per-environment overrides is a standard pattern in Ansible, Helm, and custom deployment scripts.
+
 ```python
 import json
+from typing import Any
 
 def deep_merge(base: dict, override: dict) -> dict:
+    """
+    Recursively merge override into base.
+    override values win on conflict.
+    Lists are replaced entirely, not concatenated.
+    """
     result = base.copy()
     for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
             result[key] = deep_merge(result[key], value)
         else:
-            result[key] = value
+            result[key] = value  # override wins, including for lists
     return result
 
-base = json.load(open("config.base.json"))
-env  = json.load(open("config.prod.json"))
-merged = deep_merge(base, env)
+# Load base + environment-specific override
+with open("config.base.json") as f:
+    base = json.load(f)
+
+with open(f"config.prod.json") as f:
+    override = json.load(f)
+
+merged = deep_merge(base, override)
+
+# Write result — sort_keys ensures stable output for version control
+with open("config.merged.json", "w") as f:
+    json.dump(merged, f, indent=2, sort_keys=True)
 ```
 
-#### Validate Required Keys
+#### Validate Required Keys (with Nested Path Support)
+
 ```python
+import yaml
+from typing import Any
+
+def get_nested(data: dict, dotted_key: str) -> tuple[bool, Any]:
+    """Resolve a dotted key path like 'database.host' into nested dict."""
+    parts = dotted_key.split(".")
+    current = data
+    for part in parts:
+        if not isinstance(current, dict) or part not in current:
+            return False, None
+        current = current[part]
+    return True, current
+
 def validate_config(config: dict, required: list[str]) -> list[str]:
-    missing = [k for k in required if k not in config]
+    """Return list of missing required keys (supports dot notation)."""
+    missing = []
+    for key in required:
+        found, value = get_nested(config, key)
+        if not found or value is None:
+            missing.append(key)
     return missing
 
-config = yaml.safe_load(open("app.yaml"))
-missing = validate_config(config, ["host", "port", "secret_key"])
+with open("app.yaml") as f:
+    config = yaml.safe_load(f)
+
+required_keys = ["host", "port", "database.host", "database.port", "auth.secret_key"]
+missing = validate_config(config, required_keys)
+
 if missing:
     raise ValueError(f"Config missing required keys: {missing}")
+
+print("Config validation passed.")
 ```
 
 #### Parse Terraform Output
+
+Terraform's `-json` flag produces structured output that's easy to consume from Python.
+
 ```python
-import subprocess, json
+import subprocess
+import json
 
-result = subprocess.run(
-    ["terraform", "output", "-json"],
-    capture_output=True, text=True, check=True
-)
-outputs = json.loads(result.stdout)
-# Each value is {"value": ..., "type": ...}
-db_host = outputs["db_host"]["value"]
-```
-
-## Examples
-
-### Script: Patch a Kubernetes Manifest
-```python
-#!/usr/bin/env python3
-import sys
-import yaml
-
-manifest_path = sys.argv[1]
-new_image = sys.argv[2]
-
-with open(manifest_path) as f:
-    docs = list(yaml.safe_load_all(f))
-
-for doc in docs:
-    if doc and doc.get("kind") == "Deployment":
-        containers = doc["spec"]["template"]["spec"]["containers"]
-        for c in containers:
-            name, tag = new_image.split(":")
-            if c["image"].split(":")[0] == name:
-                c["image"] = new_image
-                print(f"Updated container {c['name']} → {new_image}")
-
-with open(manifest_path, "w") as f:
-    yaml.dump_all(docs, f, default_flow_style=False)
-```
-
-### Script: Config Diff
-```python
-#!/usr/bin/env python3
-import json, sys
-
-def flatten(d, prefix=""):
-    items = {}
-    for k, v in d.items():
-        key = f"{prefix}.{k}" if prefix else k
-        if isinstance(v, dict):
-            items.update(flatten(v, key))
-        else:
-            items[key] = v
-    return items
-
-a = flatten(json.load(open(sys.argv[1])))
-b = flatten(json.load(open(sys.argv[2])))
-
-all_keys = set(a) | set(b)
-for key in sorted(all_keys):
-    if a.get(key) != b.get(key):
-        print(f"{key}: {a.get(key)!r} → {b.get(key)!r}")
-```
-
-## Exercises
-
-1. Write a function that loads a YAML file and returns a flattened dict where nested keys are joined by dots (e.g. `{"db": {"host": "x"}}` → `{"db.host": "x"}`).
-2. Write a script that reads a directory of JSON files and produces a merged JSON object where later files override earlier keys.
-3. Given a Kubernetes Deployment YAML, write a script that prints the name, namespace, and all container image names.
-4. Write a function `env_to_dict(path)` that reads a `.env` file (format: `KEY=value`, skip comments starting with `#`) and returns a dict. Handle quoted values and empty lines.
+def get_terraform_outputs(working_dir: str = ".") -> dict:
+    result = subprocess.run(
+        ["terraform", "output", "-json"],
+        capture_output=True,
+        text=True,
+        check=True,          # raises CalledProcessError on non-zero exit
+        cwd=working_dir      # run in the correct Terraform workspace
+    )
+    raw =

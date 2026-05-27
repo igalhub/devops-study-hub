@@ -8,233 +8,289 @@ exercises: 3
 ---
 
 ## Overview
-Opsgenie is not just an alert router — it is a full incident management platform. The alert-to-incident lifecycle, war room coordination, status page updates, and postmortem creation are all surfaces where DevOps engineers work during and after outages. Understanding this lifecycle means you can run an incident systematically rather than reactively, reducing mean time to resolution and improving the quality of retrospectives. This lesson covers the full operational workflow from first alert to closed postmortem.
+
+Opsgenie is not just an alert router — it is a full incident management platform built around the idea that outages are processes, not emergencies to be improvised through. The alert-to-incident lifecycle, war room coordination, status page updates, and postmortem creation are all structured surfaces where DevOps engineers operate during and after outages. Treating these surfaces as a system — rather than reacting to each in isolation — is what separates teams with consistent 30-minute MTTRs from teams that take hours. Understanding the Opsgenie incident workflow means you can run an incident predictably under pressure, hand it off mid-flight, and reconstruct it accurately afterwards.
+
+Opsgenie's core design principle is that every meaningful action during an incident should be captured automatically in a timeline, and every human decision should be an explicit, logged state change. This is why alerts and incidents are distinct objects, why severity levels drive automated behavior, and why the postmortem is generated from the incident log rather than reconstructed from memory. The platform is opinionated: it wants you to declare incidents early, keep the timeline annotated, and close the loop with action items tied to real tickets.
+
+In the broader DevOps toolchain, Opsgenie sits at the intersection of observability (receives alerts from Prometheus, Datadog, CloudWatch), communication (integrates with Slack and Teams), project tracking (syncs with Jira Service Management), and customer communication (connects to Atlassian Statuspage). It is the coordination layer that links a firing metric to a resolved customer impact to a completed remediation task. Engineers working in SRE, platform engineering, or on-call rotation roles interact with Opsgenie under the worst conditions — high stress, incomplete information, time pressure — so knowing the workflow cold is a genuine operational advantage.
+
+---
 
 ## Concepts
 
-### Alert → Incident Lifecycle
+### Alert vs. Incident: Two Distinct Objects
 
-Alerts and incidents are distinct objects in Opsgenie:
+Alerts and incidents are not the same thing in Opsgenie, and conflating them is a common source of confusion during real outages.
 
-- **Alert**: a single notification from a monitoring tool. May resolve on its own. Routed to a team and on-call engineer.
-- **Incident**: a declared, coordinated response to a broader impact. Groups one or more related alerts. Has a severity, status, responder list, and timeline.
+| Object | What it is | Lifecycle | Scope |
+|--------|-----------|-----------|-------|
+| **Alert** | A single notification from a monitoring source | Open → Acknowledged → Resolved | One signal, one team, one on-call |
+| **Incident** | A declared coordinated response to broader impact | Open → Investigating → Identified → Monitoring → Resolved → Closed | Multiple responders, linked alerts, public status |
 
-Lifecycle states:
+An alert can exist without ever becoming an incident — a transient CPU spike that auto-resolves is an alert. An incident should be declared when the impact is customer-visible, cross-team, or requires coordination beyond the on-call engineer's immediate capability.
+
+The lifecycle looks like this:
 
 ```
-[Alert fires]
-    │
-    ▼
-ALERT: Open → Acknowledged → Resolved
-    │ (if impact is broader, declare incident)
-    ▼
-INCIDENT: Open → Investigating → Identified → Monitoring → Resolved → Closed
-    │
-    ▼
-[Postmortem created]
+[Monitoring tool fires alert]
+        │
+        ▼
+  ALERT: Open
+        │
+        ├─── Auto-resolves within N minutes? ──→ ALERT: Resolved (no incident)
+        │
+        └─── On-call acknowledges
+                    │
+                    ├─── Impact is contained, on-call handles alone? ──→ ALERT: Resolved
+                    │
+                    └─── Broader impact, needs coordination?
+                                │
+                                ▼
+                    INCIDENT: Open
+                         │
+                         ▼
+                    INCIDENT: Investigating
+                         │
+                         ▼
+                    INCIDENT: Identified  ◄── root cause known
+                         │
+                         ▼
+                    INCIDENT: Monitoring  ◄── fix deployed, watching
+                         │
+                         ▼
+                    INCIDENT: Resolved
+                         │
+                         ▼
+                    INCIDENT: Closed  ◄── postmortem complete
+                         │
+                         ▼
+                    [Postmortem created]
 ```
 
-Declaring an incident from an alert: **Alert detail → Create Incident** — this links the alert to a new incident and starts the incident timeline.
+**To declare an incident from an alert:** Alert detail → **Create Incident** — this links the alert to the new incident and seeds the incident timeline with the alert's timestamp, source, and metadata.
 
-Alternatively, create an incident directly: **Incidents → Create Incident**
+**To declare an incident directly:** Incidents → **Create Incident** — use this when the impact is known before a specific alert fires (e.g., a customer reports an outage before monitoring catches it).
+
+**Non-obvious behavior:** Resolving the linked alert does not automatically resolve the incident. These are separate state machines. You must resolve the incident explicitly. This is intentional — the incident may have impacts that outlast the triggering alert.
+
+---
 
 ### Incident Severity Levels
 
-Opsgenie incidents use SEV (severity) levels. Typical mapping:
+Severity is not just a label — in a properly configured Opsgenie environment, it drives automated behavior: who gets paged, whether a status page is updated, and whether a postmortem is mandatory.
 
-| Severity | Label | Definition | Example |
-|---|---|---|---|
-| SEV-1 | Critical | Full service down, revenue impact, data loss | Checkout service returning 500 to all users |
-| SEV-2 | High | Major feature broken, significant degradation | Payments slow (>10s) for >20% of users |
-| SEV-3 | Moderate | Partial impact, workaround available | Search returning stale results; users can reload |
-| SEV-4 | Low | Minor, cosmetic, or internal only | Dashboard shows incorrect metric label |
+| Severity | Label | Customer Impact | Status Page | Postmortem | Typical Response |
+|----------|-------|----------------|-------------|------------|-----------------|
+| SEV-1 | Critical | Full service down, revenue impact, data loss risk | Major Outage | Mandatory | Incident Commander + full team |
+| SEV-2 | High | Major feature broken, significant degradation (>20% users) | Degraded Performance | Mandatory | On-call + team lead |
+| SEV-3 | Moderate | Partial impact, workaround exists | Optional | Optional | On-call engineer |
+| SEV-4 | Low | Minor, cosmetic, internal-only | No | No | Ticket, no page |
 
-Severity determines: who is paged, whether the status page is updated, and whether a postmortem is required (SEV-1/2 typically mandatory; SEV-3 optional).
+Severity can — and should — be upgraded mid-incident if the situation worsens. Downgrading is also valid once impact is confirmed smaller than initially assessed. Every severity change is logged in the incident timeline automatically.
 
-### War Room — Slack and Teams Integration
-A **war room** is a dedicated communication channel created for the duration of an incident. Opsgenie can automatically create a Slack channel or Teams meeting when an incident is declared.
+**Gotcha:** Many teams skip declaring SEV-3 incidents because they feel minor. This is a mistake. SEV-3 incidents that are tracked generate timeline data and postmortem candidates. Patterns of SEV-3s in the same service are often the leading indicator of an upcoming SEV-1. If it touches customers, declare it.
 
-**Slack integration**: **Settings → Integrations → Slack**
+Configure automated severity-based escalation rules under **Teams → [Team] → Escalation Policies** — for example, auto-escalate to Incident Commander if a SEV-1 is not acknowledged within 5 minutes.
 
-Once configured, declaring an incident with Slack integration enabled:
-1. Creates a dedicated Slack channel: `#incident-2024-031-checkout-down`.
-2. Invites the incident responders automatically.
-3. Posts the incident summary, severity, and a link back to Opsgenie.
-4. Mirrors Opsgenie alert state changes as messages in the channel (acknowledged, escalated, resolved).
+---
 
-Opsgenie also supports bidirectional sync: actions taken in Slack (e.g., typing `/opsgenie ack`) are reflected in Opsgenie, and vice versa.
+### War Room: Slack and Teams Integration
 
-For Microsoft Teams: **Settings → Integrations → Microsoft Teams** — creates a Teams meeting bridge and posts to a configured channel.
+A war room is a dedicated communication channel created for the duration of an incident. Its purpose is to give every responder a single shared context and prevent information from being scattered across DMs, existing channels, or verbal calls.
 
-Opsgenie incident commands in Slack (with the Opsgenie Slack app):
+**Slack integration setup:** Settings → Integrations → Slack → Enable → Authorize workspace → Configure channel naming template.
 
-```
-/opsgenie ack <alert-id>        -- acknowledge alert
-/opsgenie close <alert-id>      -- close alert
-/opsgenie list                  -- list open alerts for your teams
-/opsgenie incident create       -- start incident creation wizard
-```
+Recommended channel naming template: `#inc-{date}-{incident-id}-{short-title}`
+Example: `#inc-20240314-inc-114-checkout-down`
 
-### Status Page Updates
-During a customer-impacting incident, stakeholders need a public or internal status page. Opsgenie integrates with **Atlassian Statuspage** (same corporate family).
+When an incident is declared with Slack integration active:
+1. Opsgenie creates the dedicated channel using the naming template.
+2. Invites all incident responders automatically (based on the responder list in Opsgenie).
+3. Posts the incident summary: severity, description, Opsgenie link, and current status.
+4. Mirrors all subsequent Opsgenie state changes as messages in the channel.
 
-Integration path: **Settings → Integrations → Statuspage**
-
-When an Opsgenie incident is created at SEV-1 or SEV-2:
-- Automatically update the relevant Statuspage component to `Degraded Performance` or `Major Outage`.
-- When the incident resolves, automatically update Statuspage to `Operational`.
-
-Manual update during incident:
-- Incident detail → **Update Status Page** → choose component + status + message.
-- Post an **incident update** message visible to subscribers.
-
-Status page update cadence (SRE best practice):
-- Initial update: within 5 minutes of incident declaration.
-- Progress updates: every 30 minutes minimum.
-- Resolution update: as soon as service is restored.
-- Postmortem link: added once published (24–72h post-incident).
-
-### Postmortem Creation
-Opsgenie generates postmortem templates directly from the incident timeline.
-
-**Incident detail → Create Postmortem**
-
-The generated document includes:
-- Incident summary, severity, duration.
-- Alert and escalation timeline (auto-populated from Opsgenie events).
-- Responder list.
-- Blank sections: impact, root cause, contributing factors, action items.
-
-Postmortems can be created inside Opsgenie or exported to Jira, Confluence, or a Google Doc.
-
-**Blameless postmortem sections** (industry standard):
-
-```
-1. Summary           — one paragraph, what happened and impact
-2. Timeline          — chronological events (auto-populated from incident log)
-3. Impact            — how many users, what functionality, revenue estimate
-4. Root cause        — technical cause (not person-blame)
-5. Contributing factors — systemic issues that allowed the root cause to manifest
-6. What went well    — processes/tools that helped during response
-7. What went poorly  — friction points, gaps, delays
-8. Action items      — owner, due date, JIRA ticket per item
-```
-
-### Incident Timeline
-Every state change, comment, acknowledgement, escalation, and responder addition is logged in the incident timeline automatically.
-
-Entries in the timeline:
-- Alert acknowledged by Alice at 14:32 UTC.
-- Incident severity changed from SEV-2 to SEV-1 at 14:38 UTC.
-- Bob added as responder at 14:39 UTC.
-- Status page updated to "Major Outage" at 14:40 UTC.
-- Root cause identified at 15:05 UTC.
-- Service restored at 15:22 UTC.
-- Incident resolved at 15:25 UTC.
-
-The timeline is the source of truth for postmortem reconstruction. Add manual notes during the incident using the "Add note" feature: **Incident detail → Note** — these appear in the timeline and postmortem.
-
-### Opsgenie + Jira Service Management Integration
-Jira Service Management (JSM) is Atlassian's ITSM platform. Opsgenie has deep native integration:
-
-**Bi-directional sync:**
-- Opsgenie alert → JSM creates a linked issue.
-- JSM issue state change → Opsgenie alert acknowledged or resolved.
-- Postmortem action items → JSM issues assigned to owners.
-
-Configuration: **Settings → Integrations → Jira Service Management**
-
-Map fields:
-```
-Opsgenie Priority → JSM Priority
-P1 → Highest
-P2 → High
-P3 → Medium
-P4 → Low
-P5 → Lowest
-
-Opsgenie alert status → JSM issue status
-Open → Open
-Acknowledged → In Progress
-Resolved → Resolved
-```
-
-**Alert-to-issue workflow:**
-1. P1 alert fires in Opsgenie.
-2. Integration rule: if priority is P1, create JSM issue automatically.
-3. JSM issue is assigned to the on-call engineer.
-4. When Opsgenie alert resolves, JSM issue moves to "Resolved".
-5. Postmortem action items are created as JSM sub-tasks.
-
-### MTTR and MTTA Metrics
-
-| Metric | Definition | Formula |
-|---|---|---|
-| **MTTA** | Mean Time To Acknowledge | Avg time from alert creation to first acknowledgement |
-| **MTTR** | Mean Time To Resolve | Avg time from alert creation to resolution |
-| **MTTI** | Mean Time To Identify | Avg time from alert creation to root cause identified |
-| **MTTD** | Mean Time To Detect | Avg time from issue start to alert firing (monitoring lag) |
-
-Opsgenie tracks MTTA and MTTR automatically per team, per integration, per time period.
-
-Access: **Analytics → Team Reports → Mean Response Metrics**
-
-Use case:
-- **MTTA trending up**: escalation policy may be misconfigured; on-call engineers not acknowledging promptly; notification methods not reaching them.
-- **MTTR trending up**: incidents taking longer to resolve; may indicate knowledge gaps, lack of runbooks, or dependency on unavailable team members.
-- **Compare MTTA across teams**: identify teams that need better on-call practices.
-
-Export metrics via API for custom reporting:
+**Bidirectional sync** means actions in Slack are reflected in Opsgenie. Key Slack slash commands (requires Opsgenie Slack app installed):
 
 ```bash
-curl -X GET \
-  "https://api.opsgenie.com/v2/reports/metrics?startDate=2024-01-01&endDate=2024-03-31&teamId=TEAM_ID" \
-  -H "Authorization: GenieKey YOUR_API_KEY"
+/opsgenie ack <alert-id>          # acknowledge alert — updates state in Opsgenie
+/opsgenie close <alert-id>        # resolve alert — updates state in Opsgenie
+/opsgenie list                    # list open alerts for your teams
+/opsgenie incident create         # launch incident creation wizard in Slack
+/opsgenie incident update <id>    # post a status update to incident timeline
+/opsgenie whoison                 # show current on-call for all teams
 ```
 
-## Examples
+**Microsoft Teams integration:** Settings → Integrations → Microsoft Teams. Creates a Teams meeting bridge for voice/video and posts updates to a configured channel. Useful for organizations not on Slack.
 
-### Complete P1 incident workflow walkthrough
+**Non-obvious behavior:** The Slack channel persists after the incident is resolved. Archive it after the postmortem is complete. Do not reuse incident channels — having `#inc-20240314-inc-114-checkout-down` fully preserved is valuable for postmortem reconstruction weeks later.
 
-```
-14:30 UTC — Prometheus fires alert: checkout-service error rate > 10%
-14:30 UTC — Opsgenie receives alert, routes to platform-team, P1
-14:30 UTC — Alice (on-call) receives phone call and push notification
-14:33 UTC — Alice acknowledges in Opsgenie (MTTA: 3 min)
-14:34 UTC — Alice declares incident: "Checkout service degraded - SEV-1"
-14:34 UTC — Opsgenie creates #incident-2024-114 Slack channel, invites Alice + team lead
-14:35 UTC — Alice updates status page: "Checkout → Major Outage"
-14:35 UTC — Alice adds note in Opsgenie: "Error rate at 25%, investigating deployment from 14:20"
-14:48 UTC — Root cause found: bad config in deploy 14:20
-14:50 UTC — Rollback initiated
-15:02 UTC — Error rate drops below 1%
-15:05 UTC — Alice resolves incident in Opsgenie
-15:05 UTC — Status page auto-updated: "Checkout → Operational"
-15:05 UTC — MTTR: 35 minutes
-15:05 UTC — Opsgenie generates postmortem draft
-Next day — Postmortem completed, 3 action items created as Jira tickets
-```
+---
 
-### Postmortem action item format
+### Status Page Updates
 
-```
-Action item: Add automated rollback trigger when error rate exceeds 5% for 3 minutes
-Owner: Bob (platform team)
-Due: 2024-03-22
-Jira: PLAT-2341
-Status: In Progress
+During a customer-impacting incident, external and internal stakeholders need a single source of truth for service status. Opsgenie integrates natively with **Atlassian Statuspage** (both are Atlassian products).
 
-Action item: Add pre-deploy error rate baseline check to CI pipeline
-Owner: Carol (devops)
-Due: 2024-03-29
-Jira: PLAT-2342
-Status: Open
+**Integration path:** Settings → Integrations → Statuspage → Connect → Map Opsgenie incidents to Statuspage components.
+
+Component mapping example:
+
+```yaml
+# Statuspage component → triggered by Opsgenie incidents affecting these services
+components:
+  - statuspage_component: "Checkout"
+    trigger_on: ["checkout-service", "payment-gateway"]
+    sev1_status: "major_outage"
+    sev2_status: "partial_outage"
+    sev3_status: "degraded_performance"
+
+  - statuspage_component: "API"
+    trigger_on: ["api-gateway", "auth-service"]
+    sev1_status: "major_outage"
+    sev2_status: "partial_outage"
 ```
 
-## Exercises
+**Automated status page behavior when a SEV-1 incident is declared:**
+1. Statuspage component moves to `Major Outage`.
+2. A new Statuspage incident is created and linked.
+3. Email/SMS subscribers are notified automatically.
+4. When Opsgenie incident resolves → Statuspage component returns to `Operational`.
 
-1. Walk through a SEV-2 incident from the moment an alert fires to postmortem closure. Specify: the exact sequence of actions in Opsgenie, who takes each action and when, what Slack channel activities occur, what the status page shows at each stage, and what the postmortem must contain. Be precise enough that a new team member could follow it as a runbook.
+**Manual status page update during an incident:**
+Incident detail → **Update Status Page** → select component → set status → write customer-facing message → post.
 
-2. Your team's MTTA has risen from 3 minutes to 11 minutes over the past quarter. List five concrete hypotheses for what could be causing this, and for each, describe one change to Opsgenie configuration or team practice that would address it.
+**Status page update cadence (SRE best practice):**
 
-3. Configure the Opsgenie ↔ Jira Service Management integration for a P1/P2 alert policy. Specify: which alert conditions automatically create a JSM issue, how priority maps between systems, how alert resolution maps to JSM issue status, and how postmortem action items flow into Jira. Describe any integration rules needed in Opsgenie to implement this.
+| Time | Action |
+|------|--------|
+| T+0 to T+5 min | Initial update: acknowledge impact, state you are investigating |
+| Every 30 min | Progress update: what you know, what you are doing, next update time |
+| On resolution | Resolution update: service restored, brief cause summary |
+| T+24h to T+72h | Add postmortem link once published |
+
+**Gotcha:** "We're investigating" every 30 minutes feels redundant, but it is not. Customers and stakeholders interpret silence as abandonment. The cadence is a communication discipline, not an information-delivery requirement.
+
+---
+
+### Incident Timeline
+
+The incident timeline is the automatic, append-only log of everything that happens during an incident. It is populated by Opsgenie without any manual effort from responders and is the single source of truth for postmortem reconstruction.
+
+**What gets logged automatically:**
+- Alert received and routed.
+- On-call notified (method: push, call, SMS).
+- Alert acknowledged by [user] at [timestamp].
+- Severity changed from X to Y by [user].
+- Responder added: [user].
+- Status page updated to [status].
+- Incident status changed to [status] by [user].
+- Linked alert resolved.
+
+**What you must add manually:**
+- Hypotheses being investigated.
+- Test results or query output.
+- Decision points ("decided to rollback rather than forward-fix").
+- Customer communication timestamps.
+- Time root cause was identified (mark this explicitly — it determines MTTI).
+
+Add a manual note: Incident detail → **Add Note** → text → Save. This appears inline in the timeline at the current timestamp.
+
+A well-annotated timeline for a 35-minute incident might look like:
+
+```
+14:30 UTC  [AUTO] Alert received: checkout-error-rate-high (P1)
+14:30 UTC  [AUTO] Routed to platform-team, on-call: alice@example.com
+14:30 UTC  [AUTO] Notification sent to Alice: push + phone call
+14:33 UTC  [AUTO] Alert acknowledged by Alice
+14:34 UTC  [AUTO] Incident INC-114 created: "Checkout degraded - SEV-1"
+14:34 UTC  [AUTO] Slack channel #inc-20240314-inc-114-checkout-down created
+14:35 UTC  [AUTO] Status page updated: Checkout → Major Outage
+14:35 UTC  [NOTE] Alice: "Error rate 25%, deployment at 14:20 is suspect. Checking diff."
+14:41 UTC  [NOTE] Alice: "Bad env var in config map deployed at 14:20. DB_POOL_SIZE=0."
+14:42 UTC  [AUTO] Incident status → Identified
+14:43 UTC  [NOTE] Alice: "Rollback initiated via kubectl rollout undo"
+14:58 UTC  [NOTE] Alice: "Error rate below 1%. Monitoring for 5 min before resolving."
+15:03 UTC  [AUTO] Incident status → Monitoring
+15:05 UTC  [AUTO] Incident status → Resolved by Alice
+15:05 UTC  [AUTO] Status page updated: Checkout → Operational
+15:05 UTC  [AUTO] MTTR calculated: 35 min | MTTA: 3 min | MTTI: 11 min
+```
+
+**The discipline of timeline notes is what separates a useful postmortem from a vague one.** If you skip notes during the incident, you will spend the next day reconstructing from Slack history and memory — both unreliable.
+
+---
+
+### Postmortem Creation
+
+Opsgenie generates a postmortem draft directly from the incident timeline. The draft pre-populates everything that was logged automatically, leaving only the analytical sections for human completion.
+
+**To generate:** Incident detail → **Create Postmortem** → select destination (Opsgenie, Confluence, Google Docs, or Jira).
+
+**Auto-populated sections:**
+- Incident summary, severity, duration, MTTR, MTTA.
+- Full timeline (from the incident log).
+- Responder list with join/leave times.
+- Linked alerts and their sources.
+
+**Sections requiring human input:**
+
+```
+## Summary
+One paragraph: what happened, scope, duration, resolution.
+Write for an audience who was not in the incident.
+
+## Impact
+- User-facing: X% of users could not complete checkout for 35 minutes.
+- Revenue: estimated $12,000 lost (based on avg checkout rate × duration).
+- Internal: 3 engineers engaged for 35 minutes.
+
+## Root Cause
+The technical cause — not the person. Describe the mechanism.
+"DB_POOL_SIZE was set to 0 in the config map, causing all DB connections
+to fail immediately. The deployment was not caught because the staging
+environment uses a mock DB client."
+
+## Contributing Factors
+Systemic issues that allowed the root cause to manifest:
+- No pre-deploy validation for required config map keys.
+- Staging environment does not use a real DB client.
+- No automated rollback trigger on elevated error rate.
+
+## What Went Well
+- MTTA was 3 minutes — on-call notification effective.
+- Root cause identified in 11 minutes from alert.
+- Rollback procedure was documented and executed without hesitation.
+
+## What Went Poorly
+- Status page update took 5 minutes — should be within 2 min for SEV-1.
+- No runbook for config map validation failures.
+- Monitoring did not catch the bad config before deployment.
+
+## Action Items
+| Item | Owner | Due | Ticket |
+|------|-------|-----|--------|
+| Add config map key validation to CI pipeline | carol | 2024-03-29 | PLAT-2342 |
+| Add automated rollback on error rate > 5% for 3 min | bob | 2024-03-22 | PLAT-2341 |
+| Update staging to use real DB client in integration tests | dave | 2024-04-05 | PLAT-2343 |
+```
+
+**Blameless postmortem principle:** The root cause is always a system failure, never a person failure. If a person made a mistake, the question is: what system allowed that mistake to have this impact? That system gap is the action item. Attributing root cause to human error produces postmortems that generate no lasting improvement.
+
+**Timing:** Publish within 48 hours. After 72 hours, memory degrades and momentum is lost. Block 60–90 minutes for postmortem review with all responders within 24 hours of resolution.
+
+---
+
+### Opsgenie + Jira Service Management Integration
+
+Jira Service Management (JSM) is Atlassian's ITSM platform. Since both JSM and Opsgenie are Atlassian products, the integration is native and bidirectional — meaning state changes in either system propagate to the other without webhook configuration.
+
+**Setup:** Settings → Integrations → Jira Service Management → Connect → Select JSM project → Configure field mappings.
+
+**Priority mapping:**
+
+| Opsgenie Priority | JSM Priority | Typical trigger behavior |
+|-------------------|-------------|--------------------------|
+| P1 | Highest | Auto-create JSM issue, assign to on-call |
+| P2 | High | Auto-create JSM issue, assign to on-call |
+| P3 | Medium | Create JSM issue on acknowledgement |
+| P4

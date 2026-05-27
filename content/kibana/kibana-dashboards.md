@@ -8,178 +8,284 @@ exercises: 3
 ---
 
 ## Overview
-Kibana dashboards are the operational display layer for your ELK stack — the place your team watches during deploys, incidents, and capacity reviews. Knowing how to build them correctly means building dashboards that are actually useful rather than pretty but misleading. This lesson covers the Lens editor, the visualization types that matter in DevOps, how aggregations work, and how to wire up dashboards with filters and drilldowns for real investigative workflows.
+
+Kibana dashboards are the operational display layer for your ELK stack — the place your team watches during deploys, incidents, and capacity reviews. A dashboard that surfaces the right signal in the right format during a 3am incident is genuinely valuable; one that looks polished but uses misleading aggregations or wrong visualization types will get ignored or, worse, cause wrong decisions. This lesson treats dashboards as engineering artifacts: they have correct and incorrect designs, and the difference matters in production.
+
+Kibana's visualization system is built directly on top of Elasticsearch aggregations. Every panel on a dashboard is a query. When you drag a field onto the Lens canvas, you are configuring a bucket or metric aggregation that runs against your Elasticsearch index. Understanding this connection is what separates engineers who build accurate dashboards from those who accidentally display meaningless numbers — like averaging percentiles, or using a Terms aggregation when a Date histogram is needed.
+
+In the broader DevOps toolchain, Kibana dashboards sit at the observability presentation layer alongside Grafana (which typically fronts Prometheus/Loki). Kibana's strength is log-centric workflows: correlating structured log fields, drilling from a high-level error rate chart into the raw log events that caused it, and filtering by arbitrary field combinations without writing queries manually. It complements but does not replace a metrics-focused tool like Grafana. Many teams run both.
+
+---
 
 ## Concepts
 
 ### Lens Editor
-Lens is Kibana's primary visualization builder (replacing the older Visualize editor). It uses a drag-and-drop interface and auto-suggests visualization types based on the fields you add.
 
-Opening Lens: **Dashboards → Create dashboard → Create visualization** OR **Visualize Library → Create visualization → Lens**
+Lens is Kibana's primary visualization builder, replacing the older Visualize editor (still present but deprecated in most distributions). Lens uses a drag-and-drop interface and infers appropriate visualization types as you add fields, reducing configuration friction while still exposing full aggregation control when you need it.
 
-Key Lens concepts:
-- **Horizontal axis / Vertical axis / Breakdown**: the three positions you assign fields or metrics to.
-- **Layer**: a single data series. Lens supports multiple layers on the same chart (e.g., two metrics on one line chart).
-- **Formula bar**: for computed metrics like `count() / count(kql='level: ERROR')` or `moving_average(count(), window=5)`.
-- **Data view**: each layer uses one data view.
+**Opening Lens:**
+- From a dashboard: **Edit mode → Create visualization**
+- Standalone: **Visualize Library → Create visualization → Lens**
+
+**Core Lens interface elements:**
+
+| Element | What it does |
+|---|---|
+| **Data view selector** | Chooses the index pattern (e.g., `logs-*`, `metrics-*`) for the current layer |
+| **Horizontal / Vertical axis** | Drag fields here to set bucket (X) and metric (Y) aggregations |
+| **Breakdown** | Splits a series — adds a Terms aggregation coloring lines or bars by field value |
+| **Layer panel** | Each layer is an independent query; multiple layers share one chart canvas |
+| **Formula bar** | Arbitrary math over aggregations: `count()`, `sum(bytes)`, `percentile(latency, percentile=95)` |
+| **Suggestions strip** | Lens auto-proposes alternative chart types; click to switch without losing config |
+
+**Layers in practice:** Add a second layer to overlay two metrics — for example, one layer showing total request count as a bar, a second layer showing p95 latency as a line with its own Y axis on the right. Each layer can use a different data view, enabling cross-index comparisons on one panel.
+
+**Formula examples:**
+
+```
+# Error rate as a percentage
+count(kql='http.response.status_code >= 500') / count() * 100
+
+# Rolling 5-period moving average of request count
+moving_average(count(), window=5)
+
+# Cumulative sum of bytes transferred
+cumulative_sum(sum(http.response.body.bytes))
+
+# Difference between current and previous interval (delta)
+differences(sum(bytes))
+```
+
+**Gotcha:** The formula `average(percentile(response_time_ms, percentile=95))` is mathematically invalid — you cannot average percentiles across buckets and get a meaningful result. Use `percentile(response_time_ms, percentile=95)` as a metric aggregation directly on the date histogram bucket, which computes p95 within each time interval correctly.
+
+---
 
 ### Visualization Types
 
-#### Bar / Horizontal Bar
-Best for: comparing values across categories (error counts by service, requests by HTTP method).
+Choosing the wrong chart type for the data shape is a common mistake. Use this reference when building panels.
 
-```
-X axis: service.name (top 10 by count, keyword field)
-Y axis: Count of records
-Breakdown: http.response.status_code (top 5)
-```
+| Type | Best for | Avoid when |
+|---|---|---|
+| **Line** | Time series trends: rates, latencies, error counts over time | Comparing across categories with no time axis |
+| **Bar (vertical)** | Comparing values across a small number of categories | More than ~15 categories (use Data Table instead) |
+| **Horizontal Bar** | Same as bar but with long category labels that would overlap | — |
+| **Area** | Stacked composition over time (e.g., traffic by service summing to total) | Overlapping non-stacked series (becomes unreadable) |
+| **Pie / Donut** | Proportional breakdown, ≤ 6 slices | More than 6–7 categories; time series data |
+| **Metric** | Single KPI number with optional color threshold | When trend context matters — use a line instead |
+| **Data Table** | Multi-metric breakdown per category (top-N analysis) | When a chart would communicate the pattern faster |
+| **Heatmap** | Frequency over two dimensions (hour of day vs. day of week) | Sparse data — empty cells dominate |
+| **Maps** | Geographic distribution of IPs, latency by region | Non-geographic categorical data |
+| **TSVB** | Legacy time-series builder; use Lens instead for new panels | — |
 
-#### Line
-Best for: time series trends (request rate, error rate, response time p95 over time).
+**Pie chart warning:** Pie charts are visually compelling but cognitively difficult — humans cannot accurately compare angles. For operational dashboards, a horizontal bar chart almost always communicates proportions more accurately. Reserve pie/donut for executive summaries or when the proportional relationship (e.g., 95% success vs. 5% error) is the entire story.
 
-```
-X axis: @timestamp (date histogram, interval: auto)
-Y axis: Median of response_time_ms
-```
-
-#### Pie / Donut
-Best for: proportional breakdown with few categories (log level distribution, HTTP method split). Avoid for > 6–7 slices.
-
-#### Metric
-Best for: single key number on a dashboard (total errors in 24h, current p99 latency, uptime %). Supports conditional colouring (green < 200 ms, red > 500 ms).
-
-#### Data Table
-Best for: detailed breakdown with multiple metrics per row. Ideal for top-N analysis:
-
-| service.name | Count | Error rate | Avg response ms |
-|---|---|---|---|
-| checkout | 45,312 | 2.1% | 142 |
-| auth | 18,904 | 0.3% | 38 |
-
-#### Maps
-Best for: geographic data — source IPs on a world map, regional latency heatmap. Requires `geo_point` typed fields in Elasticsearch.
+---
 
 ### Aggregations in Visualizations
-Kibana visualizations are built on Elasticsearch aggregations. Knowing the aggregation types makes you faster at building correct charts.
 
-**Metric aggregations (Y axis / value):**
+Every Kibana visualization runs one or more Elasticsearch aggregations. Knowing which aggregation maps to which analytical question makes you faster and more accurate.
 
-| Aggregation | Use case |
-|---|---|
-| Count | Event volume |
-| Sum | Total bytes transferred, total error count |
-| Average / Median | Response time, latency |
-| Max / Min | Peak CPU, minimum uptime |
-| Percentile (p50, p95, p99) | Latency distribution |
-| Unique count (cardinality) | Distinct users, unique IPs |
+**Metric aggregations** compute a single value per bucket (used on the Y axis / value field):
 
-**Bucket aggregations (X axis / breakdown):**
+| Aggregation | ES equivalent | Use case | Gotcha |
+|---|---|---|---|
+| Count | `value_count` | Event volume, request rate | Counts documents, not field occurrences |
+| Sum | `sum` | Total bytes, total errors | Field must be numeric |
+| Average | `avg` | Mean response time | Sensitive to outliers; prefer percentiles for latency |
+| Median | `percentile` at p50 | Central tendency, robust to outliers | — |
+| Percentile (p95, p99) | `percentiles` | Latency SLOs, tail behavior | Not aggregatable across sub-buckets — compute at the correct level |
+| Max / Min | `max` / `min` | Peak CPU, minimum availability | — |
+| Unique count | `cardinality` | Distinct users, unique error types | Approximate (HyperLogLog) — has error rate at high cardinality |
+| Rate | `rate` | Per-second/per-minute rate from counters | Only works on `aggregate_metric_double` or inside TSVB |
 
-| Aggregation | Use case |
-|---|---|
-| Date histogram | Time series (always use for time-based X axis) |
-| Terms | Top N values of a keyword field |
-| Filters | Bucket events matching KQL expressions |
-| Range | Numeric ranges (0–100 ms, 100–500 ms, 500+ ms) |
-| Histogram | Numeric distribution with fixed interval |
+**Bucket aggregations** divide documents into groups (used on X axis / breakdown):
+
+| Aggregation | Use case | Key setting |
+|---|---|---|
+| Date histogram | Time series — always use this for time-based X axis | Interval: auto, 1m, 5m, 1h, 1d |
+| Terms | Top N values of a keyword field | Size (default 10), order by metric |
+| Filters | Arbitrary KQL buckets (e.g., INFO vs WARN vs ERROR) | Define each bucket with a KQL expression |
+| Range | Fixed numeric buckets (0–100ms, 100–500ms, 500ms+) | Define ranges manually |
+| Histogram | Auto-binned numeric distribution | Interval (e.g., every 50ms) |
+| Date range | Compare two explicit time windows | Define each window as a date expression |
+
+**Gotcha — Terms aggregation and "Other":** When using Terms with size=10, Elasticsearch returns only the top 10 values. If you sum a metric across these, the total will not match the actual total — the remaining values are excluded or shown as "Other." This is especially misleading for error rate calculations. Use a Filters aggregation with explicit known values when completeness matters.
+
+**Gotcha — Date histogram interval and data sparsity:** Setting a 1-minute interval on a 30-day time range generates 43,200 buckets. Kibana will render this but it will be slow and visually useless. Let Kibana's `auto` interval choose, or set an interval proportional to the time window: 1m for last hour, 5m for last 6h, 1h for last 7d.
+
+---
 
 ### Dashboard Filters and Drilldowns
 
-#### Filter bar
-Every dashboard has a persistent filter bar. Clicking a value in any panel adds a filter chip that applies across all panels on the dashboard. This is what makes dashboards interactive — you can click a service name in one chart and all other charts instantly scope to that service.
+Filters are what transform a static chart into an interactive investigative tool. Every filter applied to a dashboard is appended as an additional `must` clause to the Elasticsearch query for every panel.
 
-Filter types:
-- **KQL filter**: `service.name: checkout-service`
-- **Time range**: refined from the global time picker
-- **Panel filter**: applied to a single panel via its panel menu
+#### Global Filter Bar
 
-Pin a filter to keep it across navigation. Negate a filter (the NOT toggle) to exclude a value.
+The filter bar sits above all panels. Filters here apply to the entire dashboard:
+
+```
+# KQL filter examples in the filter bar
+http.response.status_code: 500          # exact value
+response_time_ms > 1000                 # range
+service.name: checkout AND level: ERROR # compound
+NOT kubernetes.namespace: monitoring    # negation
+```
+
+**Clicking chart elements adds filters automatically.** Click a bar segment, a pie slice, or a point in a scatter plot — Kibana adds the corresponding filter chip. This is the primary investigative workflow: start with a high-level error spike, click the service responsible, all panels scope to that service, then click the endpoint with the highest error rate, and so on until you're looking at raw log lines.
+
+**Filter actions:**
+
+| Action | How |
+|---|---|
+| Pin filter | Click pin icon — persists across dashboard navigation |
+| Negate | Click the NOT toggle — inverts the filter condition |
+| Temporarily disable | Click the toggle — removes from query without deleting |
+| Edit | Click filter chip → edit — modify KQL or field/value |
+
+#### Time Range
+
+The global time picker is itself a filter. All panels share it. Override it per-panel via **Panel menu → Customize time range** — useful for a "previous period" comparison panel on the same dashboard.
 
 #### Drilldowns
-**Drilldowns** let you navigate from one dashboard to another, or to Discover, when clicking a chart element.
 
-**Dashboard-to-dashboard drilldown**: clicking a bar in "Errors by service" opens the "Service Detail" dashboard, pre-filtered to that service.
+Drilldowns configure navigation that fires when a user clicks a chart element, passing context as filters to the destination.
 
-Configure: Edit mode → click panel → panel menu → **Create drilldown → Go to dashboard**. Map which filter fields pass through.
+**Dashboard-to-dashboard drilldown:**
 
-**URL drilldown**: navigate to an external URL, interpolating field values. Useful for linking to your service's runbook or Jira project.
+```
+Setup path:
+Edit mode → click panel → panel menu (⋮) → Create drilldown →
+"Go to dashboard" → select target dashboard →
+configure field mappings (which fields carry through as filters)
+```
+
+Example: "Errors by Service" panel → drilldown → "Service Detail" dashboard, with `service.name` passed as a filter. The engineer clicking a bar for `checkout-service` lands on the Service Detail dashboard already filtered to checkout-service.
+
+**URL drilldown:**
+
+```
+Template syntax:
+https://jira.company.com/issues?jql=project={{kibana context.panel.filters.[service.name]}}
+
+https://runbooks.internal/services/{{kibana context.panel.filters.[service.name]}}/incidents
+```
+
+**Gotcha:** Drilldowns are stored inside the dashboard saved object. When you export a dashboard, drilldowns export with it, but the target dashboard ID is hardcoded. If you import into a different Kibana instance where the target dashboard has a different ID, drilldowns break silently — the click does nothing. Verify drilldowns after cross-environment imports.
+
+---
 
 ### Controls: Dropdown and Range Slider
-**Controls** (formerly known as Input Controls) add interactive widgets to dashboards that users can change without editing the dashboard:
 
-- **Options list (dropdown)**: select one or more values from a keyword field (e.g., select environment: production/staging).
-- **Range slider**: numeric range selector (e.g., filter response_time_ms between 0 and 5000).
+Controls add user-facing widgets above the dashboard panels without requiring the user to understand KQL. They are appropriate for dashboards shared with non-engineering stakeholders or on-call engineers who need fast filtering.
 
-Add controls: **Dashboard edit mode → Controls → Add control**
+| Control type | Field type | Use case |
+|---|---|---|
+| **Options list** | `keyword` | Environment (prod/staging/dev), service name, region, log level |
+| **Range slider** | `integer` / `float` | Response time range, HTTP status code range, error count threshold |
 
-Controls integrate with the filter bar — selecting a value adds the equivalent filter to all panels.
+**Adding controls:**
+```
+Dashboard edit mode → Controls (toolbar) → Add control →
+select field → configure label and defaults → Save and close
+```
 
-### Dashboard Export / Import
-Dashboards, their visualizations, and data views are stored as saved objects. Export/import is used for:
-- Promoting dashboards from dev → staging → production environments.
-- Sharing dashboards with teams on other Kibana instances.
-- Version controlling dashboards as JSON files.
+**Multi-select:** Options list supports selecting multiple values simultaneously (e.g., show both `production` AND `canary` environments). The resulting filter uses an `OR` condition across selected values.
 
-**Export**: Stack Management → Saved Objects → filter to Dashboards → select → Export (includes all dependencies).
+**Chained controls:** Controls can be chained so that selecting a value in one control filters the options available in the next. Example: selecting `region: us-east-1` in the first control causes the service dropdown to show only services deployed in us-east-1. Enable this in the control settings panel.
 
-**Import**: Stack Management → Saved Objects → Import → upload NDJSON file → choose conflict resolution (overwrite or create new).
+**Gotcha:** Controls use `terms` aggregations against Elasticsearch to populate their option lists. If your index has millions of documents but only 5 distinct values for `environment`, this is fast. If you accidentally add a control on a high-cardinality field like `user.id`, the dropdown will time out or return incomplete results. Controls are only appropriate for low-cardinality keyword fields.
 
-For GitOps workflows, export dashboards as JSON and commit them to a repository. Use the Kibana API for automated import:
+---
+
+### Dashboard Layout and Design Principles
+
+Panel layout is controlled by drag-and-drop resize handles in edit mode. Panels snap to a grid. Effective layout follows a visual hierarchy matching the engineer's investigative flow.
+
+**Recommended layout pattern for service dashboards:**
+
+```
+Row 1 — KPIs (Metric panels, small, side by side)
+  [Total Requests / 1h]  [Error Rate %]  [p95 Latency ms]  [Apdex Score]
+
+Row 2 — Time series (Line panels, full width or split)
+  [Request Rate over time — by service]  |  [Error Rate over time — by service]
+
+Row 3 — Breakdown (Bar + Data Table)
+  [Top 10 Endpoints by Error Count]  |  [Status Code Distribution by Service]
+
+Row 4 — Raw evidence
+  [Discover panel: recent ERROR events — timestamp, service, url, message]
+```
+
+**Text/Markdown panels:** Add context panels with `# Row Header` or operational notes inline. Use Dashboard edit mode → Add panel → Text.
+
+**Panel titles:** Always set a descriptive title including the metric name, aggregation, and scope. "Count" is a bad title. "HTTP 5xx Count by Service — Last 1h" is correct.
+
+---
+
+### Dashboard Export / Import and GitOps
+
+Dashboards, visualizations, index patterns (data views), and controls are stored as **saved objects** in Kibana's `.kibana` system index in Elasticsearch. Export/import handles the full object graph including dependencies.
+
+**Manual export via UI:**
+```
+Stack Management → Saved Objects → filter Type: Dashboard →
+select target dashboards → Export → download NDJSON file
+```
+
+The `includeReferencesDeep: true` flag (set automatically in UI export) pulls in all referenced visualizations, data views, and lens panels. The result is a single `.ndjson` file that is fully self-contained.
+
+**Import via UI:**
+```
+Stack Management → Saved Objects → Import →
+upload NDJSON → choose conflict resolution:
+  - "Overwrite" — replaces existing objects with same ID
+  - "Create new copies" — generates new IDs (breaks drilldown links)
+```
+
+**API-based import for CI/CD pipelines:**
 
 ```bash
+# Import with overwrite — idempotent, safe to re-run in pipelines
 curl -X POST "http://kibana:5601/api/saved_objects/_import?overwrite=true" \
   -H "kbn-xsrf: true" \
   -H "Content-Type: multipart/form-data" \
-  --form file=@dashboards/nginx-overview.ndjson
-```
+  --form file=@dashboards/service-overview.ndjson
 
-## Examples
-
-### Building an HTTP error rate dashboard panel (Lens)
-
-Goal: line chart showing error rate (5xx / total) over time for each service.
-
-1. Open Lens, select data view `logs-*`.
-2. Set chart type: **Line**.
-3. Horizontal axis: `@timestamp` → Date histogram, interval: 5 minutes.
-4. Vertical axis: Click **+ Add layer** → formula:
-   ```
-   count(kql='http.response.status_code >= 500') / count() * 100
-   ```
-5. Breakdown: `service.name` → Terms, top 5.
-6. Set Y axis label: "5xx Error Rate (%)".
-7. Save to library as "HTTP 5xx Error Rate by Service".
-
-### Dashboard layout for a web service
-
-```
-Row 1: [Metric: Total Requests] [Metric: Error Rate] [Metric: p95 Latency]
-Row 2: [Line: Request Rate over time] [Line: Error Rate over time]
-Row 3: [Bar: Top 10 Endpoints by Request Count] [Data Table: Status Code Breakdown by Service]
-Row 4: [Discover panel: Recent 5xx events with timestamp, service, url, error_message]
-```
-
-Controls at top: Environment dropdown (production/staging), Service dropdown.
-
-### Exporting all dashboards via API
-
-```bash
-# List all dashboard saved object IDs
-curl -s "http://kibana:5601/api/saved_objects/_find?type=dashboard&per_page=100" \
-  -H "kbn-xsrf: true" | jq '.saved_objects[].id'
-
-# Export a specific dashboard with all dependencies
-curl -s "http://kibana:5601/api/saved_objects/_export" \
+# Export all dashboards programmatically
+curl -X POST "http://kibana:5601/api/saved_objects/_export" \
   -H "kbn-xsrf: true" \
   -H "Content-Type: application/json" \
-  -d '{"type": "dashboard", "includeReferencesDeep": true}' \
-  > all-dashboards.ndjson
+  -d '{
+    "type": ["dashboard"],
+    "includeReferencesDeep": true,
+    "excludeExportDetails": false
+  }' \
+  -o all-dashboards.ndjson
+
+# Find IDs of all dashboards (for selective export)
+curl -s "http://kibana:5601/api/saved_objects/_find?type=dashboard&per_page=100" \
+  -H "kbn-xsrf: true" \
+  | jq -r '.saved_objects[] | "\(.id)\t\(.attributes.title)"'
 ```
 
-## Exercises
+**GitOps workflow:**
 
-1. Design a Kibana dashboard for an on-call engineer monitoring an e-commerce API. Specify: (a) at least 5 panels with their visualization type, field, and aggregation; (b) two controls (dropdown or range slider) that filter the whole dashboard; (c) one drilldown and where it navigates to.
+```bash
+# In your infrastructure repository
+dashboards/
+  nginx-overview.ndjson
+  service-detail.ndjson
+  kubernetes-cluster.ndjson
+  Makefile
 
-2. You have response time data in Elasticsearch with a field `response_time_ms` (integer). Write the Lens formula and aggregation configuration to show a line chart with three series on one chart: p50, p95, and p99 response time over time broken down by `service.name`. Explain why percentile aggregations are more useful than averages for latency monitoring.
+# Makefile target for promotion
+deploy-dashboards:
+  curl -X POST "$(KIBANA_URL)/api/saved_objects/_import?overwrite=true" \
+    -H "kbn-xsrf: true" \
+    -H "Content-Type: multipart/form-data" \
+    --form file=@dashboards/$(DASHBOARD).ndjson \
+    -u "$(KIBANA_USER):$(KIBANA_PASS)"
+```
 
-3. Your team wants to promote a set of dashboards from a staging Kibana instance to production. Describe the full process using Kibana Saved Objects, including how you would handle a case where a data view name differs between environments (staging uses `logs-staging-*`, production uses `logs-prod-*`).
+**Data

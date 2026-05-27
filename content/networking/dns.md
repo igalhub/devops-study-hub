@@ -8,181 +8,325 @@ exercises: 4
 ---
 
 ## Overview
-DNS translates names (`api.example.com`) to IP addresses. It's involved in every network connection your services make — and when it breaks, everything breaks in mysterious ways. Understanding the resolution chain and record types lets you diagnose DNS-related outages quickly and configure DNS correctly for your services.
+
+DNS (Domain Name System) is the distributed database that translates human-readable names like `api.example.com` into IP addresses that routers can act on. Every service call your application makes — whether it's hitting a database, calling a third-party API, or resolving a Kubernetes service — starts with a DNS lookup. When DNS breaks, failures surface as connection timeouts, NXDOMAIN errors, or mysterious slowdowns that look like application bugs. DNS literacy is a first-responder skill: before you can diagnose anything network-related, you need to understand what the system is doing and what it should be doing.
+
+DNS is designed around three principles: **delegation** (no single server knows everything — authority is delegated through a hierarchy), **caching** (every answer carries a TTL that controls how long it can be reused), and **eventual consistency** (changes propagate over time as caches expire, not instantly). These principles explain most of the counterintuitive behavior you'll encounter — why a DNS change "takes time," why different clients see different answers, and why querying two nameservers can return different results.
+
+In the DevOps toolchain, DNS sits at the intersection of infrastructure, networking, and deployment. You configure DNS records when you launch a service, manage TTLs during blue-green deployments, rely on internal DNS for Kubernetes service discovery, and debug it when services can't find each other. Cloud providers (AWS Route 53, GCP Cloud DNS, Cloudflare) expose DNS as an API, making it a first-class piece of infrastructure-as-code.
+
+---
 
 ## Concepts
 
-### DNS Resolution Chain
-When you look up `api.example.com`:
+### The DNS Resolution Chain
+
+When any process on a Linux system resolves a name, it goes through several layers before hitting the network. Understanding this chain is critical — the answer your app gets may come from a local cache, `/etc/hosts`, or a full recursive lookup, depending on configuration.
 
 ```
-Your app
-  → /etc/nsswitch.conf determines lookup order (files, dns, ...)
-  → /etc/hosts (checked first for local overrides)
-  → Resolver (127.0.0.53 on systemd-resolved, or /etc/resolv.conf nameserver)
-    → Recursive resolver (your ISP's or 8.8.8.8 or 1.1.1.1)
-      → Root nameservers (know who manages .com)
-      → .com TLD nameservers (know who manages example.com)
-      → Authoritative nameservers for example.com (give the final answer)
+Your app (getaddrinfo() syscall)
+  → /etc/nsswitch.conf  ← determines lookup order: "files dns" or "files mdns dns"
+    → /etc/hosts        ← checked first; static overrides always win
+    → Local stub resolver
+        systemd-resolved: 127.0.0.53:53
+        OR the nameserver listed in /etc/resolv.conf directly
+      → Recursive resolver (8.8.8.8, 1.1.1.1, or your VPC's resolver)
+        → Root nameservers (13 clusters: a.root-servers.net … m.root-servers.net)
+          → TLD nameservers (.com, .net, .io — managed by registries)
+            → Authoritative nameservers for the zone (your DNS provider)
+              → Final answer
 ```
 
-Results are cached at each step according to TTL (Time To Live).
+Each step caches the result for the TTL duration. The recursive resolver is where most caching happens — it serves cached answers to all clients behind it.
 
-### Key Config Files
+**Key insight:** `dig` bypasses `/etc/hosts` and `nsswitch.conf`. It speaks directly to DNS. `getent hosts` or `ping` use the full stack including `/etc/hosts`. This is why `dig test.local` may return NXDOMAIN while `ping test.local` resolves correctly from a `/etc/hosts` entry.
+
 ```bash
-# Nameserver(s) to query
+# Which resolver is your system actually using?
 cat /etc/resolv.conf
-# nameserver 8.8.8.8
-# nameserver 8.8.4.4
-# search example.com   ← appended to short names (e.g. "db" → "db.example.com")
 
-# Local overrides (checked before DNS)
-cat /etc/hosts
-# 127.0.0.1  localhost
-# 10.0.0.100  db.internal mydb
+# On systemd-resolved systems, the real config is here:
+resolvectl status
+
+# Test the full nsswitch stack (includes /etc/hosts):
+getent hosts api.example.com
+
+# Test only DNS (bypasses /etc/hosts):
+dig +short api.example.com
 ```
+
+---
+
+### Key Configuration Files
+
+Two files control DNS behavior on any Linux host. Misconfiguring either causes hard-to-diagnose failures.
+
+**`/etc/resolv.conf`** — tells the system which DNS servers to query and how to handle short names:
+
+```bash
+cat /etc/resolv.conf
+```
+
+```
+nameserver 10.0.0.2        # primary resolver (e.g. VPC internal resolver)
+nameserver 8.8.8.8         # fallback
+search us-east-1.compute.internal example.internal  # appended to single-label names
+options ndots:5            # names with fewer than 5 dots get search domains appended first
+```
+
+**`/etc/hosts`** — static name-to-IP mappings, checked before DNS:
+
+```bash
+cat /etc/hosts
+```
+
+```
+127.0.0.1   localhost
+::1         localhost ip6-localhost
+10.0.0.100  db.internal db   # multiple aliases on one line
+10.0.0.101  redis.internal
+```
+
+**`ndots` gotcha:** the `ndots:5` option in Kubernetes `/etc/resolv.conf` means that `api.example.com` (3 dots = 4 labels, fewer than 5) gets search domains appended *before* trying the FQDN. So a lookup for `api.example.com` inside a pod might first try `api.example.com.default.svc.cluster.local`, then `api.example.com.svc.cluster.local`, then `api.example.com.cluster.local`, and only then `api.example.com.` — adding latency to every external DNS call. **Fix:** append a trailing dot to force FQDN resolution: `api.example.com.`
+
+---
 
 ### DNS Record Types
-| Type | Purpose | Example |
-|---|---|---|
-| A | IPv4 address | `api.example.com → 1.2.3.4` |
-| AAAA | IPv6 address | `api.example.com → 2001:db8::1` |
-| CNAME | Alias to another name | `www.example.com → example.com` |
-| MX | Mail exchanger | `example.com → mail.example.com (priority 10)` |
-| TXT | Arbitrary text (SPF, DKIM, verification) | `"v=spf1 include:sendgrid.net ~all"` |
-| NS | Nameservers for this zone | `example.com → ns1.dnsprovider.com` |
-| PTR | Reverse DNS (IP → name) | `1.2.3.4 → api.example.com` |
-| SRV | Service discovery (port + hostname) | `_http._tcp.example.com → host:port` |
-| SOA | Zone authority and serial | (used by nameservers) |
 
-### dig — The DNS Debugging Tool
+| Type | Purpose | Typical Value |
+|------|---------|--------------|
+| **A** | Maps name → IPv4 address | `1.2.3.4` |
+| **AAAA** | Maps name → IPv6 address | `2001:db8::1` |
+| **CNAME** | Alias — maps name → another name | `www.example.com → example.com` |
+| **MX** | Mail exchanger with priority | `10 mail.example.com` |
+| **TXT** | Arbitrary text; used for SPF, DKIM, domain verification | `"v=spf1 include:sendgrid.net ~all"` |
+| **NS** | Authoritative nameservers for a zone | `ns1.dnsprovider.com` |
+| **PTR** | Reverse DNS: IP → name | `4.3.2.1.in-addr.arpa → api.example.com` |
+| **SRV** | Service location: priority, weight, port, host | `10 20 443 backend.example.com` |
+| **SOA** | Start of Authority: serial, refresh, retry, expire | Used internally by resolvers |
+| **CAA** | Specifies which CAs may issue TLS certs | `0 issue "letsencrypt.org"` |
+
+**CNAME restriction:** A CNAME cannot coexist with other records at the same name. You cannot put a CNAME on a bare domain (`example.com`) because that zone also needs an SOA and NS record. This is why DNS providers offer "ALIAS" or "ANAME" records — they resolve the CNAME target server-side and return the resulting A record.
+
+**SRV records in Kubernetes:** `_http._tcp.my-service.my-namespace.svc.cluster.local` — some service meshes and discovery systems use SRV to expose port information alongside the hostname.
+
+---
+
+### `dig` — The Primary DNS Debugging Tool
+
+`dig` is the standard tool for inspecting DNS. Learn its flags; you'll use it constantly.
+
 ```bash
-# Basic lookup
+# Basic A record lookup
 dig api.example.com
 
-# Short output (just the answer)
+# Short output (just the answer, no metadata)
 dig +short api.example.com
 
-# Specific record type
-dig api.example.com A
+# Query a specific record type
+dig api.example.com AAAA
 dig api.example.com MX
 dig api.example.com TXT
-dig api.example.com CNAME
 dig api.example.com NS
+dig api.example.com SOA
 
-# Query a specific nameserver
-dig @8.8.8.8 api.example.com         # ask Google's DNS
-dig @1.1.1.1 api.example.com         # ask Cloudflare's DNS
-dig @ns1.dnsprovider.com example.com  # ask the authoritative server directly
+# Query a specific nameserver (bypasses local resolver)
+dig @8.8.8.8 api.example.com        # Google Public DNS
+dig @1.1.1.1 api.example.com        # Cloudflare
+dig @ns1.dnsprovider.com example.com # Ask the authoritative server directly
 
-# Trace the full resolution chain
+# Trace every step of the resolution chain
 dig +trace api.example.com
 
-# Reverse lookup (IP → name)
+# Reverse lookup (IP → hostname via PTR)
 dig -x 8.8.8.8
 
-# Check TTL remaining
-dig +ttlid api.example.com
+# Show TTL in output
+dig +ttlid api.example.com A
+
+# Show only the answer section
+dig +noall +answer api.example.com
+
+# Batch queries from a file
+dig -f domains.txt +short
 ```
 
-### Understanding dig Output
+---
+
+### Reading `dig` Output
+
+Most engineers glance at the ANSWER SECTION and ignore the rest. The other sections contain diagnostic information you need during incidents.
+
 ```
+; <<>> DiG 9.18.1 <<>> api.example.com
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12345
+;;              ^^^^^^^^^^^^^^  ^^^^^^^^
+;;              NOERROR = found | NXDOMAIN = doesn't exist
+;;              SERVFAIL = resolver couldn't get an answer
+;;              REFUSED = server won't answer (firewall, ACL)
+
 ;; QUESTION SECTION:
-;api.example.com.       IN      A
+;api.example.com.       IN      A      ← what we asked for
 
 ;; ANSWER SECTION:
 api.example.com.  300   IN  A   52.14.123.45
-#                 ^^^           ^^^^^^^^^^^^
-#                 TTL (seconds) IP address
+;;               ^^^              ^^^^^^^^^^^^
+;;               TTL in seconds   The actual answer
 
 ;; AUTHORITY SECTION:
 example.com.      3600  IN  NS  ns1.dnsprovider.com.
-# Who owns this zone
+;;  Who is authoritative for this zone — useful to identify which
+;;  provider controls the DNS (not necessarily who owns the domain)
 
 ;; ADDITIONAL SECTION:
-# IP of the nameservers (glue records)
+ns1.dnsprovider.com.  3600  IN  A  198.51.100.1
+;;  Glue records: IP of the nameservers so the resolver doesn't
+;;  need another lookup to contact them
 
 ;; Query time: 12 msec
-;; SERVER: 8.8.8.8#53
+;; SERVER: 8.8.8.8#53    ← which resolver actually answered
+;; WHEN: Mon Jan 01 00:00:00 UTC 2025
+;; MSG SIZE  rcvd: 88
 ```
 
-### TTL and Caching
-TTL is the number of seconds a record can be cached. Low TTL (60–300s) means faster propagation when you change records but more DNS queries. High TTL (3600+) means less DNS traffic but slower propagation.
+**`status` codes to know:**
+- `NOERROR` — query succeeded (even if ANSWER is empty — that means the record type doesn't exist)
+- `NXDOMAIN` — the domain itself doesn't exist
+- `SERVFAIL` — the resolver failed to get an authoritative answer (misconfigured zone, unreachable nameserver)
+- `REFUSED` — the server won't process the query (ACL, firewall)
 
-**Before planned DNS changes:** lower the TTL to 60s at least 24 hours in advance (so cached records expire quickly).
+---
+
+### TTL and DNS Propagation
+
+TTL (Time To Live) is the number of seconds a resolver may cache an answer. It is set by whoever manages the authoritative zone — not the client.
+
+| TTL | Use case |
+|-----|---------|
+| 60s | Active deployments, canary releases, blue-green switches |
+| 300s | Services that change occasionally |
+| 3600s | Stable infrastructure (origin IPs, MX records) |
+| 86400s | Near-static records (NS records, rarely-changed infra) |
+
+**Pre-change checklist:**
+1. Check current TTL: `dig +ttlid api.example.com A`
+2. If TTL > 300, lower it to 60 and wait for that TTL to expire (i.e., wait for all cached copies to expire — at least the current TTL duration)
+3. Make your record change
+4. Verify from multiple resolvers
+5. Raise TTL back after you're confident
 
 ```bash
-# How long until my DNS change propagates?
-# Check TTL of current record:
-dig +short +ttlid api.example.com A
-# If TTL is 3600, you may have to wait up to 1 hour for all caches to expire
+# Check TTL of a live record (shows remaining cache time at 8.8.8.8)
+dig +noall +answer +ttlid @8.8.8.8 api.example.com A
+
+# Poll until a new IP appears (useful during cutover)
+watch -n 5 'dig +short @8.8.8.8 api.example.com A'
 ```
 
-### Internal DNS (Service Discovery)
-In container environments, DNS is used for service discovery:
+**Negative TTL:** NXDOMAIN responses are also cached, for the duration specified in the SOA record's minimum TTL field. If you create a record for a name that was recently queried and got NXDOMAIN, resolvers may continue returning NXDOMAIN until their negative cache expires. This trips up engineers who delete and recreate records quickly.
+
+---
+
+### Internal DNS and Service Discovery
+
+In modern infrastructure, DNS is the universal service discovery mechanism. Cloud and container platforms all rely on it.
+
+**Kubernetes DNS (CoreDNS):**
 ```
-Kubernetes: my-service.my-namespace.svc.cluster.local
-Docker Compose: just use the service name (e.g. "db", "redis")
-AWS: internal load balancers get DNS names in *.elb.amazonaws.com
+# Full FQDN format:
+<service>.<namespace>.svc.cluster.local
+
+# From within the same namespace, short names work:
+curl http://my-service            # resolves via search domain
+curl http://my-service.my-ns      # explicit namespace
+curl http://my-service.my-ns.svc.cluster.local  # FQDN
+
+# Headless services return individual pod IPs (no ClusterIP):
+# pod-ip.my-service.my-namespace.svc.cluster.local
 ```
 
-### Common DNS Problems
+**Docker Compose:**
+```yaml
+services:
+  api:
+    image: myapp:latest
+  db:
+    image: postgres:15
+# "api" can reach "db" simply as hostname "db"
+# Docker's embedded DNS resolver handles it
+```
+
+**AWS VPC DNS:**
+```
+# VPC resolver is always at: base_of_VPC_CIDR + 2
+# e.g., VPC 10.0.0.0/16 → resolver at 10.0.2
+
+# EC2 internal hostnames:
+ip-10-0-1-50.us-east-1.compute.internal
+
+# RDS, ElastiCache, ELB all get DNS names — never hardcode their IPs
+mydb.abc123.us-east-1.rds.amazonaws.com
+my-alb-1234567890.us-east-1.elb.amazonaws.com
+```
+
+**Split-horizon DNS:** the same name resolves to different IPs depending on where the query originates. Common pattern: `api.example.com` resolves to a public IP from the internet but to a private IP from inside the VPC. Debugging this requires querying both the internal resolver and a public resolver and comparing results.
+
 ```bash
-# Problem: "Name or service not known"
-# → Check /etc/resolv.conf, is the nameserver reachable?
-dig @8.8.8.8 api.example.com   # bypass local resolver
-
-# Problem: stale cached record
-# → Check TTL, wait it out, or flush local cache:
-systemd-resolve --flush-caches   # systemd-resolved
-# macOS: dscacheutil -flushcache
-
-# Problem: different answers from different locations
-# → Compare authoritative vs recursive:
-dig @ns1.authoritative.com api.example.com   # authoritative answer
-dig api.example.com                          # what your resolver says
-
-# Problem: NXDOMAIN (domain doesn't exist)
-dig nonexistent.example.com
-# Check: typo? correct zone? recently deleted?
+# Are you getting the internal or external answer?
+dig @10.0.0.2 api.example.com A     # internal VPC resolver
+dig @8.8.8.8 api.example.com A      # external resolver
 ```
 
-## Examples
+---
 
-### Check All Record Types for a Domain
+### DNS in the Context of TLS and Security
+
+DNS affects security in ways that catch engineers off guard.
+
+**CAA records** restrict which Certificate Authorities can issue certificates for your domain. If your CA isn't listed, issuance fails:
 ```bash
-#!/usr/bin/env bash
-DOMAIN="${1:-example.com}"
-echo "=== DNS Records for $DOMAIN ==="
-
-for TYPE in A AAAA MX TXT NS CNAME; do
-    RESULT=$(dig +short "$DOMAIN" "$TYPE")
-    [ -n "$RESULT" ] && echo "$TYPE: $RESULT"
-done
-
-echo "=== PTR (reverse DNS for first A) ==="
-IP=$(dig +short "$DOMAIN" A | head -1)
-[ -n "$IP" ] && dig +short -x "$IP"
+dig example.com CAA
+# 0 issue "letsencrypt.org"
+# 0 issuewild ";"          ← no wildcard certs allowed
 ```
 
-### Verify DNS Propagation
+**SPF/DKIM/DMARC** are all TXT records. Email deliverability failures are often DNS problems:
 ```bash
-#!/usr/bin/env bash
-DOMAIN="$1"
-EXPECTED="$2"
-NAMESERVERS="8.8.8.8 1.1.1.1 9.9.9.9"
-
-echo "Checking propagation of $DOMAIN → $EXPECTED"
-for NS in $NAMESERVERS; do
-    RESULT=$(dig +short "@$NS" "$DOMAIN" A)
-    STATUS="✓" ; [ "$RESULT" != "$EXPECTED" ] && STATUS="✗"
-    printf "%s  @%-12s  %s\n" "$STATUS" "$NS" "${RESULT:-NXDOMAIN}"
-done
+dig example.com TXT | grep spf
+dig _dmarc.example.com TXT
+dig selector1._domainkey.example.com TXT
 ```
 
-## Exercises
+**DNSSEC** adds cryptographic signatures to DNS responses, preventing spoofing. Check if a domain uses it:
+```bash
+dig +dnssec example.com A
+# Look for RRSIG records in the ANSWER section
+```
 
-1. Use `dig +trace` on any domain and follow the resolution chain — identify the root server, TLD nameserver, and authoritative nameserver that answered.
-2. Look up the MX records for a domain of your choice. Then look up the A record for each mail server. What IPs are they pointing to?
-3. Write a script that takes a domain and checks if it responds differently from 3 different nameservers (8.8.8.8, 1.1.1.1, 9.9.9.9) — useful for detecting split-horizon DNS or caching issues.
-4. Check `/etc/hosts` and `/etc/resolv.conf` on your machine. Add an entry to `/etc/hosts` that overrides a domain (e.g. `127.0.0.1 test.local`), then `dig test.local` and `ping test.local` — explain why one works and the other doesn't.
+---
+
+### Common DNS Failure Patterns
+
+```bash
+# ── PATTERN 1: "Name or service not known" ──────────────────────────
+# The resolver is unreachable or misconfigured
+ping 8.8.8.8                           # check network connectivity first
+cat /etc/resolv.conf                   # is there a nameserver listed?
+dig @8.8.8.8 api.example.com           # bypass local resolver
+
+# ── PATTERN 2: Stale cached record ──────────────────────────────────
+# You updated DNS but the old IP is still being returned
+dig +ttlid api.example.com A           # how long until this cache entry expires?
+dig @ns1.authoritative.com api.example.com  # what does authoritative say?
+
+# Flush local DNS cache:
+resolvectl flush-caches                # systemd-resolved (most Linux distros)
+dscacheutil -flushcache                # macOS (also restart mDNSResponder)
+
+# ── PATTERN 3: SERVFAIL ──────────────────────────────────────────────
+# The resolver can't get an answer — usually a broken zone or unreachable NS
+dig +trace api.example.com             # where does the chain break?
+dig @ns1.authoritative.com example.com SOA  # is the authoritative server responding?
+
+# ── PATTERN 4: Works from some places, not others

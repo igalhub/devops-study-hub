@@ -8,245 +8,315 @@ exercises: 4
 ---
 
 ## Overview
-SAST (Static Application Security Testing) analyzes source code without running it — it catches hardcoded secrets, SQL injection patterns, insecure function calls, and known-vulnerable code paths at commit time. DAST (Dynamic Application Security Testing) attacks a running application like an external attacker would — it finds issues that only appear at runtime: authentication bypasses, XSS, misconfigured headers, exposed endpoints. Both belong in CI/CD; neither replaces the other.
+
+SAST (Static Application Security Testing) analyzes source code, bytecode, or compiled artifacts without executing them. It catches hardcoded secrets, SQL injection patterns, insecure function calls, and dangerous API usage at commit time — before any code reaches a running environment. Because SAST operates on code, it gives developers precise file-and-line feedback and integrates naturally into editors, pre-commit hooks, and CI pipelines. The tradeoff is that SAST cannot see runtime behavior: it cannot know what HTTP headers your server actually returns, whether an auth check is bypassed by a specific request sequence, or how your app behaves under a real attacker's input.
+
+DAST (Dynamic Application Security Testing) attacks a live application the way an external attacker would. It sends crafted HTTP requests, inspects responses, follows redirects, and probes for vulnerabilities that only surface at runtime: authentication bypasses, reflected and stored XSS, misconfigured security headers, open redirects, and server-side request forgery. DAST is language-agnostic — it does not care what framework your app uses — but it requires a running target, which means it belongs later in the pipeline, typically against a staging or ephemeral environment.
+
+Together, SAST and DAST implement defense in depth for application security. SAST shifts security left to the developer's workstation and the PR stage; DAST validates the running system before promotion to production. Neither replaces the other, and neither replaces human code review or penetration testing. In a mature DevSecOps pipeline they are complementary layers: SAST is fast and cheap (run on every commit), DAST is slower and more realistic (run on every deploy to a test environment). Both feed findings into a unified place — GitHub Security tab, Defect Dojo, or similar — so teams can track, triage, and close vulnerabilities systematically.
+
+---
 
 ## Concepts
 
-### SAST — Static Analysis
+### SAST vs DAST: Core Differences
 
-#### Bandit (Python)
+| Property | SAST | DAST |
+|---|---|---|
+| What it analyzes | Source code / bytecode | Running application (HTTP) |
+| When it runs | Pre-commit, PR, CI build | Post-deploy to test environment |
+| Requires running app? | No | Yes |
+| Language-aware? | Yes — rules are language-specific | No — targets HTTP surface |
+| Finds runtime issues? | No | Yes |
+| False-positive rate | Higher (no runtime context) | Lower (confirmed via real requests) |
+| Speed | Seconds to minutes | Minutes to hours |
+| Typical tools | Bandit, Semgrep, Gitleaks | OWASP ZAP, Nuclei, Burp Suite |
+
+**Key interview point:** SAST false positives are common because the tool cannot trace data flow through all code paths. DAST false positives are less common but DAST can miss vulnerabilities that require authenticated or multi-step flows if it isn't configured correctly.
+
+---
+
+### SAST with Bandit (Python)
+
+Bandit parses Python AST (Abstract Syntax Tree) and runs a set of tests against it. Each test maps to a known insecure pattern. Severity (LOW/MEDIUM/HIGH) and confidence (LOW/MEDIUM/HIGH) are reported separately — a finding can be HIGH severity but LOW confidence if Bandit is unsure whether the code path is reachable.
+
 ```bash
 pip install bandit
 
-# Scan a Python project
+# Recursive scan of a source directory
 bandit -r src/
 
-# Only report medium and high severity
-bandit -r src/ -l   # -l = low severity only
-bandit -r src/ -ll  # medium and above
+# Report only MEDIUM severity and above (skip LOW noise)
+bandit -r src/ -ll
 
-# Output formats
+# Report only HIGH severity (strictest gate)
+bandit -r src/ -lll
+
+# JSON output for machine consumption (CI upload, dashboards)
 bandit -r src/ -f json -o bandit-report.json
 
-# Skip specific checks (use sparingly)
-bandit -r src/ --skip B105,B106   # skip hardcoded password checks
+# SARIF output for GitHub Security tab
+bandit -r src/ -f sarif -o bandit.sarif
 
-# Suppress a specific finding inline
-password = get_from_vault()  # nosec B105
+# Skip specific checks — use sparingly, document why
+bandit -r src/ --skip B101,B105
+
+# Exit code 0 even if findings exist (collect results without failing)
+bandit -r src/ -f json -o bandit.json --exit-zero
 ```
 
-Common Bandit findings to know:
-```
-B101 — assert used (disabled in optimized mode, don't use for security checks)
-B105 — hardcoded password string
-B110 — try/except/pass (swallowing exceptions)
-B201 — Flask debug=True
-B301 — pickle.loads (unsafe deserialization)
-B324 — md5/sha1 used for hashing (use sha256+)
-B501 — SSL certificate verification disabled
-B608 — SQL injection via string formatting
+**Common Bandit rule IDs to know for interviews:**
+
+| Rule | Issue | Why It Matters |
+|---|---|---|
+| B101 | `assert` used for security checks | Asserts are stripped with `-O` flag |
+| B105/B106 | Hardcoded password in string/function arg | Credentials in source = credential leak |
+| B110 | `try/except/pass` swallows exceptions | Silent failures hide security errors |
+| B201 | Flask `debug=True` | Exposes interactive debugger to network |
+| B301 | `pickle.loads` | Arbitrary code execution on deserialization |
+| B324 | MD5/SHA1 for hashing | Broken for passwords; use bcrypt/SHA-256+ |
+| B501 | SSL cert verification disabled | Enables MITM attacks |
+| B608 | SQL string formatting | SQL injection vector |
+
+**Suppressing a finding inline:** use `# nosec <rule>` with a comment explaining why it is safe. Bare `# nosec` without a rule ID suppresses everything on that line — avoid it.
+
+```python
+# Acceptable suppression — test-only code, not a real password
+TEST_PASSWORD = "hunter2"  # nosec B105 — hardcoded only in test fixtures
 ```
 
-#### Semgrep
-Semgrep is a cross-language static analysis tool with a large community rule set:
+**Bandit gotcha:** Bandit reports issues in code it can parse but does not perform full taint analysis. It cannot follow data through function calls across files. A finding like B608 might be a false positive if the string being formatted is not user-controlled — always read the surrounding code before dismissing or suppressing.
+
+---
+
+### SAST with Semgrep
+
+Semgrep performs pattern-matching on syntax trees across 30+ languages. Unlike regex, Semgrep patterns are syntactically aware — `$X + $Y` matches any addition regardless of whitespace or variable names. The community registry (`semgrep.dev/r`) contains thousands of rules maintained by r2c and the security community.
 
 ```bash
 pip install semgrep
 
-# Run with auto-detected language rules
+# Auto-detect language and apply default rules
 semgrep --config=auto src/
 
-# Run OWASP Top 10 rules
+# OWASP Top 10 ruleset
 semgrep --config="p/owasp-top-ten" src/
 
-# Run Python security rules
-semgrep --config="p/python" src/
-
-# Run secrets detection
+# Secrets detection (API keys, tokens, credentials)
 semgrep --config="p/secrets" .
 
-# Output as SARIF (uploads to GitHub Security tab)
+# Multiple rulesets in one run
+semgrep --config="p/owasp-top-ten" --config="p/secrets" src/
+
+# SARIF for GitHub Advanced Security
 semgrep --config=auto --sarif --output=semgrep.sarif src/
 
-# Fail CI on any finding
+# Fail CI (exit code 1) on any finding
 semgrep --config=auto --error src/
+
+# Fail only on ERROR severity, not WARNING
+semgrep --config=auto --severity=ERROR --error src/
 ```
 
-Writing a custom Semgrep rule:
+**Writing custom Semgrep rules** is a key differentiator from Bandit. Rules are YAML and can use `pattern`, `pattern-not`, `pattern-inside`, `metavariable-regex`, and `taint` mode for data-flow analysis.
+
 ```yaml
-# rules/no-raw-sql.yml
+# rules/no-shell-injection.yml
 rules:
+  - id: subprocess-shell-true-with-variable
+    patterns:
+      - pattern: subprocess.run($CMD, ..., shell=True, ...)
+      - pattern-not: subprocess.run("...", ..., shell=True, ...)  # string literal is safe
+    message: >
+      subprocess.run with shell=True and a non-literal command is a shell injection risk.
+      Use a list of arguments instead: subprocess.run(['cmd', arg1, arg2]).
+    severity: ERROR
+    languages: [python]
+    metadata:
+      cwe: CWE-78
+      owasp: A03:2021
+
   - id: no-raw-sql-format
     patterns:
-      - pattern: |
-          cursor.execute("..." % ...)
-      - pattern: |
-          cursor.execute("..." + ...)
-    message: "SQL injection risk: use parameterized queries instead"
+      - pattern: cursor.execute($Q % ...)
+      - pattern: cursor.execute($Q + ...)
+      - pattern: cursor.execute(f"...")
+    message: "SQL injection risk: use parameterized queries (cursor.execute(sql, params))"
     severity: ERROR
     languages: [python]
 ```
 
 ```bash
-semgrep --config=rules/no-raw-sql.yml src/
+semgrep --config=rules/ src/
 ```
 
-#### Secret Scanning
-```bash
-# Gitleaks — scan git history for committed secrets
-brew install gitleaks   # or download from GitHub releases
+**Semgrep taint mode** tracks user-controlled data from a source (e.g., `request.args.get(...)`) to a sink (e.g., `cursor.execute(...)`). This catches injection vulnerabilities that span multiple lines and functions — something pattern-matching alone cannot do.
 
-# Scan current repo
+```yaml
+rules:
+  - id: flask-sql-taint
+    mode: taint
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+    pattern-sinks:
+      - pattern: cursor.execute(...)
+    message: "Tainted user input reaches SQL sink"
+    severity: ERROR
+    languages: [python]
+```
+
+---
+
+### Secret Scanning with Gitleaks
+
+Secrets committed to git history persist even after deletion from HEAD. Gitleaks scans commit history using entropy analysis and pattern matching for API keys, tokens, passwords, and certificates.
+
+```bash
+# Install
+brew install gitleaks    # macOS
+# or: docker run zricethezav/gitleaks:latest
+
+# Scan the working tree and git history
 gitleaks detect --source .
 
-# Scan a specific commit range
+# Scan only recent commits (e.g., since branching from main)
 gitleaks detect --source . --log-opts "main..HEAD"
 
-# Pre-commit hook integration
-cat > .pre-commit-config.yaml <<'EOF'
+# Output report as JSON
+gitleaks detect --source . --report-format json --report-path gitleaks-report.json
+
+# Exit code: 0 = no findings, 1 = findings found, 126 = error
+```
+
+**Pre-commit hook** — catches secrets before they ever hit the remote:
+
+```yaml
+# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.0
     hooks:
       - id: gitleaks
-EOF
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        args: ["-ll", "-r", "src/"]
 ```
-
-#### SAST in GitHub Actions
-```yaml
-name: Security Scan
-
-on: [push, pull_request]
-
-jobs:
-  sast:
-    runs-on: ubuntu-24.04
-    permissions:
-      security-events: write   # required for uploading SARIF
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Bandit
-        run: |
-          pip install bandit
-          bandit -r src/ -f json -o bandit.json --exit-zero
-          # exit-zero: don't fail here, upload results instead
-
-      - name: Run Semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: p/owasp-top-ten p/secrets
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-```
-
-### DAST — Dynamic Analysis
-
-#### OWASP ZAP
-ZAP (Zed Attack Proxy) is the most widely used open-source DAST tool. It proxies HTTP traffic and actively tests for vulnerabilities:
 
 ```bash
-# Run a baseline scan against a running app (passive scan only — safe for CI)
+pre-commit install       # installs hooks into .git/hooks/
+pre-commit run --all-files   # run manually against all files
+```
+
+**Gitleaks gotcha:** if a real secret is found in history, deleting it from HEAD is not enough. You must rewrite history (`git filter-repo`) and rotate the credential immediately. Treat any committed secret as compromised regardless of how quickly you removed it.
+
+---
+
+### DAST with OWASP ZAP
+
+ZAP (Zed Attack Proxy) is an intercepting proxy that both passively observes and actively attacks HTTP applications. It is the most widely adopted open-source DAST tool and has first-class Docker and CI support.
+
+**Three scan modes:**
+
+| Mode | Script | Behavior | Safe for production? |
+|---|---|---|---|
+| Baseline | `zap-baseline.py` | Passive only — spiders the app, no attacks | Yes |
+| Full | `zap-full-scan.py` | Active attacks — fuzzes inputs, probes vulnerabilities | No — staging only |
+| API | `zap-api-scan.py` | Active scan driven by OpenAPI/Swagger/GraphQL spec | No — staging only |
+
+```bash
+# Baseline scan — passive, safe against any environment
 docker run --rm zaproxy/zap-stable zap-baseline.py \
   -t https://myapp.example.com \
-  -J zap-report.json
+  -J zap-baseline-report.json \
+  -r zap-baseline-report.html
 
-# Run a full active scan (aggressive — don't run against production)
+# Full active scan — run only against staging/ephemeral environments
 docker run --rm zaproxy/zap-stable zap-full-scan.py \
   -t https://staging.myapp.example.com \
-  -J zap-report.json \
-  -I   # ignore failures (don't exit non-zero)
+  -J zap-full-report.json \
+  -l WARN           # only report WARN and above
 
-# API scan (using an OpenAPI spec)
+# API scan using OpenAPI spec — covers endpoints the spider might miss
 docker run --rm zaproxy/zap-stable zap-api-scan.py \
   -t https://staging.myapp.example.com/openapi.json \
   -f openapi \
-  -J zap-report.json
+  -J zap-api-report.json \
+  -z "-config scanner.attackStrength=HIGH"   # ZAP config options via -z
 ```
 
-**Scan types:**
-- `zap-baseline.py` — passive scan, no attacks, safe against any environment
-- `zap-full-scan.py` — active attack scan, may create/modify data, run against staging only
-- `zap-api-scan.py` — targeted API testing using OpenAPI/Swagger/GraphQL definitions
+**ZAP exit codes:**
+- `0` — no alerts at or above the threshold
+- `1` — alerts found at or above the threshold
+- `2` — scan failed (connection refused, etc.)
 
-#### ZAP in GitHub Actions
-```yaml
-jobs:
-  dast:
-    runs-on: ubuntu-24.04
-    services:
-      app:
-        image: myapp:${{ github.sha }}
-        ports:
-          - 8000:8000
+**ZAP gotcha:** the full scan can create or modify data in your application (it submits forms, triggers actions). Never run `zap-full-scan.py` against a production database or any environment with real user data. Always use an ephemeral or staging environment with a seeded test dataset.
 
-    steps:
-      - name: Wait for app to start
-        run: |
-          until curl -sf http://localhost:8000/health; do sleep 2; done
+---
 
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
-        with:
-          target: 'http://localhost:8000'
-          fail_action: false   # don't fail the build on findings (alert only)
-          artifact_name: zap-report
+### DAST Authentication
+
+ZAP cannot test authenticated endpoints without credentials. For simple apps, pass a session cookie or bearer token:
+
+```bash
+# Pass an Authorization header to all requests
+docker run --rm zaproxy/zap-stable zap-baseline.py \
+  -t https://staging.myapp.example.com \
+  -J report.json \
+  -z "-config replacer.full_list(0).description=auth \
+      -config replacer.full_list(0).enabled=true \
+      -config replacer.full_list(0).matchtype=REQ_HEADER \
+      -config replacer.full_list(0).matchstr=Authorization \
+      -config replacer.full_list(0).replacement='Bearer eyJ...'"
 ```
 
-### OWASP Top 10 (What You're Testing For)
+For complex authentication flows (login form, MFA, OAuth), ZAP supports automation scripts (Python/JavaScript) that perform the login sequence and hand the session to the scanner. This is covered in ZAP's Automation Framework (`af.yaml`), which replaces legacy `-z` config for complex scenarios.
+
+---
+
+### OWASP Top 10 — What Each Tool Covers
+
+Understanding which tool catches which OWASP category is a common interview question.
+
+| OWASP Category | SAST (Semgrep/Bandit) | DAST (ZAP) |
+|---|---|---|
+| A01 Broken Access Control | Partial — finds missing auth decorators | Yes — probes endpoints without auth |
+| A02 Cryptographic Failures | Yes — weak ciphers, HTTP URLs, MD5 | Yes — checks TLS config, headers |
+| A03 Injection (SQL, cmd) | Yes — pattern + taint analysis | Yes — fuzzes inputs with payloads |
+| A04 Insecure Design | No — requires business logic context | Partial — missing rate limits |
+| A05 Security Misconfiguration | Partial — debug=True, CORS * | Yes — checks headers, error pages |
+| A06 Vulnerable Components | Via SCA (pip-audit, Trivy) | No |
+| A07 Authentication Failures | Partial — weak password checks | Yes — brute force, session fixation |
+| A08 Software Integrity | Via Gitleaks, supply chain tools | No |
+| A09 Logging Failures | Partial — missing log statements | No |
+| A10 SSRF | Yes — taint to URL sinks | Yes — probes with SSRF payloads |
+
+**Interview point:** No single tool covers everything. A complete DevSecOps pipeline layers SAST + DAST + SCA (Software Composition Analysis for dependencies) + secret scanning + IaC scanning.
+
+---
+
+### Shift-Left: CI Pipeline Integration Strategy
+
+"Shift left" means moving security checks earlier in the development lifecycle to reduce the cost of fixing findings. A finding caught at commit time costs minutes to fix; the same finding found in production costs weeks plus incident response.
+
 ```
-A01 — Broken Access Control        (can user A access user B's data?)
-A02 — Cryptographic Failures       (HTTP not HTTPS, weak ciphers, MD5 passwords)
-A03 — Injection                    (SQL, command, LDAP injection via untrusted input)
-A04 — Insecure Design              (missing rate limits, flawed business logic)
-A05 — Security Misconfiguration    (default passwords, debug mode on, verbose errors)
-A06 — Vulnerable Components        (outdated packages with known CVEs)
-A07 — Authentication Failures      (weak passwords, no MFA, session fixation)
-A08 — Software Integrity Failures  (unsigned dependencies, insecure CI pipelines)
-A09 — Logging Failures             (no audit trail, logging sensitive data)
-A10 — SSRF                         (server making requests to attacker-controlled URLs)
-```
+Developer Workstation
+  └── pre-commit hooks: Gitleaks, Bandit (-ll), Semgrep custom rules
 
-### Integrating into CI: Shift-Left
-```yaml
-# Prioritized security gates in CI:
+Pull Request (fast — target <2 minutes)
+  └── Bandit: HIGH severity only (--exit-zero for MEDIUM, fail on HIGH)
+  └── Semgrep: p/owasp-top-ten, p/secrets
+  └── pip-audit / npm audit: known CVEs in dependencies
+  └── Gitleaks: scan PR commits only
 
-# Gate 1 (on every commit — fast, <60s):
-# - Gitleaks: detect committed secrets
-# - Bandit: critical Python security issues
-# - Semgrep: OWASP top 10 patterns
+Merge to main / deploy to staging (moderate — 5-10 minutes)
+  └── Full Bandit + Semgrep with SARIF upload
+  └── Trivy: container image CVE scan
+  └── ZAP baseline scan: passive, against ephemeral staging
 
-# Gate 2 (on PR — moderate speed):
-# - Trivy: container image CVE scan
-# - Dependency audit: pip-audit, npm audit
-
-# Gate 3 (on staging deploy — slow, minutes):
-# - ZAP baseline scan: passive web app scan
-# - ZAP API scan: if OpenAPI spec exists
-
-# Gate 4 (scheduled weekly):
-# - ZAP full active scan: against staging
-# - Gitleaks on full git history
-```
-
-## Examples
-
-### SQL Injection — What SAST Catches
-```python
-# Vulnerable — Semgrep and Bandit both flag this (B608)
-def get_user(username: str):
-    query = f"SELECT * FROM users WHERE username = '{username}'"
-    cursor.execute(query)
-
-# Safe — parameterized query
-def get_user(username: str):
-    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-```
-
-## Exercises
-
-1. Run Bandit against a Python project (use the devops-study-hub backend or any Python codebase). Fix the top 3 findings. Add Bandit to a pre-commit hook so it runs before every commit.
-2. Write a custom Semgrep rule that flags any use of `subprocess.run(..., shell=True)` with a user-controlled argument (shell injection risk). Test it against a file that has both safe and unsafe usages.
-3. Set up ZAP baseline scan against a locally running web app. Review the report — categorize each finding by OWASP Top 10 category. Pick one finding and demonstrate the fix.
-4. Add a security scanning job to a GitHub Actions workflow that: (a) runs Bandit and fails on any HIGH finding, (b) runs `pip-audit` for dependency CVEs, (c) uploads results as a SARIF artifact to GitHub Security tab.
+Scheduled (weekly, against long-lived staging)
+  └── ZAP full active scan
+  └── Gitleaks on full git
