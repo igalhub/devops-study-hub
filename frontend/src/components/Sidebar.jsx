@@ -51,11 +51,11 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
         <div className="mt-2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${overallPct}%` }} />
         </div>
-        <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">{overallPct}% complete</div>
+        <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">{overallPct}% complete</div>
         {nextLesson && (
           <Link
             to={`/module/${nextLesson.moduleSlug}/lesson/${nextLesson.slug}`}
-            className="mt-2 block text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 truncate transition-colors"
+            className="mt-2 block text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 truncate transition-colors"
           >
             Continue → {nextLesson.title}
           </Link>
