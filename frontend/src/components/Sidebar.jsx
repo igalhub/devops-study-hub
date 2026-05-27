@@ -51,7 +51,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
         <div className="mt-2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${overallPct}%` }} />
         </div>
-        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{overallPct}% complete</div>
+        <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">{overallPct}% complete</div>
         {nextLesson && (
           <Link
             to={`/module/${nextLesson.moduleSlug}/lesson/${nextLesson.slug}`}
@@ -65,7 +65,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
       <nav className="flex-1 py-2">
         {grouped.map(({ group, modules: mods }) => (
           <div key={group} className="mb-1">
-            <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500">
+            <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-500 dark:text-gray-500">
               {group}
             </div>
             {mods.map(mod => {
@@ -73,7 +73,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
               const active = mod.slug === moduleSlug
               const baseClass = `flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors`
               const activeClass = 'bg-stone-50 dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-stone-300 dark:border-gray-600'
-              const idleClass = 'text-gray-600 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+              const idleClass = 'text-gray-700 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
               return (
                 <Link
                   key={mod.slug}
@@ -96,7 +96,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
             className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
               reviewActive
                 ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                : 'text-gray-700 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
             <span className="truncate">Spaced Review</span>
@@ -111,7 +111,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
             className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
               interviewActive
                 ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                : 'text-gray-700 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
             Interview Prep
