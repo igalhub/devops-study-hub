@@ -69,11 +69,12 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
                     (XP_MODULE_COMPLETE,)
                 )
 
-        today = date.today().isoformat()
-        conn.execute(
-            "INSERT INTO streaks (date, completed) VALUES (?, 1) ON CONFLICT(date) DO UPDATE SET completed=1",
-            (today,)
-        )
+        if body.status == 'complete':
+            today = date.today().isoformat()
+            conn.execute(
+                "INSERT INTO streaks (date, completed) VALUES (?, 1) ON CONFLICT(date) DO UPDATE SET completed=1",
+                (today,)
+            )
 
         conn.commit()
         xp_total = conn.execute(

@@ -36,6 +36,8 @@ export default function InterviewPrep({ modules, progress }) {
 
   const selectedModule = modules.find(m => m.slug === selectedSlug)
   const topRef = useRef(null)
+  const isMounted = useRef(true)
+  useEffect(() => () => { isMounted.current = false }, [])
 
   useEffect(() => {
     if (phase === 'reviewed' && topRef.current) {
@@ -66,10 +68,12 @@ export default function InterviewPrep({ modules, progress }) {
     setPhase('evaluating')
     try {
       const ev = await evaluateAnswer(selectedSlug, questions[qIndex].question, answer)
+      if (!isMounted.current) return
       setEvaluation(ev)
       setModelOpen(false)
       setPhase('reviewed')
     } catch {
+      if (!isMounted.current) return
       setError('Evaluation failed. Try again.')
       setPhase('active')
     }
