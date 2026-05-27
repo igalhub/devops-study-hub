@@ -8,226 +8,319 @@ exercises: 4
 ---
 
 ## Overview
-Networking commands are your diagnostic toolkit on Linux servers — used to check connectivity, inspect open ports, trace traffic routes, query DNS, and test HTTP endpoints. These are daily tools in DevOps and come up constantly in troubleshooting interviews.
+
+Networking commands are your diagnostic toolkit on Linux servers — used to check connectivity, inspect open ports, trace traffic routes, query DNS, and test HTTP endpoints. In a DevOps role, you'll reach for these tools every time a deployment fails health checks, a microservice can't talk to another, or a customer reports that a service is down. Knowing which tool to use and in what order separates engineers who resolve incidents in five minutes from those who spend an hour guessing.
+
+The Linux networking toolset evolved in two waves: the older `net-tools` package (`ifconfig`, `netstat`, `route`) which is deprecated but still installed on most systems, and the modern `iproute2` suite (`ip`, `ss`) which maps directly to the kernel's netlink interface and provides more accurate, richer output. You need to know both because you'll inherit servers running either generation, and interview questions reference both.
+
+In the broader DevOps toolchain, these commands sit at the foundation layer. Kubernetes networking, service meshes, load balancer configuration, TLS termination, and CI/CD health checks all depend on the same underlying primitives: does the interface have an IP, is the port open, does DNS resolve, does the packet reach its destination. Every layer of abstraction above this still breaks down to these fundamentals when something goes wrong.
+
+---
 
 ## Concepts
 
 ### The Diagnostic Hierarchy
-When something's broken, check in this order:
-1. **Is the interface up and has an IP?** → `ip addr`
-2. **Can I reach the network?** → `ping`
-3. **Can I reach the specific host?** → `ping`, `traceroute`
-4. **Is the service listening on the right port?** → `ss`
-5. **Is the firewall blocking it?** → `curl`, port-specific test
-6. **Is DNS resolving correctly?** → `dig`, `nslookup`
 
-### Key Tools Quick Reference
-| Tool | Purpose |
-|------|---------|
-| `ip` | Interface/routing config (modern `ifconfig` replacement) |
-| `ss` | Socket statistics — open ports, connections |
-| `netstat` | Older socket stats (still found everywhere) |
-| `ping` | Basic connectivity test |
-| `traceroute` / `tracepath` | Trace packet hops to a destination |
-| `curl` | Transfer data via HTTP/HTTPS — the Swiss Army knife |
-| `dig` / `nslookup` | DNS lookups |
-| `tcpdump` | Packet capture — see actual traffic |
-| `nmap` | Port scanning (install separately) |
+Treat network troubleshooting as a layered process. Working from Layer 1 up prevents you from debugging DNS when the interface is down.
 
-## Examples
+| Step | Question | Tool |
+|------|----------|------|
+| 1 | Is the interface up and does it have an IP? | `ip addr` |
+| 2 | Can I reach my default gateway? | `ping <gateway>` |
+| 3 | Can I reach the destination host? | `ping`, `traceroute` |
+| 4 | Is the service listening on the right port and interface? | `ss -tlnp` |
+| 5 | Is a firewall dropping the packets? | `curl`, `nmap`, firewall commands |
+| 6 | Is DNS resolving to the right address? | `dig`, `nslookup` |
+| 7 | What is actually on the wire? | `tcpdump` |
 
-### ip — Interface and Routing
+**Don't skip steps.** A misconfigured service listening on `127.0.0.1` instead of `0.0.0.0` (step 4) looks identical from the outside to a firewall block (step 5). Confirming step 4 first eliminates one hypothesis immediately.
+
+---
+
+### `ip` — Interface and Routing Management
+
+`ip` is the modern replacement for `ifconfig`, `route`, and `arp`. It talks directly to the kernel via netlink sockets and gives you authoritative state rather than a cached view.
+
 ```bash
-# Show all interfaces and IP addresses
+# Show all interfaces with IP addresses, MAC addresses, and link state
 ip addr
-ip addr show eth0          # specific interface
+ip addr show eth0          # scope to one interface
 
-# Show routing table
-ip route
+# Show the routing table — critical for multi-homed servers
 ip route show
+# Example output:
+# default via 10.0.0.1 dev eth0 proto dhcp src 10.0.0.42 metric 100
+# 10.0.0.0/24 dev eth0 proto kernel scope link src 10.0.0.42
 
-# Add/remove a static route (non-persistent)
-ip route add 10.0.0.0/8 via 192.168.1.1
-ip route del 10.0.0.0/8
+# Show only the default route — useful in scripts
+ip route get 8.8.8.8       # which interface and gateway would be used
 
-# Show ARP cache (IP → MAC mapping)
-ip neigh
+# Add a static route — gone on reboot unless persisted in /etc/netplan or /etc/sysconfig
+ip route add 10.100.0.0/16 via 10.0.0.1 dev eth0
+ip route del 10.100.0.0/16
 
-# Bring interface up/down
+# ARP/neighbor table: IP → MAC mappings
+ip neigh show
+# FAILED state = host doesn't exist or isn't responding at Layer 2
+
+# Bring an interface up or down
 ip link set eth0 up
 ip link set eth0 down
+
+# Assign an IP address to an interface (non-persistent)
+ip addr add 192.168.50.10/24 dev eth1
+ip addr del 192.168.50.10/24 dev eth1
 ```
 
-### ss — Socket Statistics (replaces netstat)
-```bash
-# All listening ports (TCP + UDP)
-ss -tlun
-# -t = TCP, -u = UDP, -l = listening, -n = numeric (no hostname lookup)
+**`ip route get` is underused.** `ip route get 8.8.8.8` tells you exactly which source IP and gateway the kernel would use to reach a destination — invaluable on multi-interface servers where routing asymmetry causes connection resets.
 
-# All established TCP connections
+**Changes made with `ip` are non-persistent.** They survive until next reboot. To persist them, edit `/etc/netplan/*.yaml` (Ubuntu), `/etc/sysconfig/network-scripts/` (RHEL/CentOS), or use `nmcli` (NetworkManager).
+
+---
+
+### `ss` — Socket Statistics
+
+`ss` queries the kernel's socket tables directly. It is faster and more detailed than `netstat`, and it is what you should use on any modern system (kernel 2.6+).
+
+```bash
+# The most useful single command: listening TCP and UDP with process info
+ss -tlunp
+# -t  TCP
+# -u  UDP
+# -l  listening sockets only
+# -n  numeric (skip reverse DNS and service name lookups — much faster)
+# -p  show process name and PID (requires root for other users' processes)
+
+# Sample output:
+# Netid  State   Recv-Q Send-Q  Local Address:Port   Peer Address:Port  Process
+# tcp    LISTEN  0      128     0.0.0.0:22            0.0.0.0:*          users:(("sshd",pid=987,fd=3))
+# tcp    LISTEN  0      511     127.0.0.1:5432        0.0.0.0:*          users:(("postgres",pid=1204,fd=7))
+
+# All established TCP connections — useful to see active client connections
 ss -tn state established
 
-# Find what process is using a port (requires sudo)
-ss -tlnp | grep :80
-# output: LISTEN  0  128  0.0.0.0:80  ...  users:(("nginx",pid=1234,fd=6))
+# Filter by local port
+ss -tlnp sport = :443
 
-# All connections to/from a specific address
-ss -tn dst 192.168.1.100
+# Filter by destination address — what connections am I making to this host?
+ss -tn dst 10.0.1.50
 
-# Show socket summary
+# Show connection counts per state — great for spotting SYN floods or FIN_WAIT buildup
 ss -s
+
+# Watch socket stats live
+watch -n1 'ss -s'
 ```
 
-### netstat — older but still common
-```bash
-# Same as ss -tlun
-netstat -tlun
+**Read the `Local Address` column carefully.** `0.0.0.0:8080` means the service accepts connections on all interfaces. `127.0.0.1:8080` means it only accepts local connections — external clients will get "connection refused" or a timeout depending on firewall rules. This is the single most common misconfiguration in service deployments.
 
-# With process names
+| Local Address | Meaning | Accessible from |
+|---------------|---------|----------------|
+| `0.0.0.0:8080` | All IPv4 interfaces | Anywhere (subject to firewall) |
+| `127.0.0.1:8080` | Loopback only | Same host only |
+| `192.168.1.10:8080` | Specific interface | That interface's network |
+| `:::8080` | All IPv6 interfaces | Anywhere via IPv6 |
+
+---
+
+### `netstat` — Legacy Socket Statistics
+
+`netstat` comes from the `net-tools` package. It is deprecated but ships on almost every Linux distro you'll encounter. Know it for legacy systems and interview recognition.
+
+```bash
+# Equivalent to ss -tlunp
 netstat -tlunp
 
-# All connections
+# All connections (established, listening, all protocols)
 netstat -an
+
+# Show routing table (equivalent to ip route)
+netstat -rn
+
+# Show per-interface statistics: packets, errors, dropped
+netstat -i
+
+# Continuous output (watch for changes)
+netstat -c -tlun
 ```
 
-### ping — Connectivity Check
+| `ss` flag | `netstat` equivalent | Notes |
+|-----------|---------------------|-------|
+| `ss -tlnp` | `netstat -tlnp` | Same output, `ss` is faster |
+| `ss -s` | `netstat -s` | `netstat -s` is more verbose |
+| `ss -i` | `netstat -i` | Interface stats |
+| `ip route` | `netstat -rn` | Routing table |
+
+**`netstat` may not be installed** on minimal container images or fresh cloud instances. If it's missing, install `net-tools` or just use `ss` — they show the same data.
+
+---
+
+### `ping` — Reachability and Latency
+
+`ping` sends ICMP Echo Request packets and measures round-trip time. It tests Layer 3 (IP) reachability but not application availability — a host can respond to ping and still have its web server down.
+
 ```bash
-# Basic ping
+# Basic ping — runs until you Ctrl+C
 ping google.com
 
-# Limit to 4 packets
+# Send exactly 4 packets and exit (good for scripts)
 ping -c 4 google.com
 
-# Ping with interval (seconds between pings)
+# Faster pings — 0.5s interval (default is 1s), useful for quick connectivity checks
 ping -i 0.5 -c 10 192.168.1.1
 
-# Ping a specific size (tests MTU issues)
-ping -s 1472 google.com
+# Flood ping — as fast as possible (requires root, use with care on networks)
+ping -f -c 1000 192.168.1.1
+
+# Test MTU — large packet to expose fragmentation issues
+# Ethernet MTU is usually 1500. IP header = 20 bytes, ICMP header = 8 bytes.
+# So max payload to test full MTU: 1500 - 28 = 1472
+ping -s 1472 -M do google.com
+# -M do = don't fragment; if this fails but smaller sizes work, you have an MTU problem
+
+# Ping a specific source interface — useful on multi-homed hosts
+ping -I eth1 8.8.8.8
 ```
 
-### traceroute — Path Tracing
+**ICMP can be blocked.** Many cloud providers (AWS, GCP) and firewalls block ICMP by default. A `ping` timeout does not prove a host is down — use `curl` or `nc` to verify application-level reachability before concluding a host is unreachable.
+
+**Interpreting ping output:**
+- `time=` — round-trip time in ms. Consistent low values = good. Intermittent spikes = packet loss or routing instability.
+- `packet loss` — any non-zero value in production is worth investigating.
+- `Destination Host Unreachable` — no route to host, or ARP failure at Layer 2.
+- `Request timeout` — ICMP is either blocked by firewall or host is truly down.
+
+---
+
+### `traceroute` and `tracepath` — Path Analysis
+
+`traceroute` reveals each router hop between you and a destination by sending packets with incrementally increasing TTL values. When TTL expires at a router, that router sends back an ICMP Time Exceeded message, revealing its IP.
+
 ```bash
-# Show each hop between you and the destination
+# Standard traceroute (uses UDP by default on Linux)
 traceroute google.com
 
-# Use ICMP instead of UDP (better through some firewalls)
+# Use ICMP instead of UDP — gets through more firewalls
 traceroute -I google.com
 
-# tracepath — similar, no root required
+# Use TCP on port 80 — gets through almost any firewall that allows web traffic
+traceroute -T -p 80 google.com
+
+# Set maximum hops (default 30)
+traceroute -m 15 google.com
+
+# Don't resolve hostnames — faster output
+traceroute -n google.com
+
+# tracepath — no root required, auto-discovers MTU path
 tracepath google.com
 ```
 
-### curl — HTTP Testing and Data Transfer
-curl is the most important networking tool in DevOps — used for health checks, API testing, downloading files, and debugging.
+**Reading traceroute output:**
+```
+ 1  10.0.0.1 (10.0.0.1)         0.812 ms    ← your gateway
+ 2  100.64.0.1 (100.64.0.1)     2.104 ms    ← ISP edge
+ 3  * * *                                   ← hop blocked ICMP (not necessarily broken)
+ 4  142.250.82.174 (...)         8.332 ms    ← Google's network
+```
+
+`* * *` at a hop means that router doesn't respond to ICMP Time Exceeded. **This is normal and does not mean the path is broken** — if later hops respond, traffic is flowing through that silent hop fine.
+
+**High latency that appears at a specific hop and persists to the destination** indicates a problem at or near that hop. Latency that spikes at one hop but recovers at the next is just that router deprioritizing ICMP responses — not a real bottleneck.
+
+---
+
+### `curl` — HTTP Testing and Data Transfer
+
+`curl` is the most important networking tool in DevOps. It's used in health checks, CI/CD pipelines, Kubernetes liveness probes, API testing, file downloads, and webhook debugging.
 
 ```bash
-# Basic GET request
+# GET request — basic
 curl https://api.example.com/health
 
-# Show response code only
-curl -s -o /dev/null -w "%{http_code}" https://api.example.com/health
+# Show only the HTTP status code — ideal for health check scripts
+curl -s -o /dev/null -w "%{http_code}\n" https://api.example.com/health
 
-# POST with JSON body
-curl -X POST https://api.example.com/data \
-  -H "Content-Type: application/json" \
-  -d '{"key": "value"}'
+# Full timing breakdown — essential for latency diagnosis
+curl -s -o /dev/null -w \
+  "DNS lookup:    %{time_namelookup}s\nTCP connect:   %{time_connect}s\nTLS handshake: %{time_appconnect}s\nFirst byte:    %{time_starttransfer}s\nTotal:         %{time_total}s\n" \
+  https://api.example.com
 
-# Include response headers in output
+# Include response headers in output — diagnose caching, redirects, CORS
 curl -i https://api.example.com/health
 
-# Follow redirects
+# Show only response headers, no body
+curl -sI https://api.example.com
+
+# Verbose — shows TLS certificate chain, request/response headers, everything
+curl -v https://api.example.com
+
+# POST with a JSON body
+curl -X POST https://api.example.com/events \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"event": "deploy", "env": "production"}'
+
+# POST JSON from a file
+curl -X POST https://api.example.com/config \
+  -H "Content-Type: application/json" \
+  -d @config.json
+
+# Follow HTTP redirects (301, 302) — needed for many CDN-fronted endpoints
 curl -L https://example.com
 
-# Save response to file
-curl -o output.html https://example.com
-curl -O https://example.com/file.tar.gz    # use remote filename
+# Download a file, preserving the remote filename
+curl -O https://releases.example.com/app-1.2.3.tar.gz
 
-# Show timing breakdown (great for latency debugging)
-curl -s -o /dev/null -w "DNS: %{time_namelookup}s  Connect: %{time_connect}s  Total: %{time_total}s\n" https://example.com
+# Download with progress bar suppressed and saved to specific path
+curl -sL https://example.com/install.sh -o /tmp/install.sh
 
-# With authentication
-curl -u user:password https://api.example.com
-curl -H "Authorization: Bearer $TOKEN" https://api.example.com
+# Skip TLS certificate verification — ONLY for debugging, never in production
+curl -k https://self-signed-internal.example.com
 
-# Skip TLS verification (testing only — never in production scripts)
-curl -k https://self-signed.example.com
+# Set a connection timeout and max time — critical in CI/CD scripts
+curl --connect-timeout 5 --max-time 30 https://api.example.com/health
 
-# Verbose output — shows TLS handshake, headers, everything
-curl -v https://api.example.com
+# Test that a service is reachable on a specific port (even non-HTTP)
+curl -v telnet://redis-host:6379
 ```
 
-### dig — DNS Lookups
+**`-s` silences the progress meter but not errors.** Use `-sS` to silence progress but still show error messages — important in scripts so failures don't disappear silently.
+
+**The `-w` format string** is a powerful feature for structured output in scripts. Common variables:
+
+| Variable | Description |
+|----------|-------------|
+| `%{http_code}` | HTTP response status code |
+| `%{time_total}` | Total transaction time |
+| `%{time_connect}` | Time to TCP connect |
+| `%{time_namelookup}` | Time for DNS resolution |
+| `%{time_appconnect}` | Time until TLS handshake complete |
+| `%{size_download}` | Bytes downloaded |
+| `%{remote_ip}` | IP address actually connected to |
+
+---
+
+### `dig` — DNS Lookups
+
+`dig` (Domain Information Groper) is the standard tool for DNS interrogation. It shows the full DNS response including query time, authoritative server, and TTL values — critical for diagnosing propagation delays, misconfigured records, and split-horizon DNS.
+
 ```bash
-# Look up A record (IPv4 address)
+# Look up the A record (IPv4) — default query type
 dig google.com
 
-# Short output — just the answer
+# Short output — just the IP(s), no metadata
 dig +short google.com
 
-# Look up specific record types
-dig google.com MX         # mail exchangers
-dig google.com AAAA       # IPv6 addresses
-dig google.com TXT        # TXT records (SPF, domain verification, etc.)
-dig google.com NS         # nameservers
-dig google.com CNAME      # canonical name
+# Query a specific record type
+dig google.com MX       # mail exchange servers, with priority
+dig google.com AAAA     # IPv6 address
+dig google.com TXT      # SPF, DKIM, domain verification tokens
+dig google.com NS       # authoritative nameservers
+dig google.com CNAME    # canonical name alias
+dig google.com SOA      # start of authority — serial, TTL, admin contact
+dig google.com CAA      # certificate authority authorization
 
-# Query a specific DNS server
-dig @8.8.8.8 google.com
-dig @1.1.1.1 google.com
-
-# Reverse lookup (IP → hostname)
-dig -x 8.8.8.8
-
-# Trace DNS resolution from root servers
-dig +trace google.com
-```
-
-### tcpdump — Packet Capture (requires root)
-```bash
-# Capture all traffic on eth0
-tcpdump -i eth0
-
-# Capture only HTTP traffic (port 80)
-tcpdump -i eth0 port 80
-
-# Capture traffic to/from a specific host
-tcpdump -i eth0 host 192.168.1.100
-
-# Save capture to file for analysis in Wireshark
-tcpdump -i eth0 -w capture.pcap
-
-# Read saved capture
-tcpdump -r capture.pcap
-
-# Show packet contents in ASCII
-tcpdump -i eth0 -A port 80
-
-# Combine filters
-tcpdump -i eth0 "host 192.168.1.100 and port 443"
-```
-
-### Practical Troubleshooting Pattern
-```bash
-# "Port 8080 should be open but curl times out from outside"
-
-# Step 1: Is something listening on 8080?
-ss -tlnp | grep 8080
-
-# Step 2: Is it bound to 0.0.0.0 (all interfaces) or 127.0.0.1 (loopback only)?
-# 127.0.0.1:8080 = only accessible locally — that's the bug
-
-# Step 3: Is the firewall blocking it?
-# On Ubuntu: ufw status
-# On RHEL:   firewall-cmd --list-all
-
-# Step 4: Test locally vs externally
-curl http://localhost:8080/health     # from the server itself
-curl http://PUBLIC_IP:8080/health     # from outside
-```
-
-## Exercises
-
-1. Find all processes listening on TCP ports on your machine. For each one, identify the port number, the process name, and its PID.
-2. Use `curl` to make a GET request to `http://localhost:8000/health` and display: the HTTP status code, the total time taken, and the response body — all in one command.
-3. Use `dig` to find the A record, MX record, and TXT records for a domain of your choice (e.g., `github.com`). What does the TXT record contain?
-4. A service should be running on port 3000 but you can't connect to it. Write the sequence of commands you'd run to diagnose whether the problem is (a) the service not running, (b) bound to wrong interface, or (c) firewall.
+# Query a specific DNS server — bypass your system resolver
+dig @8.8.8.8 google.com          # Google's public DNS
+dig @
