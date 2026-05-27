@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { fetchLesson, markLessonComplete } from '../store/curriculumStore'
+import { fetchLesson, markLessonComplete, resetLessonProgress } from '../store/curriculumStore'
 import CodePlayground from '../components/CodePlayground'
 
 const DIFFICULTY_COLOR = {
@@ -102,6 +102,15 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     }
   }
 
+  const handleReset = async () => {
+    try {
+      await resetLessonProgress(lesson.id)
+      onProgressUpdate()
+    } catch (e) {
+      console.error('Failed to reset lesson:', e)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-6">
       <div className="mb-4">
@@ -182,7 +191,15 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
 
       <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
         {done ? (
-          <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">✓ Lesson complete</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">✓ Lesson complete</span>
+            <button
+              onClick={handleReset}
+              className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
         ) : (
           <button
             onClick={handleComplete}

@@ -26,6 +26,14 @@ export function markLessonComplete(lessonId) {
   })
 }
 
+export function resetLessonProgress(lessonId) {
+  return apiFetch(`/progress/${lessonId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'not_started' }),
+  })
+}
+
 export function fetchXp() {
   return apiFetch('/xp')
 }
