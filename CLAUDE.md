@@ -11,7 +11,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Security & APIs:** DevSecOps, Postman / API Testing
 - **Observability:** Prometheus, Grafana, Zabbix, Elasticsearch, Logstash, Kibana, Opsgenie
 
-91 lessons total, 455 quiz questions seeded (5 per lesson).
+91 lessons total, 455 quiz questions seeded (5 per lesson), 184 interview questions seeded (8 per module).
 
 ## Core Features
 - **Study Content Tracking** — what's been covered, what's pending
