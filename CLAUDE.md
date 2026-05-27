@@ -34,3 +34,6 @@ Always reference `devops-study-hub-prd.md` at the project root for authoritative
 
 ## Content Expansion
 Use `/expand-content` to expand thin lesson content. The skill enforces code-review after patches and a single-module smoke test before the full run — do not bypass it by running `seed_curriculum.py` directly for a full batch.
+
+## Documentation Currency
+Run `/update-docs` after any significant change (new skill, schema change, lesson count change, new feature). It audits CLAUDE.md, the PRD, skill files, and memory against ground truth from `.claude/docs-manifest.sh` and proposes edits before committing.

@@ -263,7 +263,8 @@ devops-study-hub/
 │   │   ├── expand-content.md  # Guided safe content expansion workflow
 │   │   ├── seed-reset.md
 │   │   └── test.md
-│   └── verify-data.sh         # Data integrity checks (run via /verify-data)
+│   ├── verify-data.sh         # Data integrity checks (run via /verify-data)
+│   └── docs-manifest.sh       # Ground-truth outputs for /update-docs
 ├── devops-study-hub-prd.md
 ├── CLAUDE.md
 ├── start-backend.sh
