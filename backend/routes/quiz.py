@@ -1,5 +1,6 @@
 import json
 import os
+import random
 from pathlib import Path
 from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException
@@ -89,6 +90,41 @@ def _fetch_questions(lesson_id: int) -> list[dict]:
         }
         for r in rows
     ]
+
+
+@router.get("/quiz/module/{module_slug}")
+def get_module_quiz(module_slug: str):
+    conn = get_conn()
+    try:
+        mod = conn.execute(
+            "SELECT id FROM modules WHERE slug = ?", (module_slug,)
+        ).fetchone()
+        if not mod:
+            raise HTTPException(status_code=404, detail="Module not found")
+        rows = conn.execute(
+            """SELECT q.id, q.question, q.options, q.correct_index, q.explanation,
+                      l.title as lesson_title
+               FROM quiz_questions q
+               JOIN lessons l ON q.lesson_id = l.id
+               WHERE l.module_id = ?""",
+            (mod["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    questions = [
+        {
+            "id": r["id"],
+            "question": r["question"],
+            "options": json.loads(r["options"]),
+            "correct_index": r["correct_index"],
+            "explanation": r["explanation"],
+            "lesson_title": r["lesson_title"],
+        }
+        for r in rows
+    ]
+    random.shuffle(questions)
+    return questions[:20]
 
 
 @router.get("/quiz/{lesson_slug}")

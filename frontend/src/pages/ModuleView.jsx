@@ -37,12 +37,20 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{mod.title}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{lessons.length} lessons</p>
         </div>
-        <button
-          onClick={() => navigate(`/interview/${moduleSlug}`)}
-          className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-        >
-          Practice Interview
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate(`/module/${moduleSlug}/quiz`)}
+            className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+          >
+            Module Quiz
+          </button>
+          <button
+            onClick={() => navigate(`/interview/${moduleSlug}`)}
+            className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+          >
+            Practice Interview
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">

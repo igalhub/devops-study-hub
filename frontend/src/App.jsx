@@ -5,8 +5,10 @@ import SearchModal from './components/SearchModal'
 import ThemeToggle from './components/ThemeToggle'
 import AiTutor from './components/AiTutor'
 import Quiz from './components/Quiz'
+import Notes from './components/Notes'
 import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
+import ModuleQuiz from './pages/ModuleQuiz'
 import InterviewPrep from './pages/InterviewPrep'
 import Review from './pages/Review'
 import { useTheme } from './store/themeStore'
@@ -76,6 +78,9 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/module/:moduleSlug" element={
                   <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} />
                 } />
+                <Route path="/module/:moduleSlug/quiz" element={
+                  <ModuleQuiz modules={modules} />
+                } />
                 <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
@@ -89,7 +94,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
             {lessonMatch && (
               <aside className="w-[440px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-stone-200 dark:bg-gray-900">
                 <div className="flex shrink-0 border-b border-gray-200 dark:border-gray-700">
-                  {['tutor', 'quiz'].map(tab => (
+                  {['tutor', 'quiz', 'notes'].map(tab => (
                     <button
                       key={tab}
                       onClick={() => setRightTab(tab)}
@@ -99,13 +104,15 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                       }`}
                     >
-                      {tab === 'tutor' ? 'Tutor' : 'Quiz'}
+                      {tab === 'tutor' ? 'Tutor' : tab === 'quiz' ? 'Quiz' : 'Notes'}
                     </button>
                   ))}
                 </div>
                 {rightTab === 'tutor'
                   ? <AiTutor lessonSlug={lessonMatch.params.lessonSlug} />
-                  : <Quiz lessonSlug={lessonMatch.params.lessonSlug} onXpEarned={onXpEarned} />
+                  : rightTab === 'quiz'
+                  ? <Quiz lessonSlug={lessonMatch.params.lessonSlug} onXpEarned={onXpEarned} />
+                  : <Notes lessonSlug={lessonMatch.params.lessonSlug} />
                 }
               </aside>
             )}

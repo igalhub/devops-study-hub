@@ -12,6 +12,8 @@ from routes.ai import router as ai_router
 from routes.sandbox import router as sandbox_router
 from routes.quiz import router as quiz_router
 from routes.interview import router as interview_router
+from routes.notes import router as notes_router
+from routes.search import router as search_router
 
 app = FastAPI(title='DevOps Study Hub API')
 
@@ -36,6 +38,8 @@ app.include_router(ai_router)
 app.include_router(sandbox_router)
 app.include_router(quiz_router)
 app.include_router(interview_router)
+app.include_router(notes_router)
+app.include_router(search_router)
 
 
 @app.get('/health')
