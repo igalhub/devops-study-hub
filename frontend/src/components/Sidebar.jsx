@@ -18,6 +18,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
   const interviewActive = pathname.startsWith('/interview')
   const reviewActive = pathname === '/review'
   const statsActive = pathname === '/stats'
+  const roadmapActive = pathname === '/roadmap'
 
   const grouped = GROUP_ORDER.map(group => ({
     group,
@@ -64,6 +65,19 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
       </div>
 
       <nav className="flex-1 py-2">
+        <div className="mb-1">
+          <Link
+            to="/roadmap"
+            className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+              roadmapActive
+                ? 'bg-stone-50 dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-stone-300 dark:border-gray-600'
+                : 'text-gray-700 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            Roadmap
+          </Link>
+        </div>
+        <div className="mx-2 mb-2 border-t border-gray-200 dark:border-gray-700" />
         {grouped.map(({ group, modules: mods }) => (
           <div key={group} className="mb-1">
             <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-500 dark:text-gray-500">
