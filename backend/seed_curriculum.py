@@ -178,7 +178,7 @@ def _expand_content(title: str, module_slug: str, raw_content: str, client: Anth
     prompt = EXPANSION_PROMPT.format(title=title, module=module_slug, content=raw_content)
     response = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=8192,
+        max_tokens=16384,
         messages=[{"role": "user", "content": prompt}],
     )
     text = response.content[0].text.strip()
