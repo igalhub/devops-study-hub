@@ -15,5 +15,8 @@ frontend/dist/
 # Claude Code skills (personal tooling)
 .claude/
 
+# Override global gitignore rule (*secrets*) for this tracked lesson file
+!content/devsecops/secrets-management.md
+
 # Playwright MCP output
 .playwright-mcp/
