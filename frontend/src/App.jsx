@@ -58,11 +58,10 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               )}
               <button
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
               >
                 <span>⌕</span>
                 <span>Search</span>
-                <kbd className="hidden sm:inline text-[10px] text-gray-400 dark:text-gray-500">Ctrl K</kbd>
               </button>
             </div>
             <ThemeToggle dark={dark} toggle={toggle} />
