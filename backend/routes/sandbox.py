@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import tempfile
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -11,12 +12,12 @@ TIMEOUT = 10
 
 class RunRequest(BaseModel):
     code: str
-    language: str  # 'bash' or 'python'
+    language: str  # 'bash', 'python', or 'yaml'
 
 
 @router.post('/sandbox/run')
 def run_code(request: RunRequest):
-    if request.language not in ('bash', 'python'):
+    if request.language not in ('bash', 'python', 'yaml'):
         return {'stdout': '', 'stderr': f'Unsupported language: {request.language}', 'exit_code': 1}
 
     if len(request.code) > 10_000:
@@ -28,13 +29,28 @@ def run_code(request: RunRequest):
                 ['bash', '-c', request.code],
                 capture_output=True, text=True, timeout=TIMEOUT,
             )
+        elif request.language == 'yaml':
+            validate = (
+                'import yaml, sys\n'
+                'try:\n'
+                '    data = yaml.safe_load(sys.stdin.read())\n'
+                '    n = len(data) if isinstance(data, (dict, list)) else 1\n'
+                '    print(f"\\u2713 Valid YAML \\u2014 {type(data).__name__} ({n} item(s))")\n'
+                'except yaml.YAMLError as e:\n'
+                '    sys.exit(str(e))\n'
+            )
+            result = subprocess.run(
+                [sys.executable, '-c', validate],
+                input=request.code,
+                capture_output=True, text=True, timeout=TIMEOUT,
+            )
         else:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
                 f.write(request.code)
                 tmpfile = f.name
             try:
                 result = subprocess.run(
-                    ['python3', tmpfile],
+                    [sys.executable, tmpfile],
                     capture_output=True, text=True, timeout=TIMEOUT,
                 )
             finally:

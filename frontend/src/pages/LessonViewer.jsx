@@ -60,9 +60,13 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
       .finally(() => setLoading(false))
   }, [lessonSlug])
 
-  const exerciseLang = lesson?.module_slug === 'python' ? 'python' : 'bash'
+  const YAML_MODULES = new Set(['kubernetes', 'ansible', 'terraform', 'helm', 'cicd', 'gcp', 'aws'])
+  const exerciseLang = lesson?.module_slug === 'python' ? 'python'
+    : YAML_MODULES.has(lesson?.module_slug) ? 'yaml'
+    : 'bash'
 
   const makeStarter = (text, lang) => {
+    if (lang === 'yaml') return `# ${text}\n---\n`
     const shebang = lang === 'python' ? '#!/usr/bin/env python3\n' : '#!/bin/bash\n'
     return `${shebang}# ${text}\n\n`
   }
