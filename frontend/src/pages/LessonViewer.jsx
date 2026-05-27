@@ -75,7 +75,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
 
   if (loading) return <div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>
   if (error || !lesson) {
-    const notFound = !lesson || error?.includes('404')
+    const notFound = !error || error.includes('404')
     return (
       <div className="max-w-3xl mx-auto px-6 py-6">
         <Link

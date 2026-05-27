@@ -48,10 +48,22 @@ def _generate_and_store(lesson_id: int, title: str, content: str) -> None:
 
     conn = get_conn()
     try:
+        # Double-check: another concurrent request may have already inserted questions
+        if conn.execute(
+            "SELECT COUNT(*) as n FROM quiz_questions WHERE lesson_id = ?", (lesson_id,)
+        ).fetchone()["n"] > 0:
+            return
+
         for q in questions:
+            opts = q.get("options", [])
+            ci = q.get("correct_index", -1)
+            if not isinstance(opts, list) or len(opts) < 2:
+                continue
+            if not isinstance(ci, int) or not (0 <= ci < len(opts)):
+                continue
             conn.execute(
                 "INSERT INTO quiz_questions (lesson_id, question, options, correct_index, explanation) VALUES (?,?,?,?,?)",
-                (lesson_id, q["question"], json.dumps(q["options"]), q["correct_index"], q["explanation"]),
+                (lesson_id, q["question"], json.dumps(opts), ci, q.get("explanation", "")),
             )
         conn.commit()
     finally:

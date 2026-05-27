@@ -92,7 +92,9 @@ class EvaluateRequest(BaseModel):
 @router.post("/interview/evaluate")
 def evaluate_answer(req: EvaluateRequest):
     mod = _get_module_row(req.module_slug)
-    module_title = mod["title"] if mod else req.module_slug
+    if not mod:
+        raise HTTPException(status_code=404, detail="Module not found")
+    module_title = mod["title"]
 
     model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6')
     prompt = (
@@ -116,4 +118,12 @@ def evaluate_answer(req: EvaluateRequest):
         result = json.loads(text)
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"Claude returned unparseable JSON: {e}")
+
+    required = {'score', 'feedback', 'model_answer'}
+    missing = required - result.keys()
+    if missing:
+        raise HTTPException(status_code=502, detail=f"Claude response missing keys: {missing}")
+    if result['score'] not in ('Weak', 'Adequate', 'Strong'):
+        raise HTTPException(status_code=502, detail=f"Claude returned invalid score: {result['score']!r}")
+
     return result

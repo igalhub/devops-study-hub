@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from anthropic import AsyncAnthropic
@@ -48,6 +48,10 @@ def _lesson_context(slug: str) -> tuple[str, str | None]:
 
 @router.post('/ai/chat')
 async def chat(request: ChatRequest):
+    for m in request.messages:
+        if m.role not in ('user', 'assistant'):
+            raise HTTPException(status_code=400, detail=f"Invalid role: {m.role!r}. Must be 'user' or 'assistant'.")
+
     title, content = _lesson_context(request.lesson_slug)
 
     system = f"You are an AI tutor for a DevOps course. The student is studying:\n\nLesson: {title}\n\n"

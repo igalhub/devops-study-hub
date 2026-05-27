@@ -1,4 +1,5 @@
 import os
+import resource
 import subprocess
 import sys
 import tempfile
@@ -8,6 +9,15 @@ from pydantic import BaseModel
 router = APIRouter()
 
 TIMEOUT = 10
+MAX_OUTPUT = 50_000  # 50 KB per stream
+
+
+def _apply_resource_limits():
+    """Called as preexec_fn in child process — limits memory, file size, and process count."""
+    MB = 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS,    (256 * MB, 256 * MB))   # 256 MB virtual memory
+    resource.setrlimit(resource.RLIMIT_FSIZE, (10  * MB, 10  * MB))   # 10 MB max written file
+    resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))                # no fork bombs
 
 
 class RunRequest(BaseModel):
@@ -26,8 +36,9 @@ def run_code(request: RunRequest):
     try:
         if request.language == 'bash':
             result = subprocess.run(
-                ['bash', '-c', request.code],
+                ['bash', '--norc', '--noprofile', '-c', request.code],
                 capture_output=True, text=True, timeout=TIMEOUT,
+                preexec_fn=_apply_resource_limits,
             )
         elif request.language == 'yaml':
             validate = (
@@ -43,6 +54,7 @@ def run_code(request: RunRequest):
                 [sys.executable, '-c', validate],
                 input=request.code,
                 capture_output=True, text=True, timeout=TIMEOUT,
+                preexec_fn=_apply_resource_limits,
             )
         else:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -52,13 +64,18 @@ def run_code(request: RunRequest):
                 result = subprocess.run(
                     [sys.executable, tmpfile],
                     capture_output=True, text=True, timeout=TIMEOUT,
+                    preexec_fn=_apply_resource_limits,
                 )
             finally:
                 os.unlink(tmpfile)
 
+        stdout = result.stdout[:MAX_OUTPUT]
+        stderr = result.stderr[:MAX_OUTPUT]
+        if len(result.stdout) > MAX_OUTPUT or len(result.stderr) > MAX_OUTPUT:
+            stderr += '\n[output truncated at 50 KB]'
         return {
-            'stdout': result.stdout,
-            'stderr': result.stderr,
+            'stdout': stdout,
+            'stderr': stderr,
             'exit_code': result.returncode,
         }
     except subprocess.TimeoutExpired:

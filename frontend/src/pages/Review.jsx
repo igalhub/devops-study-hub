@@ -100,10 +100,11 @@ export default function Review({ onXpEarned, onComplete }) {
         )}
         <button
           onClick={() => {
+            setQueue([])
+            setPhase('idle')
             fetchReviewQueue()
               .then(data => setQueue(data))
               .catch(() => {})
-            setPhase('idle')
           }}
           className="mt-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
         >
