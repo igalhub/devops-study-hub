@@ -362,15 +362,29 @@ def main() -> None:
                     try:
                         expanded = _expand_content(lesson["title"], lesson["module_slug"], raw, client)
                         new_body = _strip_frontmatter(expanded)
+                        fm_intact = new_body != expanded.strip()
+                        blocks_closed = new_body.count("```") % 2 == 0
                         missing = [s for s in REQUIRED_SECTIONS if s not in new_body]
-                        if missing and attempt < 2:
-                            print(f"retry (missing {', '.join(missing)}) ...", end=" ", flush=True)
+                        issues = (
+                            ([] if fm_intact else ["frontmatter lost"]) +
+                            ([] if blocks_closed else ["unclosed code block"]) +
+                            missing
+                        )
+                        if issues and attempt < 2:
+                            print(f"retry ({', '.join(issues)}) ...", end=" ", flush=True)
                             time.sleep(2)
                             continue
+                        if not fm_intact:
+                            # Corrupted frontmatter is worse than leaving the original thin content
+                            content_tag = "EXPAND FAILED (frontmatter lost)"
+                            content_failed += 1
+                            expansion_failed = True
+                            break
                         md_file.write_text(expanded)
                         new_lines = sum(1 for l in new_body.splitlines() if l.strip())
                         content_body = new_body  # use expanded content for quiz step
-                        suffix = f", missing {', '.join(missing)}" if missing else ""
+                        non_fm_issues = [i for i in issues if i != "frontmatter lost"]
+                        suffix = f", {', '.join(non_fm_issues)}" if non_fm_issues else ""
                         content_tag = f"expanded ({original_lines}→{new_lines} lines{suffix})"
                         expanded_files.append(lesson["md_path"])
                         content_expanded += 1
