@@ -10,6 +10,7 @@ Options:
     --content-only    Only expand thin content, skip quiz generation
     --quiz-only       Only generate quiz questions, skip content check
     --force-content   Re-expand content even if lesson is already thick
+    --force-quiz      Re-generate quiz questions even if 5 already exist
     --min-lines <n>   Override the thin-content threshold (default: 200)
 
 What it does per lesson (in order):
@@ -205,9 +206,17 @@ def _generate_questions(title: str, content: str, client: Anthropic) -> list[dic
     return json.loads(text.strip())
 
 
-def _store_questions(lesson_id: int, questions: list[dict]) -> None:
+def _store_questions(lesson_id: int, questions: list[dict], replace: bool = False) -> None:
     conn = get_conn()
     try:
+        if replace:
+            # srs_schedule FK-references quiz_questions; delete child rows first
+            conn.execute(
+                "DELETE FROM srs_schedule WHERE question_id IN "
+                "(SELECT id FROM quiz_questions WHERE lesson_id = ?)",
+                (lesson_id,),
+            )
+            conn.execute("DELETE FROM quiz_questions WHERE lesson_id = ?", (lesson_id,))
         for q in questions:
             conn.execute(
                 "INSERT INTO quiz_questions (lesson_id, question, options, correct_index, explanation) "
@@ -287,6 +296,7 @@ def main() -> None:
     content_only = "--content-only" in sys.argv
     quiz_only = "--quiz-only" in sys.argv
     force_content = "--force-content" in sys.argv
+    force_quiz = "--force-quiz" in sys.argv
 
     min_lines = MIN_LINES_DEFAULT
     if "--min-lines" in sys.argv:
@@ -330,7 +340,7 @@ def main() -> None:
             content_status = f"thin ({reason})" if (thin and not force_content) else "OK"
             if force_content and not quiz_only:
                 content_status = f"will re-expand ({sum(1 for l in content.splitlines() if l.strip())} lines)"
-            quiz_status = "has quiz" if has_quiz else "needs quiz"
+            quiz_status = ("will regen" if force_quiz and has_quiz else "has quiz") if has_quiz else "needs quiz"
             print(f"  {lesson['slug']}: content {content_status} | {quiz_status}")
         return
 
@@ -404,7 +414,7 @@ def main() -> None:
         # --- Quiz phase ---
         quiz_tag = ""
         if not content_only:
-            if lesson["question_count"] > 0:
+            if lesson["question_count"] > 0 and not force_quiz:
                 quiz_tag = "quiz OK"
                 quiz_ok += 1
             elif expansion_failed:
@@ -416,8 +426,8 @@ def main() -> None:
                         questions = _generate_questions(lesson["title"], content_body, client)
                         if len(questions) != 5:
                             raise ValueError(f"expected 5 questions, got {len(questions)}")
-                        _store_questions(lesson["id"], questions)
-                        quiz_tag = "quiz generated"
+                        _store_questions(lesson["id"], questions, replace=force_quiz)
+                        quiz_tag = "quiz regenerated" if force_quiz else "quiz generated"
                         quiz_generated += 1
                         break
                     except json.JSONDecodeError as e:
