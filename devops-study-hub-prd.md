@@ -181,6 +181,7 @@ integrated practice environments.
   - `seed_quiz_all.py` — batch AI-generated quiz questions for all lessons
   - `seed_curriculum.py` — full pipeline: detects thin content, expands via Claude API,
     then seeds quiz questions in one pass (idempotent, auto-commits)
+  - `seed_interview.py` — pre-seeds interview questions (8 per module) for all 23 modules
 
 ## Code Sandbox
 - Monaco Editor for inline code editing (Bash, Python)
@@ -223,6 +224,7 @@ devops-study-hub/
 │   ├── seed_quiz.py         # Handcrafted quiz questions (Prometheus)
 │   ├── seed_quiz_all.py     # Batch AI quiz generation for all lessons
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
+│   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   └── routes/
