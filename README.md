@@ -10,6 +10,14 @@ An interactive, self-hosted study tool for learning DevOps. Covers 23 modules an
 - **Interview Prep** — 8 scenario-based questions per module with AI feedback
 - **Roadmap** — visual skill tree showing completion across all modules
 - **Progress tracking** — XP, daily streaks, per-lesson completion
+- **Content search** — full-text search across lesson titles and body content
+- **Lesson notes** — per-lesson textarea, auto-saved to backend
+- **Bookmarks** — star any lesson; accessible from the header dropdown
+- **Recently visited** — last 5 lessons, one-click return from the header
+- **Stats page** — XP timeline, streak calendar, per-module completion breakdown
+- **Module quiz** — dedicated quiz page per module
+- **Reading mode** — distraction-free view; auto-generated TOC for long lessons
+- **Keyboard navigation** — `[` / `]` keys move between lessons within a module
 
 ## Prerequisites
 

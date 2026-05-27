@@ -18,6 +18,8 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Content Planning** — structured learning path
 - **Daily Operations** — session management, streaks, goals
 - **Code Builds** — in-app code execution for exercises
+- **Notes** — per-lesson notes, auto-saved to backend
+- **Stats** — XP timeline, streak calendar, per-module completion breakdown
 
 ## Killer Features
 - **AI Tutor** — answers questions in context of the current lesson
@@ -25,6 +27,9 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson
 - **Roadmap View** — visual skill tree showing what to learn next
 - **Interview Prep Mode** — common DevOps interview questions with AI feedback
+- **Content Search** — full-text search across lesson titles and body content
+- **Bookmarks** — star any lesson; accessible from the header dropdown
+- **Module Quiz** — dedicated per-module quiz page
 
 ## Tone & Style
 Rigorous, direct, no fluff. Cover things properly but don't pad. Breadth and rigor equally — cast a wide net, do it well.
