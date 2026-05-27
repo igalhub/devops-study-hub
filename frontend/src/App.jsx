@@ -41,7 +41,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
 
   return (
     <div className={dark ? 'dark' : ''}>
-      {searchOpen && <SearchModal modules={modules} onClose={() => setSearchOpen(false)} />}
+      {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
       <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
         <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

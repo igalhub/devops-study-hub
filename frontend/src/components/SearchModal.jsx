@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-export default function SearchModal({ modules, onClose }) {
+export default function SearchModal({ modules, progress = {}, onClose }) {
   const [query, setQuery] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
   const inputRef = useRef(null)
@@ -13,6 +13,7 @@ export default function SearchModal({ modules, onClose }) {
       moduleTitle: m.title,
       lessonSlug: l.slug,
       lessonTitle: l.title,
+      done: progress[String(l.id)] === 'complete',
     }))
   )
 
@@ -76,6 +77,7 @@ export default function SearchModal({ modules, onClose }) {
                 >
                   <span className="text-xs text-gray-400 dark:text-gray-500">{item.moduleTitle} › </span>
                   <span className="text-sm text-gray-800 dark:text-gray-100">{item.lessonTitle}</span>
+                  {item.done && <span className="ml-auto text-xs text-emerald-500 shrink-0">✓</span>}
                 </button>
               </li>
             ))}

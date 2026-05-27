@@ -37,6 +37,11 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
   const doneLessons = Object.values(progress).filter(s => s === 'complete').length
   const overallPct = totalLessons ? Math.round((doneLessons / totalLessons) * 100) : 0
 
+  const nextLesson = GROUP_ORDER
+    .flatMap(group => modules.filter(m => m.group === group))
+    .flatMap(m => (m.lessons || []).map(l => ({ ...l, moduleSlug: m.slug })))
+    .find(l => progress[String(l.id)] !== 'complete')
+
   return (
     <aside className="w-[220px] shrink-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -47,6 +52,14 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
           <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${overallPct}%` }} />
         </div>
         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{overallPct}% complete</div>
+        {nextLesson && (
+          <Link
+            to={`/module/${nextLesson.moduleSlug}/lesson/${nextLesson.slug}`}
+            className="mt-2 block text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 truncate transition-colors"
+          >
+            Continue → {nextLesson.title}
+          </Link>
+        )}
       </div>
 
       <nav className="flex-1 py-2">
