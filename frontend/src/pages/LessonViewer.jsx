@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -73,7 +73,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [bookmarked, setBookmarked] = useState(false)
   const [moduleBanner, setModuleBanner] = useState(false)
   const currentSlugRef = useRef(lessonSlug)
-  currentSlugRef.current = lessonSlug
+  useLayoutEffect(() => { currentSlugRef.current = lessonSlug }, [lessonSlug])
 
   useEffect(() => {
     let cancelled = false
@@ -156,9 +156,8 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     const slug = lessonSlug
     try {
       const result = await markLessonComplete(lesson.id)
-      if (currentSlugRef.current !== slug) return
       onProgressUpdate()
-      if (result.module_completed) setModuleBanner(true)
+      if (currentSlugRef.current === slug && result.module_completed) setModuleBanner(true)
     } catch (e) {
       console.error('Failed to mark lesson complete:', e)
     }
