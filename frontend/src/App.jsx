@@ -85,6 +85,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                   {readingMode ? 'Side panel' : 'Focus'}
                 </button>
               )}
+            </div>
+            <div className="flex items-center gap-3">
               {streak.current > 0 && (
                 <div className={`text-xs font-medium ${streak.today_done ? 'text-orange-500 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   🔥 {streak.current}
@@ -93,8 +95,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               {xp > 0 && (
                 <div className="text-xs font-medium text-amber-600 dark:text-amber-400">⚡ {xp} XP</div>
               )}
+              <ThemeToggle dark={dark} toggle={toggle} />
             </div>
-            <ThemeToggle dark={dark} toggle={toggle} />
           </header>
           <div className="flex-1 flex overflow-hidden">
             <main className="flex-1 overflow-y-auto">
