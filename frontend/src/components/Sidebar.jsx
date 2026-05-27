@@ -43,7 +43,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
     .find(l => progress[String(l.id)] !== 'complete')
 
   return (
-    <aside className="w-[220px] shrink-0 bg-gray-200 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0 overflow-y-auto">
+    <aside className="w-[220px] shrink-0 bg-stone-200 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="text-sm font-semibold tracking-widest uppercase text-gray-800 dark:text-gray-100">
           DevOps <span className="text-emerald-500">Hub</span>
@@ -72,8 +72,8 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
               const { status, pct } = getModuleStatus(mod)
               const active = mod.slug === moduleSlug
               const baseClass = `flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors`
-              const activeClass = 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-gray-200 dark:border-gray-600'
-              const idleClass = 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+              const activeClass = 'bg-stone-50 dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-stone-300 dark:border-gray-600'
+              const idleClass = 'text-gray-600 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
               return (
                 <Link
                   key={mod.slug}
