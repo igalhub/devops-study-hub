@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { fetchLesson, markLessonComplete, resetLessonProgress } from '../store/curriculumStore'
+import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson } from '../store/curriculumStore'
 import CodePlayground from '../components/CodePlayground'
 
 const DIFFICULTY_COLOR = {
@@ -39,6 +39,7 @@ const mdComponents = {
 
 export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const { moduleSlug, lessonSlug } = useParams()
+  const navigate = useNavigate()
 
   const mod = modules?.find(m => m.slug === moduleSlug)
   const lessons = mod?.lessons || []
@@ -55,10 +56,28 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     setError(null)
     setActiveExercise(null)
     fetchLesson(lessonSlug)
-      .then(setLesson)
+      .then(data => {
+        setLesson(data)
+        addRecentLesson({
+          moduleSlug,
+          moduleTitle: data.module_title,
+          lessonSlug,
+          lessonTitle: data.title,
+        })
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [lessonSlug])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.key === ']' && nextLesson) navigate(`/module/${moduleSlug}/lesson/${nextLesson.slug}`)
+      if (e.key === '[' && prevLesson) navigate(`/module/${moduleSlug}/lesson/${prevLesson.slug}`)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [nextLesson, prevLesson, moduleSlug, navigate])
 
   const YAML_MODULES = new Set(['kubernetes', 'ansible', 'terraform', 'helm', 'cicd', 'gcp', 'aws'])
   const exerciseLang = lesson?.module_slug === 'python' ? 'python'

@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { markLessonComplete, resetLessonProgress } from '../store/curriculumStore'
 
 export default function ModuleView({ modules, progress, onProgressUpdate }) {
   const { moduleSlug } = useParams()
   const navigate = useNavigate()
+  const [completedBanner, setCompletedBanner] = useState(false)
   const mod = modules.find(m => m.slug === moduleSlug)
 
   if (!mod) return (
@@ -14,8 +16,9 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
 
   const handleComplete = async (lessonId) => {
     try {
-      await markLessonComplete(lessonId)
+      const result = await markLessonComplete(lessonId)
       onProgressUpdate()
+      if (result.module_completed) setCompletedBanner(true)
     } catch (e) {
       console.error('Failed to mark lesson complete:', e)
     }
@@ -52,6 +55,21 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
           </button>
         </div>
       </div>
+
+      {completedBanner && (
+        <div className="mb-6 flex items-start justify-between gap-4 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800">
+          <div>
+            <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Module complete!</div>
+            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">+50 XP module bonus earned.</div>
+          </div>
+          <button
+            onClick={() => setCompletedBanner(false)}
+            className="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 text-sm leading-none"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="space-y-2">
         {lessons.map(lesson => {
