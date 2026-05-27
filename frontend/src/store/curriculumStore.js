@@ -89,3 +89,18 @@ export function fetchModuleQuiz(moduleSlug) {
 export function searchContent(q) {
   return apiFetch(`/search?q=${encodeURIComponent(q)}`)
 }
+
+const RECENT_KEY = 'devops_recent'
+const MAX_RECENT = 10
+
+export function addRecentLesson({ moduleSlug, moduleTitle, lessonSlug, lessonTitle }) {
+  const existing = getRecentLessons()
+  const filtered = existing.filter(r => r.lessonSlug !== lessonSlug)
+  const updated = [{ moduleSlug, moduleTitle, lessonSlug, lessonTitle }, ...filtered].slice(0, MAX_RECENT)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(updated)) } catch { /* storage full */ }
+  window.dispatchEvent(new Event('recent-updated'))
+}
+
+export function getRecentLessons() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] }
+}

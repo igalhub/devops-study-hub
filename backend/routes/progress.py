@@ -49,6 +49,7 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
             (lesson_id, body.status, now if body.status == 'complete' else None)
         )
 
+        module_completed = False
         if body.status == 'complete' and not already_complete:
             conn.execute("INSERT INTO xp_log (source, points) VALUES ('lesson', ?)", (XP_LESSON_COMPLETE,))
 
@@ -64,6 +65,7 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
             ).fetchone()['c']
 
             if total > 0 and done == total:
+                module_completed = True
                 conn.execute(
                     "INSERT INTO xp_log (source, points) VALUES ('module_complete', ?)",
                     (XP_MODULE_COMPLETE,)
@@ -80,7 +82,7 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
         xp_total = conn.execute(
             "SELECT COALESCE(SUM(points), 0) as total FROM xp_log"
         ).fetchone()['total']
-        return {'status': body.status, 'xp_total': xp_total}
+        return {'status': body.status, 'xp_total': xp_total, 'module_completed': module_completed}
     finally:
         conn.close()
 

@@ -3,6 +3,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import SearchModal from './components/SearchModal'
 import ThemeToggle from './components/ThemeToggle'
+import RecentDropdown from './components/RecentDropdown'
 import AiTutor from './components/AiTutor'
 import Quiz from './components/Quiz'
 import Notes from './components/Notes'
@@ -57,6 +58,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <span>⌕</span>
                 <span>Search</span>
               </button>
+              <RecentDropdown />
             </div>
             <div className="flex items-center gap-3">
               {streak.current > 0 && (
