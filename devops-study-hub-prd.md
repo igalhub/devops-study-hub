@@ -199,16 +199,22 @@ devops-study-hub/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── AiTutor.jsx
+│   │   │   ├── BookmarksDropdown.jsx
 │   │   │   ├── CodePlayground.jsx
+│   │   │   ├── Notes.jsx
 │   │   │   ├── Quiz.jsx
+│   │   │   ├── RecentDropdown.jsx
+│   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
 │   │   │   └── ThemeToggle.jsx
 │   │   ├── pages/
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
+│   │   │   ├── ModuleQuiz.jsx
 │   │   │   ├── ModuleView.jsx
 │   │   │   ├── Review.jsx        # Spaced repetition review queue
-│   │   │   └── Roadmap.jsx
+│   │   │   ├── Roadmap.jsx
+│   │   │   └── Stats.jsx
 │   │   ├── store/
 │   │   │   ├── curriculumStore.js
 │   │   │   └── themeStore.js
@@ -229,9 +235,12 @@ devops-study-hub/
 │       ├── interview.py     # Interview Prep mode
 │       ├── lessons.py       # Lesson content endpoints
 │       ├── modules.py       # Module listing
+│       ├── notes.py         # Per-lesson notes (fetch, save)
 │       ├── progress.py      # Lesson completion, XP, streaks
 │       ├── quiz.py          # Quiz fetch, attempt recording, SRS queue
-│       └── sandbox.py       # Code execution (subprocess)
+│       ├── sandbox.py       # Code execution (subprocess)
+│       ├── search.py        # Full-text content search
+│       └── stats.py         # Aggregate stats endpoint
 ├── content/                 # 91 .md lesson files
 │   ├── linux/               # 6 lessons
 │   ├── python/              # 5 lessons
@@ -345,3 +354,14 @@ exercises: 3
 
 ### Phase 4 — Job Readiness ✅
 - Interview Prep Mode with AI-generated questions and feedback
+
+### Phase 5 — Polish & Navigation ✅
+- Lesson notes (per-lesson textarea, auto-saved to backend)
+- Module Quiz (dedicated quiz page per module, reachable from ModuleView)
+- Full-text content search (SearchModal, debounced backend, title + body results)
+- Recently visited dropdown (last 5 lessons, persisted in localStorage)
+- Keyboard lesson navigation (`[` / `]` keys)
+- Module completion banner (fires once on last-lesson completion, includes XP)
+- Stats page (XP history, streak calendar, completion breakdown)
+- Sidebar collapse, TOC (auto-generated from `##` headings), reading mode
+- Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)
