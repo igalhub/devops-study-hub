@@ -257,6 +257,13 @@ devops-study-hub/
 │   ├── logstash/            # 3 lessons
 │   ├── kibana/              # 3 lessons
 │   └── opsgenie/            # 3 lessons
+├── .claude/
+│   ├── commands/              # Project slash commands (gitignored)
+│   │   ├── dev-check.md
+│   │   ├── expand-content.md  # Guided safe content expansion workflow
+│   │   ├── seed-reset.md
+│   │   └── test.md
+│   └── verify-data.sh         # Data integrity checks (run via /verify-data)
 ├── devops-study-hub-prd.md
 ├── CLAUDE.md
 ├── start-backend.sh
