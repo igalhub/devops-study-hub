@@ -4,6 +4,11 @@ __pycache__/
 *.py[cod]
 backend/hub.db
 
+# Secrets — never commit
+.env
+backend/.env
+*.env
+
 # Node
 frontend/node_modules/
 frontend/dist/
