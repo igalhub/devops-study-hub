@@ -46,7 +46,16 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
         <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
-            <div className="text-xs text-gray-400 dark:text-gray-500">DevOps Study Hub</div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-400 dark:text-gray-500">DevOps Study Hub</div>
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              >
+                <span>⌕</span>
+                <span>Search</span>
+              </button>
+            </div>
             <div className="flex items-center gap-3">
               {streak.current > 0 && (
                 <div className={`text-xs font-medium ${streak.today_done ? 'text-orange-500 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -56,13 +65,6 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               {xp > 0 && (
                 <div className="text-xs font-medium text-amber-600 dark:text-amber-400">⚡ {xp} XP</div>
               )}
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-              >
-                <span>⌕</span>
-                <span>Search</span>
-              </button>
             </div>
             <ThemeToggle dark={dark} toggle={toggle} />
           </header>
