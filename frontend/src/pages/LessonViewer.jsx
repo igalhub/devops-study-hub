@@ -41,7 +41,7 @@ const mdComponents = {
     const match = /language-(\w+)/.exec(className || '')
     if (match) {
       return (
-        <SyntaxHighlighter language={match[1]} style={oneDark} PreTag="div">
+        <SyntaxHighlighter language={match[1]} style={oneDark} PreTag="div" customStyle={{ overflowX: 'auto' }}>
           {String(children).replace(/\n$/, '')}
         </SyntaxHighlighter>
       )
@@ -125,7 +125,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   if (error || !lesson) {
     const notFound = !error || error.includes('404')
     return (
-      <div className="max-w-3xl mx-auto px-6 py-6">
+      <div className="max-w-4xl mx-auto px-6 py-6">
         <Link
           to={`/module/${moduleSlug}`}
           className="text-sm text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
@@ -173,7 +173,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-6">
+    <div className="max-w-4xl mx-auto px-6 py-6">
       <div className="mb-4">
         <Link
           to={`/module/${moduleSlug}`}
