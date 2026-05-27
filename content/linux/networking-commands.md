@@ -312,4 +312,417 @@ curl --unix-socket /var/run/docker.sock http://localhost/version
 | `%{time_total}` | Total transaction time in seconds |
 | `%{time_connect}` | Time to complete TCP connect |
 | `%{time_namelookup}` | Time for DNS resolution |
-| `%{time_appconnect}` | Time until TLS handshake
+| `%{time_appconnect}` | Time until TLS handshake complete |
+| `%{size_download}` | Bytes received in response body |
+| `%{speed_download}` | Download speed in bytes/sec |
+
+---
+
+### `dig` — DNS Interrogation
+
+`dig` (Domain Information Groper) is the standard tool for querying DNS. It gives you full control over which record type to request, which server to ask, and shows exactly what the resolver returned — including TTLs, authoritative flags, and the full answer chain.
+
+```bash
+# Basic A record lookup
+dig google.com
+
+# Query a specific record type
+dig google.com A       # IPv4 address
+dig google.com AAAA    # IPv6 address
+dig google.com MX      # Mail exchange records
+dig google.com TXT     # Text records (SPF, DKIM, domain verification)
+dig google.com NS      # Authoritative nameservers
+dig google.com CNAME   # Canonical name (alias)
+dig google.com SOA     # Start of Authority — serial, refresh, TTL defaults
+
+# Query a specific DNS server directly — bypass system resolver
+dig @8.8.8.8 google.com A          # Ask Google's public resolver
+dig @1.1.1.1 google.com A          # Ask Cloudflare's resolver
+dig @10.0.0.53 internal.corp.com A # Ask your internal DNS server
+
+# Short output — just the answer, nothing else
+dig +short google.com
+
+# Trace the full delegation path from root to authoritative
+dig +trace google.com
+
+# Reverse DNS lookup (PTR record) — IP to hostname
+dig -x 8.8.8.8
+
+# Show the full answer including TTL — useful for cache debugging
+dig +noall +answer google.com
+# google.com.    299    IN    A    142.250.80.46
+#               ^^^
+#               TTL in seconds — how long this can be cached
+
+# Check if a record exists without caring about the value
+dig +short google.com A | grep -q . && echo "resolves" || echo "NXDOMAIN"
+```
+
+**Understanding dig output sections:**
+
+| Section | What it contains |
+|---------|-----------------|
+| `QUESTION` | What you asked for |
+| `ANSWER` | Direct records matching your query |
+| `AUTHORITY` | Nameservers authoritative for this zone |
+| `ADDITIONAL` | Extra records (often A records for NS hostnames) |
+| `flags: qr aa rd ra` | `aa` = authoritative answer, `ra` = recursion available |
+
+**`NXDOMAIN` vs `SERVFAIL` vs empty `ANSWER`:**
+- `NXDOMAIN`: the domain does not exist at all in DNS.
+- `SERVFAIL`: the nameserver had an error resolving — could be a broken delegation, DNSSEC failure, or unreachable upstream.
+- Empty `ANSWER` with `NOERROR`: the domain exists but has no record of the type you requested — common when querying `A` for a CNAME-only entry or a domain with only AAAA records.
+
+**`dig +trace` is invaluable for split-horizon and internal DNS debugging.** It shows you every delegation step from the root servers down, making it obvious where a misconfigured delegation or missing glue record is causing resolution to fail.
+
+**TTL matters for incident response.** Before making a DNS change, check the current TTL with `dig +noall +answer`. If the TTL is 3600 (1 hour), traffic won't shift for up to an hour after you update the record. Lower the TTL hours before a planned migration, then raise it again afterward.
+
+---
+
+### `tcpdump` — Packet Capture
+
+`tcpdump` captures raw packets off the wire. It's the tool of last resort when nothing else explains what's happening — you can see exactly what bytes are being exchanged, verify that packets are arriving, and observe protocol handshakes directly.
+
+```bash
+# Capture all traffic on eth0 — very noisy, use filters
+tcpdump -i eth0
+
+# Capture on any interface
+tcpdump -i any
+
+# Filter by host
+tcpdump -i eth0 host 10.0.1.50
+
+# Filter by port
+tcpdump -i eth0 port 443
+
+# Combine filters with and/or
+tcpdump -i eth0 host 10.0.1.50 and port 80
+
+# Don't resolve hostnames or port names — much faster, unambiguous output
+tcpdump -n -i eth0 port 53
+
+# Show packet contents as hex and ASCII (-X) or ASCII only (-A)
+tcpdump -i eth0 -A port 80
+
+# Capture to a file for later analysis in Wireshark
+tcpdump -i eth0 -w /tmp/capture.pcap
+
+# Read back a capture file
+tcpdump -r /tmp/capture.pcap
+
+# Limit capture to N packets then exit
+tcpdump -i eth0 -c 100 port 8080
+
+# Verbose output — show TTL, checksums, TCP flags
+tcpdump -v -i eth0 port 443
+
+# Capture DNS queries and responses
+tcpdump -n -i eth0 port 53
+
+# Capture only TCP SYN packets — see new connection attempts
+tcpdump -i eth0 'tcp[tcpflags] & tcp-syn != 0'
+
+# Capture traffic to a subnet
+tcpdump -i eth0 net 10.0.1.0/24
+```
+
+**TCP flags in tcpdump output** tell you the state of the connection:
+
+| Flag | Meaning | What to look for |
+|------|---------|-----------------|
+| `S` | SYN | New connection attempt |
+| `S.` | SYN-ACK | Server accepted, handshake responding |
+| `.` | ACK | Acknowledgment only |
+| `P.` | PSH-ACK | Data being sent |
+| `R` | RST | Connection forcibly reset — firewall or app rejection |
+| `F.` | FIN-ACK | Graceful connection close |
+
+**A SYN with no SYN-ACK** means the packet is not reaching the server, or the server is not listening. **A SYN followed immediately by RST** means the server received the SYN but actively refused it — the port is closed at the OS level (no process listening), or a firewall sent a reject rather than a drop.
+
+**`tcpdump` requires root** (or `CAP_NET_RAW` capability). On production systems, capture for as short a time as possible and pipe to a file rather than displaying to terminal — the volume of output can itself cause problems. Rotate capture files with `-W` and `-C` for long-running captures:
+
+```bash
+# Rotate: keep 5 files of 10MB each (50MB total cap)
+tcpdump -i eth0 -w /tmp/cap.pcap -C 10 -W 5 port 8080
+```
+
+---
+
+### `nmap` — Port Scanning and Service Discovery
+
+`nmap` goes beyond `ss` — it lets you probe ports from the perspective of an external host, test firewall rules, and identify what services are actually reachable from a given network position.
+
+```bash
+# Scan common ports on a host (top 1000 ports by frequency)
+nmap 10.0.1.50
+
+# Scan a specific port
+nmap -p 8080 10.0.1.50
+
+# Scan a range of ports
+nmap -p 1-65535 10.0.1.50
+
+# Fast scan — only top 100 ports
+nmap -F 10.0.1.50
+
+# Skip host discovery (assume host is up) — useful when ICMP is blocked
+nmap -Pn 10.0.1.50
+
+# Service version detection — identify what's actually running on open ports
+nmap -sV 10.0.1.50
+
+# Scan an entire subnet
+nmap 10.0.1.0/24
+
+# TCP connect scan — full three-way handshake (no root needed, more detectable)
+nmap -sT 10.0.1.50
+
+# UDP scan — important: many services use UDP (DNS 53, NTP 123, SNMP 161)
+nmap -sU -p 53,123,161 10.0.1.50
+
+# Output results to a file for comparison between deployments
+nmap -oN scan_before.txt 10.0.1.50
+nmap -oN scan_after.txt 10.0.1.50
+diff scan_before.txt scan_after.txt
+```
+
+**Port states in nmap output:**
+
+| State | Meaning |
+|-------|---------|
+| `open` | A process is listening; connection succeeded |
+| `closed` | No process listening; RST received |
+| `filtered` | No response; firewall is dropping packets |
+| `open\|filtered` | Could not determine — typical for UDP |
+
+**`filtered` vs `closed` distinguishes firewall drops from missing services.** If an expected port shows `filtered` after deployment, the application may have started but the firewall rule wasn't updated. If it shows `closed`, the application itself isn't listening.
+
+**Use `nmap` to validate firewall rules from the correct network position.** Running `ss` on the server shows what the kernel has open; running `nmap` from a client shows what's actually reachable through the network path including all firewalls and security groups. They should agree — if they don't, something is blocking in transit.
+
+---
+
+## Examples
+
+### Example 1: Diagnosing a Service That Fails External Health Checks
+
+A Kubernetes readiness probe is failing for a new pod. The pod is running and the application log shows no errors.
+
+```bash
+# Step 1: Confirm the application is actually listening
+# Run this inside the pod or on the node
+ss -tlnp | grep 8080
+# Expected: tcp LISTEN 0 128 0.0.0.0:8080   0.0.0.0:*  users:(("app",pid=1,fd=3))
+# Problem case: tcp LISTEN 0 128 127.0.0.1:8080  0.0.0.0:*
+# → app is bound to loopback only; Kubernetes probes come from the node IP, not loopback
+
+# Step 2: Test from inside the pod (confirms app-level response)
+curl -sS http://localhost:8080/health
+# → 200 OK — app works on loopback
+
+# Step 3: Test from the node's perspective (mimics what kubelet does for hostNetwork=false pods)
+# Get the pod IP from: kubectl get pod mypod -o jsonpath='{.status.podIP}'
+curl -sS http://10.244.1.23:8080/health
+# → Connection refused — confirms the bind address is wrong
+
+# Step 4: Verify using ss with the exact bind address
+ss -tlnp sport = :8080
+# Netid  State   Local Address:Port
+# tcp    LISTEN  127.0.0.1:8080      ← root cause confirmed
+
+# Fix: change application config to bind 0.0.0.0:8080 instead of localhost:8080
+# Then verify after restart:
+ss -tlnp | grep 8080
+# tcp    LISTEN  0.0.0.0:8080        ← correct
+curl -sS http://10.244.1.23:8080/health
+# → {"status":"ok"}
+```
+
+---
+
+### Example 2: Tracing a Slow API Response to Its Root Cause
+
+Users report that `POST /api/orders` is slow. Response times vary between 200ms and 4000ms randomly.
+
+```bash
+# Step 1: Measure timing breakdown with curl — run 5 times to observe variance
+for i in {1..5}; do
+  curl -s -o /dev/null -w \
+    "Run $i — DNS: %{time_namelookup}s  Connect: %{time_connect}s  TLS: %{time_appconnect}s  TTFB: %{time_starttransfer}s  Total: %{time_total}s\n" \
+    -X POST https://api.example.com/api/orders \
+    -H "Content-Type: application/json" \
+    -d '{"item":"widget","qty":1}'
+done
+
+# Sample output:
+# Run 1 — DNS: 0.004s  Connect: 0.021s  TLS: 0.089s  TTFB: 0.210s  Total: 0.215s
+# Run 2 — DNS: 0.004s  Connect: 0.020s  TLS: 0.088s  TTFB: 3.987s  Total: 3.992s
+# Run 3 — DNS: 0.004s  Connect: 0.022s  TLS: 0.091s  TTFB: 0.208s  Total: 0.212s
+
+# DNS, Connect, and TLS are all stable — the spike is entirely in TTFB.
+# This means the network path is fine; the application or its backend is slow intermittently.
+
+# Step 2: Confirm TCP connection is reaching the server cleanly
+# TTFB = time_starttransfer - time_appconnect
+# When TTFB spikes but connect/TLS are stable → application-side issue (DB query, external call)
+
+# Step 3: Check if the app server is exhausting connection pool during slow requests
+# On the application server:
+ss -tn state established dst 10.0.2.100   # 10.0.2.100 = your database
+# Count how many connections are in use:
+ss -tn state established dst 10.0.2.100 | wc -l
+# If this hits your pool limit during slow requests, pool exhaustion is the cause
+
+# Step 4: Watch connection states over time
+watch -n1 'ss -s'
+# Look for TIME_WAIT accumulation or CLOSE_WAIT stuck connections
+# TIME_WAIT is normal but large counts indicate high connection churn
+# CLOSE_WAIT staying high = application not closing connections (resource leak)
+```
+
+---
+
+### Example 3: Verifying DNS Propagation After a Cutover
+
+You've updated an A record for `api.example.com` from `203.0.113.10` (old) to `203.0.113.20` (new). You need to verify the change has propagated before decommissioning the old server.
+
+```bash
+# Step 1: Check the TTL on the record before the change
+dig +noall +answer api.example.com A
+# api.example.com.  3600  IN  A  203.0.113.10
+#                   ^^^^
+# 3600 seconds = 1 hour; resolvers can cache the old record for up to 1 hour
+
+# Step 2: Query the authoritative nameserver directly — bypasses all caching
+# First, find who is authoritative:
+dig +short api.example.com NS
+# ns1.exampledns.com.
+# ns2.exampledns.com.
+
+# Then query that server directly:
+dig @ns1.exampledns.com api.example.com A +short
+# 203.0.113.20   ← authoritative answer; change is live at the source
+
+# Step 3: Check from multiple public resolvers to gauge propagation
+for resolver in 8.8.8.8 1.1.1.1 9.9.9.9 208.67.222.222; do
+  result=$(dig @$resolver +short api.example.com A)
+  echo "Resolver $resolver: $result"
+done
+# Resolver 8.8.8.8:         203.0.113.20   ← updated
+# Resolver 1.1.1.1:         203.0.113.20   ← updated
+# Resolver 9.9.9.9:         203.0.113.10   ← still cached (old)
+# Resolver 208.67.222.222:  203.0.113.20   ← updated
+
+# Step 4: Confirm the new IP actually serves the application correctly
+# Use --resolve to test the new IP before DNS fully propagates everywhere
+curl --resolve api.example.com:443:203.0.113.20 \
+  -s -o /dev/null -w "%{http_code}\n" \
+  https://api.example.com/health
+# 200 — new server is healthy and TLS cert is valid for the domain
+
+# Step 5: Once TTL expires, verify from the system resolver
+dig +short api.example.com A
+# 203.0.113.20   ← system resolver now returns the new address
+```
+
+---
+
+### Example 4: Capturing and Analyzing a Failing TLS Handshake
+
+A service is getting intermittent TLS errors connecting to an upstream dependency. The errors are rare and hard to reproduce.
+
+```bash
+# Step 1: Set up a continuous capture to a rotating file
+# Capture only traffic to the upstream host (10.0.3.80) on port 443
+tcpdump -i eth0 -w /tmp/tls_capture.pcap \
+  -C 10 -W 3 \        # rotate at 10MB, keep 3 files = 30MB max
+  host 10.0.3.80 and port 443
+
+# Step 2: While capture runs, trigger the failing operation repeatedly
+# Use curl verbose mode to capture the TLS-level error message
+for i in {1..50}; do
+  curl -v --connect-timeout 5 https://upstream.internal:443/api/check 2>&1 | \
+    grep -E "(SSL|TLS|handshake|error|Connected|certificate)" &
+done
+wait
+
+# Sample failing output:
+# * SSL_ERROR_SYSCALL
+# * OpenSSL SSL_connect: Connection reset by peer
+
+# Step 3: In the pcap, look for RST packets during the TLS handshake
+tcpdump -r /tmp/tls_capture.pcap0 -n \
+  'tcp[tcpflags] & tcp-rst != 0'
+# 14:23:07.442891 IP 10.0.1.5.54312 > 10.0.3.80.443: Flags [R.]
+# → RST is coming from 10.0.3.80 after the ClientHello
+# This means the upstream server is actively rejecting the connection
+# Possible causes: TLS version mismatch, cipher suite not supported, cert client auth required
+
+# Step 4: Test specific TLS versions to isolate the mismatch
+curl -v --tls-max 1.2 https://upstream.internal:443/api/check 2>&1 | grep "SSL connection"
+# SSL connection using TLSv1.2 / ECDHE-RSA-AES256-GCM-SHA384 — works
+
+curl -v --tls-max 1.3 https://upstream.internal:443/api/check 2>&1 | grep "SSL connection"
+# SSL_ERROR_SYSCALL — fails
+
+# Step 5: Confirm upstream only supports TLS 1.2
+# Root cause: upstream service has TLS 1.3 disabled; our client is sometimes
+# negotiating 1.3 first. Fix: pin TLS version in our client config or update upstream.
+```
+
+---
+
+## Exercises
+
+### Exercise 1: Map What's Listening on a Server
+
+On any Linux machine (local VM, cloud instance, or container):
+
+1. Use `ss` to list every TCP socket in LISTEN state with process names and numeric ports.
+2. Identify which services are bound to `127.0.0.1` (loopback-only) vs `0.0.0.0` (all interfaces).
+3. Find any service listening on a non-standard port (not 22, 80, or 443) and identify what process owns it.
+4. Use `ss -s` to get a summary of all socket states. Explain what the `TIME_WAIT` count represents and whether the number you see is concerning.
+
+**Deliverable:** For each listening process, write one sentence explaining whether the bind address is correct for that service's purpose.
+
+---
+
+### Exercise 2: Trace a DNS Resolution Chain
+
+Pick any public hostname you use in your work (e.g., your company's API endpoint, a package registry, a cloud provider endpoint).
+
+1. Look up its A record using your system's default resolver.
+2. Find the authoritative nameservers for the domain.
+3. Query the authoritative nameserver directly and compare the TTL to what your local resolver returned. Explain any difference.
+4. Perform a `+trace` lookup and identify at least three delegation steps in the chain (root → TLD → authoritative).
+5. Check whether the hostname has a CNAME in its chain. If it does, identify the full resolution path from alias to final IP.
+
+**Gotcha to discover:** Run `dig +short example.com A` and `dig +short example.com CNAME`. Explain why one returns a result and the other doesn't, even though following a CNAME is part of the A record lookup process.
+
+---
+
+### Exercise 3: Benchmark an HTTP Endpoint Across Multiple Runs
+
+Choose an HTTP/HTTPS endpoint you can make repeated requests to (a public API, `httpbin.org`, or a local service).
+
+1. Write a one-liner using `curl` and a `for` loop that makes 10 requests and prints `time_namelookup`, `time_connect`, `time_appconnect`, and `time_starttransfer` for each.
+2. Calculate the average TTFB (time to first byte) manually or with `awk`.
+3. Make the same request but force resolution to a different IP using `--resolve`. Observe whether any timing fields change and explain why.
+4. Add `--connect-timeout 2 --max-time 5` to your curl command. Trigger a timeout intentionally (use a host that doesn't respond, or a port that's firewalled) and capture curl's exit code. Write a conditional shell snippet that exits with a non-zero status and prints a clear error message when the health check fails.
+
+**Goal:** produce a shell function `check_health <url>` that returns 0 on HTTP 200 within 5 seconds and 1 with an error message otherwise.
+
+---
+
+### Exercise 4: Capture and Interpret a TCP Handshake
+
+This exercise requires `tcpdump` and root access (or a VM you control).
+
+1. In one terminal, start a simple HTTP server: `python3 -m http.server 8888`
+2. In a second terminal, start a packet capture filtering only port 8888: `sudo tcpdump -i lo -n port 8888 -v`
+3. In a third terminal, make a request: `curl http://localhost:8888/`
+4. Stop the capture (Ctrl+C) and locate the three-way handshake in the output. Identify the SYN, SYN-ACK, and ACK packets by their flags.
+5. Now kill the HTTP server while the capture is still running. Make another `curl` request. Find the RST packet in the output and explain: what does it tell you about why the connection failed, and how does this differ from what you'd see if a firewall were dropping the packets instead?
+
+**Extension:** repeat the capture but use `tcpdump -w /tmp/handshake.pcap`, then replay it with `tcpdump -r /tmp/handshake.pcap` and filter for only the SYN packets using a BPF expression.

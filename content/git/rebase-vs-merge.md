@@ -30,7 +30,7 @@ feature:      └── D ── E
 
 After: git checkout main && git merge feature
 main:    A ── B ── C ── M
-                   └────┘
+                    \  /
               (M has parents C and E)
 ```
 
@@ -147,13 +147,11 @@ When you rebase, original commits are abandoned and replaced with new commits th
 ```
 
 **Safe to rebase:**
-
 - Local commits not yet pushed anywhere
 - Your own feature branch before anyone else has pulled it
 - A feature branch you own before opening a PR (force-push is acceptable here with team agreement)
 
 **Never rebase:**
-
 - `main`, `master`, `develop`, or any integration branch
 - Any branch that is a merge target for CI
 - Any branch another engineer has told you they're based on
@@ -175,7 +173,7 @@ git checkout main
 git merge --squash feature/add-auth
 git commit -m "feat: add auth module (#42)"   # write a clean, final message
 git push origin main
-git branch -d feature/add-auth               # optionally delete local branch
+git branch -d feature/add-auth               # delete local branch
 git push origin --delete feature/add-auth    # delete remote branch
 ```
 
@@ -191,11 +189,21 @@ Both merge and rebase can produce conflicts, but they present differently.
 |--------|---------------|-----------------|
 | When it occurs | Once, during the merge | Once per conflicting commit being replayed |
 | Conflict markers | Between your branch tip and the merge base | Between the commit being replayed and the current HEAD |
-| Resolution | `git add` + `git merge --continue` (or just `git commit`) | `git add` + `git rebase --continue` |
+| Resolution | `git add` + `git commit` | `git add` + `git rebase --continue` |
 | Abort | `git merge --abort` | `git rebase --abort` |
 | History after resolution | Merge commit records the resolution | Resolution is baked into the replayed commit |
 
 **Rebase can create more conflict resolution work.** If your branch has ten commits and three of them conflict with changes in `main`, you resolve conflicts three separate times. With merge, you resolve all conflicts once in the final merge commit. For long-running branches with many conflicting commits, merge is often less painful.
+
+**`rerere` (reuse recorded resolution):** Git has a built-in mechanism to record conflict resolutions and replay them automatically. Enable it with `git config --global rerere.enabled true`. When the same conflict appears again during a rebase — for example, if you rebase multiple times as `main` advances — Git resolves it automatically using the stored resolution. Particularly useful on long-running feature branches.
+
+```bash
+git config --global rerere.enabled true
+# On next conflict, after you resolve it manually:
+# "Recorded resolution for 'path/to/file'."
+# On future identical conflicts:
+# "Resolved 'path/to/file' using previous resolution."
+```
 
 ### Reading History: `git log` Differences
 
@@ -227,7 +235,24 @@ git log --oneline --graph --all        # full picture including all branches
 git log --merges --oneline             # show only merge commits
 git log --no-merges --oneline          # exclude merge commits
 git shortlog -sn                       # commit count by author (useful for attribution)
+git log --follow -p -- path/to/file    # full patch history for a specific file, across renames
 ```
+
+### Choosing a Strategy: Decision Guide
+
+There is no universally correct answer. The right strategy depends on team size, branch lifetime, and how much history auditability matters in your context.
+
+| Scenario | Recommended strategy | Reason |
+|----------|---------------------|--------|
+| Short-lived feature branch, solo author | Rebase + fast-forward | Linear history, no noise |
+| PR-based workflow, team repo | Squash and merge | One commit per feature on main |
+| Long-running release branch | Merge (no-ff) | Preserves branch context, safer |
+| Hotfix to production | Merge --no-ff | Explicit record of the hotfix branch |
+| Shared integration branch (`develop`) | Merge | Rebase risk too high |
+| Infrastructure-as-code repo, audit required | Merge --no-ff | Full audit trail of who changed what and when |
+| OSS contribution, upstream rebase policy | Rebase on upstream/main | Clean patch series for review |
+
+**Consistency matters more than the specific choice.** A team that always squashes is in a better position than a team that sometimes squashes, sometimes merges, and sometimes rebases — because inconsistency makes automation (changelogs, release notes, bisect) unreliable.
 
 ---
 
@@ -258,7 +283,7 @@ git rebase origin/main
 # Replaying: feat: login endpoint
 # Replaying: feat: JWT validation
 
-# 4. Verify the result — should be linear
+# 4. Verify the result — should be linear, with main commits underneath
 git log --oneline --graph
 # * 2b3c4d5 (HEAD -> feature/add-auth) feat: JWT validation
 # * 1a2b3c4 feat: login endpoint
@@ -270,7 +295,7 @@ git log --oneline --graph
 git push --force-with-lease origin feature/add-auth
 ```
 
-### Example 2: Clean Up Commits Before a PR
+### Example 2: Clean Up Commits Before a PR with Interactive Rebase
 
 **Scenario:** you have been working on a feature for two days and your commit log is full of WIP and fix commits. You want to present two clean, logical commits to reviewers.
 
@@ -284,10 +309,7 @@ git log --oneline HEAD~6
 # 2b3c4d5 WIP not done yet
 # 1a2b3c4 feat: add input validator
 
-# Goal: two commits —
-#   "feat: add input validator" (1a2b3c4 + 2b3c4d5 + 3c4d5e6 + 5e6f7a8 + 6f7a8b9)
-#   is actually one logical unit; 4d5e6f7 is noise
-
+# Goal: collapse all into one clean commit for this logical unit
 git rebase -i HEAD~6
 
 # Editor opens — modify to:
@@ -302,6 +324,206 @@ git rebase -i HEAD~6
 # Git replays the commits; result is one clean commit:
 git log --oneline
 # 9g0h1i2 (HEAD -> feature/input-validator) feat: add input validator
-# ...
 
-# Verify the diff is correct (all
+# Verify the full diff is intact — nothing was lost, just consolidated
+git diff origin/main...HEAD
+# Should show all expected changes from the original six commits
+
+# Push for PR review
+git push --force-with-lease origin feature/input-validator
+```
+
+### Example 3: Preserve Branch Context with --no-ff for a Hotfix
+
+**Scenario:** a production bug is found. You cut a hotfix branch, fix it, and merge it back to both `main` and `release/1.4`. You want an explicit record that this was a hotfix merge, not a regular commit.
+
+```bash
+# Cut the hotfix branch from main (or the release tag)
+git checkout main
+git pull origin main
+git checkout -b hotfix/fix-null-deref
+
+# Make the fix
+vim src/auth/token.py
+git add src/auth/token.py
+git commit -m "fix: guard against null token in validate_request"
+
+# Merge back to main with --no-ff so the merge commit is always present
+# even if main hasn't diverged (which it may not have for a quick hotfix)
+git checkout main
+git merge --no-ff hotfix/fix-null-deref -m "Merge hotfix/fix-null-deref: guard null token"
+git push origin main
+
+# Also merge to the release branch
+git checkout release/1.4
+git merge --no-ff hotfix/fix-null-deref -m "Merge hotfix/fix-null-deref into release/1.4"
+git push origin release/1.4
+
+# Clean up
+git branch -d hotfix/fix-null-deref
+git push origin --delete hotfix/fix-null-deref
+
+# Verify the merge commit is present on main — confirms the branch existed
+git log --oneline --graph main
+# *   d4e5f6a Merge hotfix/fix-null-deref: guard null token
+# |\
+# | * c3d4e5f fix: guard against null token in validate_request
+# |/
+# * b2c3d4e feat: previous commit on main
+```
+
+### Example 4: Recovering When a Colleague Force-Pushed a Rebased Branch
+
+**Scenario:** you are collaborating on `feature/pipeline-overhaul`. Your colleague rebased and force-pushed. Your local branch has diverged. You need to reset to the new remote state without losing any work you added after their last known commit.
+
+```bash
+# Check what you have locally vs the remote
+git fetch origin
+git log --oneline HEAD
+# f1e2d3c (HEAD -> feature/pipeline-overhaul) chore: add my pipeline step  ← YOUR commit
+# a9b8c7d feat: refactor stage order                                        ← original, now gone on remote
+# 8z9a0b1 feat: initial pipeline structure
+
+git log --oneline origin/feature/pipeline-overhaul
+# 3x4y5z6 feat: refactor stage order   ← D' — rebased version, new SHA
+# 2w3x4y5 feat: initial pipeline structure
+
+# Save your commit as a patch so you don't lose it
+git format-patch HEAD~1 --stdout > my-pipeline-step.patch
+
+# Hard reset local branch to match the force-pushed remote
+git reset --hard origin/feature/pipeline-overhaul
+
+# Re-apply your commit on top of the new history
+git am my-pipeline-step.patch
+# Or: git cherry-pick f1e2d3c   (if you still have the SHA in reflog)
+
+# Verify
+git log --oneline
+# 7v8w9x0 (HEAD -> feature/pipeline-overhaul) chore: add my pipeline step
+# 3x4y5z6 feat: refactor stage order
+# 2w3x4y5 feat: initial pipeline structure
+
+# Push your updated state
+git push --force-with-lease origin feature/pipeline-overhaul
+```
+
+**`git reflog` is your safety net.** Even after a `reset --hard`, your original commits are still in the reflog for 30 days (by default). Run `git reflog` to find the SHA of any commit you appear to have lost and `git cherry-pick` or `git checkout` it back.
+
+---
+
+## Exercises
+
+### Exercise 1: Compare Merge and Rebase Side by Side
+
+Set up a controlled environment that lets you observe the history difference directly.
+
+```bash
+# Bootstrap
+mkdir rebase-vs-merge-lab && cd rebase-vs-merge-lab
+git init
+git commit --allow-empty -m "initial commit"
+
+# Create diverging history
+git checkout -b feature-a
+git commit --allow-empty -m "feat: feature A commit 1"
+git commit --allow-empty -m "feat: feature A commit 2"
+
+git checkout main
+git commit --allow-empty -m "chore: main moved forward"
+```
+
+**Task:** perform both integration strategies and compare results.
+
+1. Create a copy of `feature-a` called `feature-a-rebase`.
+2. Merge `feature-a` into a branch called `main-merge` using `--no-ff`. Inspect the log with `git log --oneline --graph`.
+3. Rebase `feature-a-rebase` onto `main`, then fast-forward merge it into a branch called `main-rebase`. Inspect the log with `git log --oneline --graph`.
+4. Compare the two logs. Note: how many commits are on each? Which shows the branch? Are the commit SHAs on `feature-a` the same as those on `main-rebase`?
+
+**Goal:** be able to explain the SHA difference and the graph shape difference without looking at the lesson.
+
+---
+
+### Exercise 2: Interactive Rebase — Tidy a Realistic Commit Log
+
+```bash
+# Set up a messy branch
+git checkout main
+git checkout -b feature/user-profile
+git commit --allow-empty -m "WIP starting profile page"
+git commit --allow-empty -m "feat: add profile GET endpoint"
+git commit --allow-empty -m "fix tests"
+git commit --allow-empty -m "oops fix import"
+git commit --allow-empty -m "feat: add profile PUT endpoint"
+git commit --allow-empty -m "reword error message"
+git commit --allow-empty -m "WIP not done"
+git commit --allow-empty -m "feat: add profile DELETE endpoint"
+git commit --allow-empty -m "cleanup"
+```
+
+**Task:** use `git rebase -i HEAD~9` to produce exactly three commits:
+
+- `feat: add profile GET endpoint` (absorb "fix tests", "oops fix import")
+- `feat: add profile PUT endpoint` (absorb "reword error message", "WIP not done")
+- `feat: add profile DELETE endpoint` (absorb "cleanup")
+- Drop the initial "WIP starting profile page" commit entirely.
+
+Verify with `git log --oneline` — you should see exactly three commits above the base. Then inspect `git diff HEAD~3..HEAD` to confirm no content was lost (all empty commits in this exercise, but practice reading the output).
+
+---
+
+### Exercise 3: Trigger and Resolve a Rebase Conflict
+
+```bash
+# Create a file with known content
+git checkout main
+echo -e "line1\nline2\nline3" > data.txt
+git add data.txt && git commit -m "chore: add data file"
+
+# Branch and modify line2
+git checkout -b feature/modify-line2
+sed -i 's/line2/line2-from-feature/' data.txt
+git add data.txt && git commit -m "feat: update line2 in feature"
+
+# Advance main with a conflicting change to line2
+git checkout main
+sed -i 's/line2/line2-from-main/' data.txt
+git add data.txt && git commit -m "chore: update line2 on main"
+```
+
+**Task:**
+
+1. Attempt to rebase `feature/modify-line2` onto `main`. Git will stop with a conflict.
+2. Open `data.txt`, examine the conflict markers. Resolve it so the final file contains `line2-from-feature-on-main` (manually write this — don't just pick one side).
+3. Stage the file and run `git rebase --continue`.
+4. Inspect the final log and the final content of `data.txt` to confirm both the rebase completed cleanly and the resolution is correct.
+5. **Bonus:** repeat the exercise but use `git merge` instead of `git rebase`. Notice that you resolve the conflict only once and a merge commit appears. Compare the resulting logs.
+
+---
+
+### Exercise 4: Enforce a Linear History Policy with `--ff-only`
+
+This exercise simulates a team policy where `main` only accepts fast-forward merges — a common setting in repos that require rebase-before-merge.
+
+```bash
+# Configure a local alias to simulate the policy
+git config alias.merge-linear '!git merge --ff-only'
+
+# Create divergence
+git checkout main
+git commit --allow-empty -m "chore: main advanced"
+git checkout -b feature/linear-test
+git commit --allow-empty -m "feat: new feature"
+
+# Advance main again so the branches diverge
+git checkout main
+git commit --allow-empty -m "chore: main advanced again"
+```
+
+**Task:**
+
+1. Try `git merge-linear feature/linear-test` from `main`. It should fail — note the error message.
+2. Switch to `feature/linear-test` and rebase it onto `main`.
+3. Switch back to `main` and retry `git merge-linear feature/linear-test`. It should now succeed as a fast-forward.
+4. Verify with `git log --oneline --graph` that there is no merge commit and the history is perfectly linear.
+5. Answer: in a CI/CD context, what would you configure on the Git hosting platform to enforce this policy automatically, and why might a team choose it?
