@@ -74,8 +74,22 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const toggleExercise = (idx) => setActiveExercise(prev => prev === idx ? null : idx)
 
   if (loading) return <div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>
-  if (error) return <div className="p-6 text-red-500">Error: {error}</div>
-  if (!lesson) return null
+  if (error || !lesson) {
+    const notFound = !lesson || error?.includes('404')
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-6">
+        <Link
+          to={`/module/${moduleSlug}`}
+          className="text-sm text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+        >
+          ← Back to module
+        </Link>
+        <p className="mt-4 text-sm text-red-500">
+          {notFound ? 'Lesson not found.' : `Error: ${error}`}
+        </p>
+      </div>
+    )
+  }
 
   const done = progress[String(lesson.id)] === 'complete'
 
