@@ -182,11 +182,12 @@ def _expand_content(title: str, module_slug: str, raw_content: str, client: Anth
         messages=[{"role": "user", "content": prompt}],
     )
     text = response.content[0].text.strip()
-    # Strip accidental markdown fence wrappers
+    # Strip accidental outer markdown fence wrapper (don't split on inner code blocks)
     if text.startswith("```"):
-        parts = text.split("```")
-        text = parts[1].removeprefix("markdown").strip() if len(parts) > 1 else text
-    return text
+        text = text.split("\n", 1)[1] if "\n" in text else text  # drop opening ```markdown line
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+    return text.strip()
 
 
 def _generate_questions(title: str, content: str, client: Anthropic) -> list[dict]:
@@ -198,9 +199,10 @@ def _generate_questions(title: str, content: str, client: Anthropic) -> list[dic
     )
     text = response.content[0].text.strip()
     if text.startswith("```"):
-        parts = text.split("```")
-        text = parts[1].removeprefix("json").strip() if len(parts) > 1 else text
-    return json.loads(text)
+        text = text.split("\n", 1)[1] if "\n" in text else text  # drop opening ```json line
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+    return json.loads(text.strip())
 
 
 def _store_questions(lesson_id: int, questions: list[dict]) -> None:

@@ -76,9 +76,10 @@ def _generate_questions(title: str, content: str, client: Anthropic) -> list[dic
     )
     text = response.content[0].text.strip()
     if text.startswith("```"):
-        parts = text.split("```")
-        text = parts[1].removeprefix("json").strip() if len(parts) > 1 else text
-    return json.loads(text)
+        text = text.split("\n", 1)[1] if "\n" in text else text  # drop opening ```json line
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+    return json.loads(text.strip())
 
 
 def _store_questions(lesson_id: int, questions: list[dict]) -> None:
