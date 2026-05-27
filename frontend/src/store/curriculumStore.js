@@ -104,3 +104,31 @@ export function addRecentLesson({ moduleSlug, moduleTitle, lessonSlug, lessonTit
 export function getRecentLessons() {
   try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] }
 }
+
+export function fetchStats() {
+  return apiFetch('/stats')
+}
+
+const BOOKMARKS_KEY = 'devops_bookmarks'
+
+export function addBookmark({ moduleSlug, moduleTitle, lessonSlug, lessonTitle }) {
+  const existing = getBookmarks()
+  if (existing.some(b => b.lessonSlug === lessonSlug)) return
+  const updated = [...existing, { moduleSlug, moduleTitle, lessonSlug, lessonTitle }]
+  try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated)) } catch { /* storage full */ }
+  window.dispatchEvent(new Event('bookmark-updated'))
+}
+
+export function removeBookmark(lessonSlug) {
+  const updated = getBookmarks().filter(b => b.lessonSlug !== lessonSlug)
+  try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated)) } catch {}
+  window.dispatchEvent(new Event('bookmark-updated'))
+}
+
+export function isBookmarked(lessonSlug) {
+  return getBookmarks().some(b => b.lessonSlug === lessonSlug)
+}
+
+export function getBookmarks() {
+  try { return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]') } catch { return [] }
+}

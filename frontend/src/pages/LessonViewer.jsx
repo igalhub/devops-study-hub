@@ -4,8 +4,20 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson } from '../store/curriculumStore'
+import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson, addBookmark, removeBookmark, isBookmarked } from '../store/curriculumStore'
 import CodePlayground from '../components/CodePlayground'
+
+const slugify = (text) =>
+  text.toLowerCase().trim().replace(/[`*_[\]#]/g, '').replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+
+function extractHeadings(content) {
+  if (!content) return []
+  return content.split('\n').reduce((acc, line) => {
+    const m = line.match(/^## (.+)/)
+    if (m) acc.push({ text: m[1].trim(), id: slugify(m[1].trim()) })
+    return acc
+  }, [])
+}
 
 const DIFFICULTY_COLOR = {
   beginner: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
@@ -13,7 +25,15 @@ const DIFFICULTY_COLOR = {
   advanced: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 }
 
+const toId = (children) => {
+  const text = Array.isArray(children)
+    ? children.map(c => (typeof c === 'string' ? c : c?.props?.children || '')).join('')
+    : String(children || '')
+  return slugify(text)
+}
+
 const mdComponents = {
+  h2({ children }) { return <h2 id={toId(children)}>{children}</h2> },
   pre({ children }) {
     return <>{children}</>
   },
@@ -50,11 +70,13 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeExercise, setActiveExercise] = useState(null)
+  const [bookmarked, setBookmarked] = useState(false)
 
   useEffect(() => {
     setLoading(true)
     setError(null)
     setActiveExercise(null)
+    setBookmarked(isBookmarked(lessonSlug))
     fetchLesson(lessonSlug)
       .then(data => {
         setLesson(data)
@@ -111,6 +133,17 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   }
 
   const done = progress[String(lesson.id)] === 'complete'
+  const headings = extractHeadings(lesson.content)
+
+  const toggleBookmark = () => {
+    if (bookmarked) {
+      removeBookmark(lessonSlug)
+      setBookmarked(false)
+    } else {
+      addBookmark({ moduleSlug, moduleTitle: lesson.module_title, lessonSlug, lessonTitle: lesson.title })
+      setBookmarked(true)
+    }
+  }
 
   const handleComplete = async () => {
     try {
@@ -151,8 +184,33 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
           </span>
           <span className="text-xs text-gray-400 dark:text-gray-500">{lesson.duration_min} min</span>
           {done && <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Complete</span>}
+          <button
+            onClick={toggleBookmark}
+            title={bookmarked ? 'Remove bookmark' : 'Bookmark this lesson'}
+            className={`ml-auto text-base leading-none transition-colors ${bookmarked ? 'text-amber-500' : 'text-gray-300 dark:text-gray-600 hover:text-amber-400 dark:hover:text-amber-400'}`}
+          >
+            {bookmarked ? '★' : '☆'}
+          </button>
         </div>
       </div>
+
+      {headings.length >= 3 && (
+        <nav className="mb-6 px-4 py-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Contents</div>
+          <ol className="space-y-1">
+            {headings.map((h, i) => (
+              <li key={h.id}>
+                <a
+                  href={`#${h.id}`}
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  {i + 1}. {h.text}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
 
       {lesson.content ? (
         <div className="prose prose-gray dark:prose-invert max-w-none

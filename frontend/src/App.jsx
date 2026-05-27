@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import SearchModal from './components/SearchModal'
 import ThemeToggle from './components/ThemeToggle'
 import RecentDropdown from './components/RecentDropdown'
+import BookmarksDropdown from './components/BookmarksDropdown'
 import AiTutor from './components/AiTutor'
 import Quiz from './components/Quiz'
 import Notes from './components/Notes'
@@ -12,6 +13,7 @@ import ModuleView from './pages/ModuleView'
 import ModuleQuiz from './pages/ModuleQuiz'
 import InterviewPrep from './pages/InterviewPrep'
 import Review from './pages/Review'
+import Stats from './pages/Stats'
 import { useTheme } from './store/themeStore'
 import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue } from './store/curriculumStore'
 
@@ -22,6 +24,10 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [readingMode, setReadingMode] = useState(false)
+
+  useEffect(() => { if (!lessonMatch) setReadingMode(false) }, [lessonMatch])
 
   useEffect(() => {
     const handler = (e) => {
@@ -46,10 +52,19 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
     <div className={dark ? 'dark' : ''}>
       {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
       <div className="flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900">
-        <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 ${sidebarOpen ? 'w-[220px]' : 'w-0'}`}>
+          <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
+        </div>
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(o => !o)}
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-base leading-none"
+                title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              >
+                ☰
+              </button>
               <div className="text-xs text-gray-600 dark:text-gray-500">DevOps Study Hub</div>
               <button
                 onClick={() => setSearchOpen(true)}
@@ -59,8 +74,17 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <span>Search</span>
               </button>
               <RecentDropdown />
+              <BookmarksDropdown />
             </div>
             <div className="flex items-center gap-3">
+              {lessonMatch && (
+                <button
+                  onClick={() => setReadingMode(r => !r)}
+                  className="text-xs px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  {readingMode ? 'Side panel' : 'Focus'}
+                </button>
+              )}
               {streak.current > 0 && (
                 <div className={`text-xs font-medium ${streak.today_done ? 'text-orange-500 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   🔥 {streak.current}
@@ -86,6 +110,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
+                <Route path="/stats" element={<Stats />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
                   <Suspense fallback={<div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>}>
                     <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} />
@@ -93,7 +118,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 } />
               </Routes>
             </main>
-            {lessonMatch && (
+            {lessonMatch && !readingMode && (
               <aside className="w-[440px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-stone-200 dark:bg-gray-900">
                 <div className="flex shrink-0 border-b border-gray-200 dark:border-gray-700">
                   {['tutor', 'quiz', 'notes'].map(tab => (
