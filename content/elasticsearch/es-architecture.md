@@ -9,15 +9,15 @@ exercises: 3
 
 ## Overview
 
-Elasticsearch is a distributed, RESTful search and analytics engine built on Apache Lucene. It stores documents as JSON and makes them searchable in near-real-time by maintaining an inverted index — a data structure that maps every token (word) in every field to the list of documents containing it. This is fundamentally different from a relational database: you trade rigid schema enforcement for flexible, horizontal scalability and millisecond full-text search across billions of documents.
+Elasticsearch is a distributed, RESTful search and analytics engine built on Apache Lucene. It stores documents as JSON and makes them searchable in near-real-time by maintaining an **inverted index** — a data structure that maps every token (word) in every field to the list of documents containing it. This is fundamentally different from a relational database: you trade rigid schema enforcement and row-level locking for flexible, horizontal scalability and millisecond full-text search across billions of documents. The trade-off is intentional — Elasticsearch is optimized for read-heavy, append-heavy workloads, not transactional updates.
 
-In a DevOps context Elasticsearch is the backbone of the ELK (Elasticsearch, Logstash, Kibana) and Elastic Stack, ingesting logs, metrics, and traces from across your infrastructure. Understanding its data model — how a cluster organises shards, replicas, and indices — is prerequisite knowledge before you can tune performance, diagnose split-brain scenarios, or build reliable ILM policies that keep your cluster's disk usage under control.
+In a DevOps context, Elasticsearch is the backbone of the ELK (Elasticsearch, Logstash, Kibana) and Elastic Stack, ingesting logs, metrics, and traces from across your infrastructure. Understanding its data model — how a cluster organizes shards, replicas, and indices — is prerequisite knowledge before you can tune performance, diagnose split-brain scenarios, or build reliable ILM policies that keep disk usage under control. A misconfigured shard count you cannot undo without a full reindex, or a dynamic mapping that stores an IP address as `text`, will cost you far more time to fix than getting it right upfront.
 
 From version 8.0 onward, Elasticsearch runs with security enabled by default (TLS + authentication). The examples in this lesson use a single-node Docker container with security disabled so you can focus on the data model itself. The Security lesson covers how to enable and configure authentication properly.
 
 ## Running Elasticsearch Locally with Docker
 
-All exercises in this lesson use a single-node Elasticsearch container. Run it once before starting the exercises:
+All exercises in this lesson use a single-node Elasticsearch container. Run it once before starting:
 
 ```bash
 docker run -d \
@@ -29,84 +29,68 @@ docker run -d \
   docker.elastic.co/elasticsearch/elasticsearch:8.12.0
 ```
 
-What each flag does:
-- `-p 9200:9200` — maps the container's REST API port to your localhost
 - `discovery.type=single-node` — tells ES not to wait for other nodes; forms a cluster by itself immediately
-- `xpack.security.enabled=false` — disables authentication and TLS so you can call the API without credentials
-- `ES_JAVA_OPTS=-Xms512m -Xmx512m` — limits the JVM heap to 512 MB; essential on a laptop (default is half system RAM)
+- `xpack.security.enabled=false` — disables authentication and TLS; never use this in production
+- `ES_JAVA_OPTS=-Xms512m -Xmx512m` — caps the JVM heap at 512 MB; without this, ES defaults to half your system RAM
 
-Wait about 30 seconds, then verify it is running:
+Wait ~30 seconds, then verify:
 
 ```bash
-curl http://localhost:9200/
+curl -s http://localhost:9200/ | jq '.tagline'
+# Expected: "You Know, for Search"
 ```
 
-You should see a JSON response with `"tagline": "You Know, for Search"`. If it returns a connection refused error, check the container logs: `docker logs es-dev`.
+If you get a connection refused, inspect container logs: `docker logs es-dev`.
 
 ### Translating DevTools Notation to curl
 
-Most Elasticsearch documentation (and this lesson) uses Kibana DevTools shorthand:
-
-```
-GET /_cluster/health
-PUT /my-index { ... }
-```
-
-On the command line everything is a `curl` call. The mapping is:
+Elasticsearch documentation uses Kibana DevTools shorthand (`GET /_cluster/health`). On the command line everything is a `curl` call:
 
 ```bash
-# GET request
+# GET
 curl -s http://localhost:9200/_cluster/health | jq .
 
-# PUT request with a JSON body
-curl -s -X PUT http://localhost:9200/my-index \
-  -H "Content-Type: application/json" \
-  -d '{ "settings": { "number_of_shards": 1 } }' | jq .
-
-# POST request
-curl -s -X POST http://localhost:9200/my-index/_doc \
-  -H "Content-Type: application/json" \
-  -d '{ "field": "value" }' | jq .
-
-# DELETE request
-curl -s -X DELETE http://localhost:9200/my-index | jq .
-```
-
-The `-s` flag suppresses curl's progress meter. `| jq .` pretty-prints the JSON response. Install jq if you don't have it: `sudo apt-get install jq` or `brew install jq`.
-
-For multi-line JSON bodies, use a heredoc so you don't have to escape quotes:
-
-```bash
+# PUT with JSON body (heredoc avoids escaping quotes)
 curl -s -X PUT http://localhost:9200/my-index \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
 {
-  "settings": {
-    "number_of_shards": 2,
-    "number_of_replicas": 0
-  }
+  "settings": { "number_of_shards": 1, "number_of_replicas": 0 }
 }
 EOF
+
+# POST (auto-generated document ID)
+curl -s -X POST http://localhost:9200/my-index/_doc \
+  -H "Content-Type: application/json" \
+  -d '{ "field": "value" }' | jq .
+
+# DELETE
+curl -s -X DELETE http://localhost:9200/my-index | jq .
+
+# Check existence only — returns 200 or 404, no body
+curl -o /dev/null -w "%{http_code}\n" -s -I http://localhost:9200/my-index
 ```
+
+Install `jq` if you don't have it: `sudo apt-get install jq` or `brew install jq`.
 
 ## Concepts
 
 ### Cluster, Nodes, and Roles
 
-A **cluster** is one or more nodes that share the same `cluster.name`. Every cluster elects a **master** node responsible for cluster-wide state (mappings, shard routing, node membership). Node roles are declared in `elasticsearch.yml`:
+A **cluster** is one or more nodes that share the same `cluster.name`. Every cluster elects a single **master node** responsible for cluster-wide state: index mappings, shard routing tables, and node membership. If the master dies, surviving master-eligible nodes hold an election. Node roles are declared in `elasticsearch.yml` and control what work a node performs:
 
-| Role | Key | Responsibility |
-|------|-----|----------------|
-| Master-eligible | `master` | Participates in master elections |
-| Data | `data` | Stores shards, handles CRUD & search |
-| Coordinating-only | _(no roles)_ | Routes requests, merges results |
-| Ingest | `ingest` | Runs ingest pipelines before indexing |
-| ML | `ml` | Runs machine-learning jobs |
+| Role | `node.roles` value | Responsibility |
+|------|--------------------|----------------|
+| Master-eligible | `master` | Participates in master elections; manages cluster state |
+| Data | `data` | Stores shards; handles indexing, CRUD, search |
+| Coordinating-only | `[]` (empty list) | Routes requests to the right shards, merges results |
+| Ingest | `ingest` | Runs ingest pipelines (grok, geoIP, etc.) before indexing |
+| ML | `ml` | Executes machine-learning jobs |
 
-In production, always run **dedicated master nodes** (3 for quorum) separate from data nodes to prevent resource contention from killing master elections. On a single-node development cluster, the node takes all roles by default.
+**In production, always run 3 dedicated master nodes** (separate from data nodes). A data node under heavy GC pressure can pause for seconds — if it also holds the master role, that pause looks like a node failure and can trigger unnecessary elections or a split-brain.
 
 ```yaml
-# elasticsearch.yml — dedicated master node
+# elasticsearch.yml — dedicated master node configuration
 node.roles: [ master ]
 cluster.name: prod-logs
 node.name: master-1
@@ -115,22 +99,28 @@ discovery.seed_hosts: ["10.0.1.10", "10.0.1.11", "10.0.1.12"]
 cluster.initial_master_nodes: ["master-1", "master-2", "master-3"]
 ```
 
-Verify which roles your local node is playing:
+**`cluster.initial_master_nodes` is a bootstrap-only setting.** It tells the cluster which nodes are allowed to form the initial quorum. Once the cluster is formed and state is persisted to disk, remove this setting from `elasticsearch.yml` before restarting nodes. If you leave it in and later add more master-eligible nodes, the cluster can bootstrap a second independent cluster on restart — a split-brain scenario.
+
+Verify roles on your running node:
 
 ```bash
-curl -s http://localhost:9200/_cat/nodes?v&h=name,node.role,master
+curl -s "http://localhost:9200/_cat/nodes?v&h=name,node.role,master"
+# node.role letters: m=master-eligible, d=data, i=ingest, c=coordinating
+# master column: * = elected master
 ```
-
-The `node.role` column contains letters: `m` = master-eligible, `d` = data, `i` = ingest, `c` = coordinating. The `master` column shows `*` for the elected master.
 
 ### Indices, Shards, and Replicas
 
-An **index** is a logical namespace for a collection of documents. Physically, each index is split into **primary shards** and optionally one or more **replica shards**.
+An **index** is a logical namespace for a collection of documents. Physically, an index is divided into **primary shards**, each of which is an independent Lucene index holding a subset of the documents. **Replica shards** are exact copies of primaries; they serve read requests and provide failover.
 
-- **Primary shards** — determined at index creation, cannot be changed without reindex. Each primary holds a subset of the index's documents.
-- **Replica shards** — exact copies of primaries; serve read requests and provide failover if a primary's node goes down.
+```
+Index: logs-app-2024
+├── Primary shard 0  (node-1)   ←→  Replica 0 (node-2)
+├── Primary shard 1  (node-2)   ←→  Replica 1 (node-3)
+└── Primary shard 2  (node-3)   ←→  Replica 2 (node-1)
+```
 
-Create an index with explicit shard settings:
+Create an index with explicit shard configuration:
 
 ```bash
 curl -s -X PUT http://localhost:9200/logs-app-2024 \
@@ -145,29 +135,42 @@ curl -s -X PUT http://localhost:9200/logs-app-2024 \
 EOF
 ```
 
-On a single-node cluster, always set `number_of_replicas: 0`. Elasticsearch will not place a replica on the same node as its primary, so replicas stay unassigned and the cluster turns yellow if you set replicas > 0 with only one node.
-
-Verify the index was created:
+Verify the index and shard allocation:
 
 ```bash
 curl -s "http://localhost:9200/_cat/indices?v&h=index,health,pri,rep,docs.count,store.size"
+curl -s "http://localhost:9200/_cat/shards/logs-app-2024?v&h=shard,prirep,state,node"
 ```
 
-Shard sizing rule of thumb: aim for **10–50 GB per shard**. Too many small shards waste heap; too few large shards reduce parallelism and make recovery slow.
+**Key constraints:**
+- `number_of_shards` is fixed at index creation. To change it, you must create a new index and use the `_reindex` API to copy data across.
+- `number_of_replicas` can be changed at any time with `PUT /<index>/_settings`.
+- On a single-node cluster, set `number_of_replicas: 0`. Elasticsearch will not place a replica on the same node as its primary — replicas stay `UNASSIGNED` and the cluster turns **yellow** if you request replicas with only one node.
+
+**Shard sizing rule of thumb:** target **10–50 GB per shard**. Too many small shards (under-sizing) wastes heap because every shard has fixed overhead (~few MB of heap). Too few large shards (over-sizing) reduces parallelism and makes recovery after a node failure slow.
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| Cluster status `yellow` | Unassigned replicas | Add nodes or set `number_of_replicas: 0` |
+| Cluster status `red` | One or more primary shards unassigned | Node lost with no replica; restore from snapshot |
+| High heap usage | Too many small shards | Shrink index or increase shard size targets |
+| Slow recovery | Shards are too large (>100 GB) | Reduce `max_primary_shard_size` on rollover |
 
 ### Index vs Data Stream
 
-| | Index | Data Stream |
-|---|---|---|
-| Use case | General documents | Time-series (logs, metrics) |
-| Write target | The index itself | Hidden backing indices |
-| Rollover | Manual or ILM | Automatic via ILM |
-| Read | Single index | All backing indices transparently |
+| | Plain Index | Data Stream |
+|--|-------------|-------------|
+| Use case | General documents | Time-series: logs, metrics, traces |
+| Write target | The index directly | Hidden auto-named backing indices |
+| Rollover | Manual or via ILM | Automatic via ILM |
+| Read | Single index name | All backing indices, transparently |
+| Required field | None | `@timestamp` (must be `date` type) |
+| Custom document IDs | Supported | **Not supported** — IDs are auto-generated |
 
-Data streams require an **index template** with `data_stream: {}` enabled. The template must also map a `@timestamp` field as `date`. Documents written to a data stream must include `@timestamp`.
+Data streams are the correct abstraction for log pipelines. Under the hood, a data stream is a named alias pointing to a sequence of backing indices (e.g., `.ds-logs-myapp-2024.03.15-000001`). When an ILM rollover fires, a new backing index is created and the write alias advances to it. Older backing indices transition through warm/cold/delete phases independently.
 
 ```bash
-# 1. Create the index template first
+# 1. Create the index template (data_stream: {} activates data stream mode)
 curl -s -X PUT http://localhost:9200/_index_template/logs-template \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
@@ -185,40 +188,41 @@ curl -s -X PUT http://localhost:9200/_index_template/logs-template \
 }
 EOF
 
-# 2. Create the data stream (the template auto-applies)
+# 2. Create the data stream — the template applies automatically
 curl -s -X PUT http://localhost:9200/_data_stream/logs-myapp | jq .
 
-# 3. Index a document — must use POST (no custom IDs in data streams)
+# 3. Index a document — must use POST; no custom IDs allowed
 curl -s -X POST http://localhost:9200/logs-myapp/_doc \
   -H "Content-Type: application/json" \
   -d '{ "@timestamp": "2024-03-15T10:00:00Z", "level": "INFO", "message": "App started" }' | jq .
 
-# 4. Verify backing indices
+# 4. Inspect the backing indices
 curl -s "http://localhost:9200/_data_stream/logs-myapp" | jq '.data_streams[0].indices'
 ```
 
 ### Mappings and Field Types
 
-A **mapping** defines the schema for documents in an index. Elasticsearch infers mappings dynamically from the first document indexed, but dynamic mapping often produces incorrect types (a numeric string mapped as `long`, an IP address mapped as `text`). Always define explicit mappings in production.
+A **mapping** defines the schema for documents in an index: what fields exist, their types, and how they are indexed. Elasticsearch performs **dynamic mapping** if no explicit mapping exists — it infers types from the first document it sees. Dynamic mapping is convenient for exploration but dangerous in production: a log field containing `"200"` gets mapped as `long`, an IP address gets mapped as `text`, and a date string in an unexpected format gets mapped as `keyword`.
+
+**You cannot change a field's type after the mapping is set.** The inverted index is already built for that type. To fix a wrong field type you must create a new index with the correct mapping and reindex all data into it.
 
 Key field types:
 
-| Type | Use for |
-|------|---------|
-| `keyword` | Exact-match, aggregations, sorting (IDs, status codes, hostnames) |
-| `text` | Full-text search (log messages, descriptions) — analyzed and tokenized |
-| `date` | Timestamps; format can be specified |
-| `integer` / `long` | Numeric counts, durations |
-| `float` / `double` | Decimal numbers |
-| `boolean` | True/false flags |
-| `ip` | IPv4/IPv6 addresses with CIDR query support |
-| `object` | Nested JSON object (flat, not independently queryable) |
-| `nested` | Array of objects where each object must be queried independently |
+| Type | Use for | Supports aggregation? | Supports full-text search? |
+|------|---------|----------------------|---------------------------|
+| `keyword` | Exact match: hostnames, status codes, IDs | ✅ | ❌ |
+| `text` | Analyzed free text: log messages, descriptions | ❌ | ✅ |
+| `date` | Timestamps; configurable format | ✅ | ❌ |
+| `integer` / `long` | Counts, durations, numeric IDs | ✅ | ❌ |
+| `float` / `double` | Percentages, latencies | ✅ | ❌ |
+| `boolean` | Flags | ✅ | ❌ |
+| `ip` | IPv4/IPv6 addresses; supports CIDR range queries | ✅ | ❌ |
+| `object` | Nested JSON (fields flattened into parent doc) | ✅ | depends on subfield type |
+| `nested` | Arrays of objects that must be independently queried | ✅ | ✅ |
 
-The `keyword` vs `text` split is a common interview question. `keyword` stores the raw value unchanged and supports exact match and aggregations but **not** full-text search. `text` is tokenized (split into terms, lowercased, stemmed) and supports full-text search but **not** aggregations. A field can have both via a `fields` sub-mapping (multi-fields):
+**`keyword` vs `text`** is a frequent interview topic. `keyword` stores the raw, unchanged string — useful for `term` queries, `terms` aggregations, and sorting. `text` is run through an analyzer: tokenized, lowercased, and optionally stemmed — useful for `match` queries but not aggregatable. A field can have **both** via `fields` (multi-fields):
 
 ```bash
-# Mapping that supports both full-text search AND aggregation on the same field
 curl -s -X PUT http://localhost:9200/services \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
@@ -242,41 +246,50 @@ curl -s -X PUT http://localhost:9200/services \
 EOF
 ```
 
-With this mapping, `log_message` is searchable with `match` queries, and `log_message.keyword` is aggregatable. The `ignore_above: 256` truncates very long strings in the keyword sub-field to save space.
+With this mapping, `log_message` supports `match` queries (full-text) and `log_message.keyword` supports `terms` aggregations. The `ignore_above: 256` prevents very long strings from being stored in the keyword sub-field — strings longer than 256 characters are silently dropped from that sub-field only, not from the parent `text` field.
 
-Retrieve the mapping to verify:
+**`object` vs `nested`:** If you have an array of objects and need to query each object's fields as a unit, use `nested`. With `object`, the array is flattened — `{ "tags": [{"name":"error","count":5}, {"name":"warn","count":2}] }` becomes `tags.name: [error, warn]` and `tags.count: [5, 2]`, destroying the relationship between name and count within each tag. `nested` preserves that relationship but is significantly more expensive to query and index.
 
-```bash
-curl -s http://localhost:9200/services/_mapping | jq .
-```
-
-**You cannot change a field's type in an existing mapping.** If you map `price` as `keyword` and later need it as `float`, you must create a new index with the correct mapping and reindex. This is why getting mappings right upfront matters.
-
-View dynamic mappings on an index after indexing a document to see what Elasticsearch inferred:
+Verify dynamic mapping on a document you just indexed:
 
 ```bash
-# Index a document without an explicit mapping
+# Index without explicit mapping
 curl -s -X POST http://localhost:9200/dynamic-test/_doc \
   -H "Content-Type: application/json" \
   -d '{ "host": "web-01", "count": 42, "ratio": 0.75, "active": true }' | jq .
 
-# See what Elasticsearch inferred
+# Inspect what Elasticsearch inferred
 curl -s http://localhost:9200/dynamic-test/_mapping | jq '.["dynamic-test"].mappings.properties'
+# count → long, ratio → float, active → boolean, host → text + keyword sub-field
+```
+
+To **disable dynamic mapping** on an index and reject unknown fields entirely:
+
+```bash
+curl -s -X PUT http://localhost:9200/strict-index \
+  -H "Content-Type: application/json" \
+  -d '{ "mappings": { "dynamic": "strict", "properties": { "host": { "type": "keyword" } } } }' | jq .
+# Indexing a document with an unknown field now returns a 400 error
 ```
 
 ### Index Lifecycle Management (ILM)
 
-ILM automates the transition of indices through phases — **hot → warm → cold → frozen → delete** — based on age or size. This is essential for log data: you want fast writes and low-latency search initially, then progressively cheaper storage as data ages.
+ILM automates moving indices through phases as data ages, balancing query performance against storage cost. Without ILM, a log index grows indefinitely on expensive hot storage. With ILM, data ages automatically into cheaper tiers and is deleted when no longer needed.
 
-Phase breakdown:
-- **Hot** — actively written to; rollover triggers creation of a new backing index when size/age thresholds are hit
-- **Warm** — no new writes; shrink to fewer shards, forcemerge to reduce segment count and improve read performance
-- **Cold** — infrequent access; data is still searchable but not cached in heap
-- **Frozen** — very infrequent access; data lives on disk only, loaded on demand (much lower cost)
-- **Delete** — index is removed
+**ILM phases and what they do:**
+
+| Phase | Trigger | Typical actions |
+|-------|---------|----------------|
+| **Hot** | Immediately on creation | `rollover`: create a new index when size or age threshold is hit |
+| **Warm** | `min_age` after rollover | `shrink`: reduce primary shards; `forcemerge`: collapse segments for faster reads |
+| **Cold** | `min_age` after rollover | Move to cold-tier nodes; data stays searchable but slower |
+| **Frozen** | `min_age` after rollover | Data loaded from disk on demand; minimal heap usage |
+| **Delete** | `min_age` after rollover | Remove the index entirely |
+
+`min_age` in warm/cold/delete is measured from the **rollover time**, not from the ILM policy creation time. If an index never rolls over (too small), it will not progress past hot phase until `max_age` fires.
 
 ```bash
-# Create an ILM policy
+# Create a complete ILM policy
 curl -s -X PUT http://localhost:9200/_ilm/policy/logs-policy \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
@@ -291,9 +304,13 @@ curl -s -X PUT http://localhost:9200/_ilm/policy/logs-policy \
       "warm": {
         "min_age": "7d",
         "actions": {
-          "shrink": { "number_of_shards": 1 },
+          "shrink":     { "number_of_shards": 1 },
           "forcemerge": { "max_num_segments": 1 }
         }
+      },
+      "cold": {
+        "min_age": "15d",
+        "actions": {}
       },
       "delete": {
         "min_age": "30d",
@@ -305,16 +322,9 @@ curl -s -X PUT http://localhost:9200/_ilm/policy/logs-policy \
 EOF
 ```
 
-Verify the policy was created:
+Attach the policy to an index at creation time:
 
 ```bash
-curl -s http://localhost:9200/_ilm/policy/logs-policy | jq .
-```
-
-**Attaching an ILM policy to an index** requires setting `index.lifecycle.name` in the index settings. You can do this at creation time or update it on an existing index:
-
-```bash
-# At creation time
 curl -s -X PUT http://localhost:9200/logs-app-managed \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
@@ -327,55 +337,99 @@ curl -s -X PUT http://localhost:9200/logs-app-managed \
   }
 }
 EOF
-
-# Or update an existing index
-curl -s -X PUT "http://localhost:9200/logs-app-2024/_settings" \
-  -H "Content-Type: application/json" \
-  -d '{ "index.lifecycle.name": "logs-policy" }' | jq .
-
-# Check ILM status for an index
-curl -s "http://localhost:9200/logs-app-managed/_ilm/explain" | jq .
 ```
 
-The `_ilm/explain` endpoint shows the current phase, the time in the current phase, and any errors that blocked the transition.
+Or attach it to an existing index:
+
+```bash
+curl -s -X PUT http://localhost:9200/logs-app-2024/_settings \
+  -H "Content-Type: application/json" \
+  -d '{ "index.lifecycle.name": "logs-policy" }' | jq .
+```
+
+Diagnose ILM progress and errors:
+
+```bash
+curl -s "http://localhost:9200/logs-app-managed/_ilm/explain" | jq .
+# Key fields: phase, action, step, age, failed_step, step_info (contains error details)
+```
+
+**Common ILM failure:** the `shrink` action requires all shards of the index to land on a single node. If your cluster has allocation rules (rack awareness, frozen tiers) that prevent this, shrink will stall with a `step_info` error. Check `_ilm/explain` — it will tell you exactly which step failed and why.
+
+### The Inverted Index and Near-Real-Time Search
+
+Understanding why Elasticsearch search is fast — and what "near-real-time" actually means — requires understanding the write path.
+
+When a document is indexed:
+1. It is written to an in-memory **buffer** and the **transaction log (translog)**.
+2. Every second (default), the buffer is **refreshed** into a new in-memory Lucene **segment**. The segment is now searchable. This 1-second delay is what "near-real-time" means.
+3. Every 30 minutes (default) or when the translog exceeds 512 MB, segments are **flushed** to disk (fsync). The translog is then cleared.
+4. In the background, small segments are **merged** into larger ones to reduce the number of files Elasticsearch must scan on each query.
+
+**Implications for DevOps:**
+
+- If you need a document searchable immediately (e.g., integration tests), call `POST /<index>/_refresh` after indexing. Do not do this in production pipelines — it is expensive.
+- The translog provides durability: if a node crashes between flushes, documents are replayed from the translog on restart.
+- Forcemerge (used in warm phase) collapses all segments into one. This is a heavy I/O operation — only safe on read-only indices.
+
+```bash
+# Force a refresh so a just-indexed document is immediately searchable
+curl -s -X POST http://localhost:9200/my-index/_refresh | jq .
+
+# Check segment count (high segment count = slower reads)
+curl -s "http://localhost:9200/_cat/segments/my-index?v&h=index,shard,segment,size,docs.count"
+```
 
 ### REST API Overview
 
-Elasticsearch is fully REST-based. All operations use standard HTTP verbs:
+All Elasticsearch operations use standard HTTP verbs:
 
-| Verb | Purpose |
-|------|---------|
-| `PUT` | Create or replace a resource (index, document by ID) |
-| `POST` | Append/update (document without ID, `_search`, `_bulk`) |
-| `GET` | Read |
-| `DELETE` | Delete |
-| `HEAD` | Check existence without returning body |
+| Verb | Purpose | Example |
+|------|---------|---------|
+| `PUT` | Create or replace a resource | Create index, put document by ID |
+| `POST` | Append or update | Index doc (auto ID), `_search`, `_bulk`, `_reindex` |
+| `GET` | Read | Get document, mapping, settings, search |
+| `DELETE` | Delete | Delete index, document, ILM policy |
+| `HEAD` | Check existence | Returns 200 or 404, no response body |
 
-Essential cluster-level commands:
+Essential operational commands:
 
 ```bash
-# Check cluster health (green/yellow/red)
-curl -s http://localhost:9200/_cluster/health | jq .
+# Cluster health — green/yellow/red
+curl -s http://localhost:9200/_cluster/health | jq '{status, number_of_nodes, active_shards, unassigned_shards}'
 
-# List all indices with key stats
-curl -s "http://localhost:9200/_cat/indices?v&h=index,health,pri,rep,docs.count,store.size"
+# List indices with key stats
+curl -s "http://localhost:9200/_cat/indices?v&h=index,health,pri,rep,docs.count,store.size&s=store.size:desc"
 
-# Get index mapping
-curl -s http://localhost:9200/logs-app-2024/_mapping | jq .
+# Explain why a shard is unassigned
+curl -s "http://localhost:9200/_cluster/allocation/explain" \
+  -H "Content-Type: application/json" \
+  -d '{ "index": "my-index", "shard": 0, "primary": false }' | jq '.explanation'
 
-# Get index settings
-curl -s http://localhost:9200/logs-app-2024/_settings | jq .
+# Check index mapping
+curl -s http://localhost:9200/my-index/_mapping | jq .
 
-# Check if an index exists (returns 200 or 404, no body)
-curl -o /dev/null -w "%{http_code}\n" -s -I http://localhost:9200/logs-app-2024
+# Check index settings
+curl -s http://localhost:9200/my-index/_settings | jq .
 
-# Delete an index
-curl -s -X DELETE http://localhost:9200/logs-app-2024 | jq .
+# Bulk index multiple documents in one request (newline-delimited JSON)
+curl -s -X POST http://localhost:9200/_bulk \
+  -H "Content-Type: application/x-ndjson" \
+  --data-binary @- << 'EOF'
+{"index": {"_index": "my-index"}}
+{"field": "value1", "@timestamp": "2024-03-15T10:00:00Z"}
+{"index": {"_index": "my-index"}}
+{"field": "value2", "@timestamp": "2024-03-15T10:01:00Z"}
+EOF
 ```
 
-## Worked Example — Designing a Logging Index for a Microservices Platform
+**`_bulk` is the correct way to ingest data at scale.** Single-document `POST /_doc` requests have per-request HTTP and cluster overhead. Bulk requests of 5–15 MB are the standard recommendation — measure your throughput and tune batch size accordingly.
 
-Scenario: You have 5 services each emitting ~10,000 logs/minute. You need 30-day retention with fast querying for the last 7 days. Here is the full setup sequence:
+## Examples
+
+### Example 1 — Designing a Logging Index for a Microservices Platform
+
+**Scenario:** 5 services each emitting ~10,000 logs/minute. Requirements: 30-day retention, fast search on the last 7 days.
 
 ```bash
 # Step 1 — Create the ILM policy
@@ -385,15 +439,28 @@ curl -s -X PUT http://localhost:9200/_ilm/policy/service-logs-policy \
 {
   "policy": {
     "phases": {
-      "hot":  { "actions": { "rollover": { "max_size": "30gb", "max_age": "1d" } } },
-      "warm": { "min_age": "3d", "actions": { "shrink": { "number_of_shards": 1 }, "forcemerge": { "max_num_segments": 1 } } },
-      "delete": { "min_age": "30d", "actions": { "delete": {} } }
+      "hot":  {
+        "actions": {
+          "rollover": { "max_size": "30gb", "max_age": "1d" }
+        }
+      },
+      "warm": {
+        "min_age": "3d",
+        "actions": {
+          "shrink":     { "number_of_shards": 1 },
+          "forcemerge": { "max_num_segments": 1 }
+        }
+      },
+      "delete": {
+        "min_age": "30d",
+        "actions": { "delete": {} }
+      }
     }
   }
 }
 EOF
 
-# Step 2 — Create the index template with explicit mappings
+# Step 2 — Create the index template with explicit mappings and ILM policy attached
 curl -s -X PUT http://localhost:9200/_index_template/service-logs-template \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
@@ -421,152 +488,181 @@ curl -s -X PUT http://localhost:9200/_index_template/service-logs-template \
 }
 EOF
 
-# Step 3 — Create the data stream; the template auto-applies
+# Step 3 — Create the data stream; template auto-applies
 curl -s -X PUT http://localhost:9200/_data_stream/service-logs-payment | jq .
 
 # Step 4 — Index a test document
 curl -s -X POST http://localhost:9200/service-logs-payment/_doc \
   -H "Content-Type: application/json" \
-  -d '{ "@timestamp": "2024-03-15T10:23:00Z", "service_name": "payment-api", "level": "ERROR", "message": "Connection pool exhausted", "response_time": 5021, "client_ip": "10.0.2.100" }' | jq .
+  -d '{
+    "@timestamp":    "2024-03-15T10:23:00Z",
+    "service_name":  "payment-api",
+    "level":         "ERROR",
+    "message":       "Connection pool exhausted after 5000ms",
+    "response_time": 5021,
+    "client_ip":     "10.0.2.100",
+    "trace_id":      "4bf92f3577b34da6a3ce929d0e0e4736"
+  }' | jq .
 
 # Step 5 — Verify the backing index picked up the ILM policy
-curl -s "http://localhost:9200/service-logs-payment/_ilm/explain" | jq '.indices | to_entries[0].value | {phase, age, policy}'
+curl -s "http://localhost:9200/service-logs-payment/_ilm/explain" \
+  | jq '.indices | to_entries[0].value | {phase, age, policy}'
+
+# Step 6 — Query using a keyword filter (exact match on level)
+curl -s -X POST http://localhost:9200/service-logs-payment/_search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "bool": {
+        "filter": [
+          { "term":  { "level": "ERROR" } },
+          { "range": { "@timestamp": { "gte": "now-1h" } } }
+        ]
+      }
+    }
+  }' | jq '.hits.total'
 ```
 
-This gives you keyword-fast filtering by service and level, full-text search on messages, and automatic index management — no manual rollover required.
+### Example 2 — Detecting and Fixing a Mapping Mistake
 
-## Exercises
-
-### Exercise 1 — Create an Index with Explicit Mappings
-
-Start the local Docker container described at the top of this lesson. Then create an index named `inventory` with the following explicit mapping:
-
-| Field | Type | Rationale |
-|-------|------|-----------|
-| `item_name` | `keyword` | Exact match and aggregation |
-| `description` | `text` | Full-text search |
-| `quantity` | `integer` | Numeric |
-| `last_updated` | `date` | Timestamp |
+**Scenario:** A developer indexed documents without an explicit mapping. Elasticsearch inferred `response_code` as `long`, but you need to filter on values like `"200"`, `"404"`, and aggregate by status class. You realize it should be `keyword`.
 
 ```bash
-curl -s -X PUT http://localhost:9200/inventory \
+# 1. Simulate the mistake — index without explicit mapping
+curl -s -X POST http://localhost:9200/app-logs/_doc \
+  -H "Content-Type: application/json" \
+  -d '{ "response_code": 200, "path": "/api/users", "@timestamp": "2024-03-15T10:00:00Z" }' | jq .
+
+# 2. Confirm the inferred mapping
+curl -s http://localhost:9200/app-logs/_mapping \
+  | jq '.["app-logs"].mappings.properties.response_code'
+# → { "type": "long" }  — wrong for aggregation-by-string use case
+
+# 3. Attempt to change the field type — this will fail
+curl -s -X PUT http://localhost:9200/app-logs/_mapping \
+  -H "Content-Type: application/json" \
+  -d '{ "properties": { "response_code": { "type": "keyword" } } }' | jq '.error.reason'
+# → "mapper [response_code] cannot be changed from type [long] to [keyword]"
+
+# 4. Create a new index with the correct mapping
+curl -s -X PUT http://localhost:9200/app-logs-v2 \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
 {
   "settings": { "number_of_shards": 1, "number_of_replicas": 0 },
   "mappings": {
+    "dynamic": "strict",
     "properties": {
-      "item_name":    { "type": "keyword" },
-      "description":  { "type": "text" },
-      "quantity":     { "type": "integer" },
-      "last_updated": { "type": "date", "format": "strict_date_optional_time" }
+      "response_code": { "type": "keyword" },
+      "path":          { "type": "keyword" },
+      "@timestamp":    { "type": "date" }
     }
   }
 }
 EOF
-```
 
-Verify the mapping was applied correctly:
-
-```bash
-curl -s http://localhost:9200/inventory/_mapping | jq '.inventory.mappings.properties'
-```
-
-Confirm you can see all four fields with the types you specified. Then index one document and use `_mapping` again to confirm ES did not dynamically add any additional fields:
-
-```bash
-curl -s -X POST http://localhost:9200/inventory/_doc \
+# 5. Reindex data into the corrected index
+curl -s -X POST http://localhost:9200/_reindex \
   -H "Content-Type: application/json" \
-  -d '{ "item_name": "server-rack-42u", "description": "42U rack cabinet with cable management", "quantity": 3, "last_updated": "2024-03-15T00:00:00Z" }' | jq .
+  -d @- << 'EOF'
+{
+  "source": { "index": "app-logs" },
+  "dest":   { "index": "app-logs-v2" },
+  "script": {
+    "source": "ctx._source.response_code = ctx._source.response_code.toString()",
+    "lang": "painless"
+  }
+}
+EOF
+# The Painless script converts the long to a string during reindex
+
+# 6. Verify the document arrived with the correct type
+curl -s http://localhost:9200/app-logs-v2/_search | jq '.hits.hits[0]._source'
 ```
+
+### Example 3 — Checking Cluster Health After Scaling Down
+
+**Scenario:** You removed a data node during maintenance. You need to confirm the cluster recovered fully and identify any unassigned shards.
+
+```bash
+# Check overall health
+curl -s http://localhost:9200/_cluster/health | jq '{status, unassigned_shards, relocating_shards}'
+
+# List unassigned shards if status is yellow/red
+curl -s "http://localhost:9200/_cat/shards?v&h=index,shard,prirep,state,node&s=state" \
+  | grep -E "UNASSIGNED|INITIALIZING"
+
+# Get an allocation explanation for the first unassigned shard
+curl -s -X POST http://localhost:9200/_cluster/allocation/explain \
+  -H "Content-Type: application/json" \
+  -d '{ "index": "logs-app-2024", "shard": 0, "primary": false }' \
+  | jq '.explanation'
+
+# If unassigned replicas are expected (single-node scenario), disable them
+curl -s -X PUT http://localhost:9200/logs-app-2024/_settings \
+  -H "Content-Type: application/json" \
+  -d '{ "number_of_replicas": 0 }' | jq .
+
+# Re-check health — should return green
+curl -s http://localhost:9200/_cluster/health | jq '.status'
+```
+
+## Exercises
+
+### Exercise 1 — Create an Index with Explicit Mappings
+
+Start the local Docker container. Create an index named `inventory` with these fields:
+
+| Field | Type | Rationale |
+|-------|------|-----------|
+| `item_name` | `keyword` | Exact match and aggregation |
+| `description` | `text` with `keyword` sub-field | Full-text search AND aggregation |
+| `quantity` | `integer` | Numeric |
+| `last_updated` | `date` | Timestamp |
+
+After creating the index:
+1. Retrieve the mapping and confirm all four fields have the expected types.
+2. Index one document.
+3. Attempt to index a second document with an extra field `price: 99.99`. Observe that Elasticsearch accepts it and dynamically adds the field to the mapping.
+4. Retrieve the mapping again and note the new `price` field. Then explain: how would you prevent this from happening in production?
+
+**Hint:** look at the `dynamic` mapping setting and what value you would set it to in order to reject unknown fields.
+
+---
 
 ### Exercise 2 — Create and Attach an ILM Policy
 
 Create an ILM policy named `inventory-policy` with these rules:
 - Hot phase: rollover when the index reaches 5 GB or is 7 days old
-- Warm phase: start 14 days after rollover; forcemerge to 1 segment
-- Delete phase: delete 60 days after rollover
+- Warm phase: 14 days after rollover; forcemerge to 1 segment
+- Delete phase: 60 days after rollover
 
-Then attach it to the `inventory` index you created in Exercise 1.
+Then:
+1. Attach the policy to the `inventory` index from Exercise 1.
+2. Use `_ilm/explain` to confirm the policy is attached and note the current phase.
+3. Modify the policy to add a cold phase at 30 days (no actions required — just adding the phase). Use `PUT /_ilm/policy/inventory-policy` with the updated JSON.
+4. Re-run `_ilm/explain` and confirm the policy version number incremented.
 
-```bash
-# Create the policy
-curl -s -X PUT http://localhost:9200/_ilm/policy/inventory-policy \
-  -H "Content-Type: application/json" \
-  -d @- << 'EOF'
-{
-  "policy": {
-    "phases": {
-      "hot": {
-        "actions": {
-          "rollover": { "max_size": "5gb", "max_age": "7d" }
-        }
-      },
-      "warm": {
-        "min_age": "14d",
-        "actions": {
-          "forcemerge": { "max_num_segments": 1 }
-        }
-      },
-      "delete": {
-        "min_age": "60d",
-        "actions": { "delete": {} }
-      }
-    }
-  }
-}
-EOF
+**Answer these questions in comments next to your curl commands:**
+- Why does `min_age` in the warm phase count from rollover rather than from index creation?
+- What happens to an index in the hot phase that never reaches the rollover thresholds?
 
-# Attach to the existing inventory index
-curl -s -X PUT http://localhost:9200/inventory/_settings \
-  -H "Content-Type: application/json" \
-  -d '{ "index.lifecycle.name": "inventory-policy" }' | jq .
-
-# Verify the policy is attached and check current ILM state
-curl -s http://localhost:9200/inventory/_ilm/explain | jq '.indices.inventory | {policy, phase, age}'
-```
+---
 
 ### Exercise 3 — Design a Production Node Configuration
 
-Design the node-role configuration for a 9-node production cluster handling 500 GB/day of logs. Write out the `node.roles` stanza for each node type and explain the rationale.
+You are building a 9-node cluster to handle 500 GB/day of log ingest with Kibana dashboards running aggregation-heavy queries from an operations team of 20 people.
 
-Recommended allocation: **3 dedicated master nodes**, **5 data nodes**, **1 coordinating-only node**.
+Write out the complete `node.roles` stanza and a brief rationale for each of these node types:
+- 3 dedicated master nodes
+- 5 data + ingest nodes
+- 1 coordinating-only node
 
-```yaml
-# master-1, master-2, master-3 — dedicated master nodes
-node.roles: [ master ]
-# Rationale: dedicated masters have no data responsibility, so
-# GC pauses from indexing workloads cannot delay heartbeats
-# and cause spurious master-election storms.
+Then answer the following:
 
-# data-1 through data-5 — data nodes
-node.roles: [ data, ingest ]
-# Rationale: ingest pipelines (geoIP, grok, timestamp parsing)
-# run on the same node that holds the data, reducing network hops.
-# 500 GB/day ÷ 5 nodes = 100 GB/day per node, well within
-# a reasonable range for a 2–4 TB SSD node.
+1. Why would adding ingest role to data nodes (instead of a separate ingest tier) be acceptable at this scale?
+2. What would you change if aggregation queries from Kibana were causing heap pressure on data nodes?
+3. The cluster was initially formed with `cluster.initial_master_nodes` set. A new master-eligible node is being added six months later. Should you set `cluster.initial_master_nodes` in the new node's config? Why or why not?
+4. If one data node fails and contains primaries with no replicas (`number_of_replicas: 0`), what is the cluster status and what is your recovery path?
 
-# coordinating-1 — coordinating-only node (no roles declared)
-node.roles: []
-# Rationale: heavy aggregation and search queries scatter/gather
-# across all 5 data nodes. Offloading the merge step to a
-# dedicated coordinating node prevents large aggregation results
-# from consuming heap on data nodes that are also indexing.
-```
-
-Cluster configuration file shared by all nodes:
-
-```yaml
-# elasticsearch.yml (shared sections)
-cluster.name: prod-logs
-discovery.seed_hosts:
-  - "10.0.1.10"   # master-1
-  - "10.0.1.11"   # master-2
-  - "10.0.1.12"   # master-3
-cluster.initial_master_nodes:
-  - "master-1"
-  - "master-2"
-  - "master-3"
-```
-
-Key question to answer: why must `cluster.initial_master_nodes` list exactly the initial master-eligible nodes and be removed from the config once the cluster is formed? (Answer: it prevents split-brain when the cluster restarts later with a different master-eligible set.)
+Write your configuration as valid `elasticsearch.yml` snippets — one per node type.
