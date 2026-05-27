@@ -33,7 +33,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
 
   if (loading) return (
     <div className={dark ? 'dark' : ''}>
-      <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900 text-gray-500">
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-500">
         Loading…
       </div>
     </div>
@@ -42,7 +42,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   return (
     <div className={dark ? 'dark' : ''}>
       {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
-      <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
+      <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
         <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -87,7 +87,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               </Routes>
             </main>
             {lessonMatch && (
-              <aside className="w-[440px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-900">
+              <aside className="w-[440px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-gray-100 dark:bg-gray-900">
                 <div className="flex shrink-0 border-b border-gray-200 dark:border-gray-700">
                   {['tutor', 'quiz'].map(tab => (
                     <button
