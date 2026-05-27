@@ -125,7 +125,7 @@ http {
 ```yaml
 # roles/nginx/meta/main.yml
 galaxy_info:
-  author: igal
+  author: developer
   description: Nginx web server role
   license: MIT
   min_ansible_version: "2.14"

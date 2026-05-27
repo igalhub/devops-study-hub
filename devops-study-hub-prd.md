@@ -1,7 +1,7 @@
 # PRD — DevOps Study Hub
 
 ## Problem
-Igal is transitioning into DevOps and needs structured, hands-on learning
+A developer transitioning into DevOps needs structured, hands-on learning
 that builds real job-ready skills — not passive reading. Existing platforms
 (Udemy, Linux Foundation, etc.) lack personalization, active recall, and
 integrated practice environments.
@@ -28,7 +28,7 @@ integrated practice environments.
 - Public deployment (local-only for now)
 
 ## Constraints
-- Solo developer (Igal)
+- Solo developer
 - Linux desktop environment
 - Local-only deployment for now
 

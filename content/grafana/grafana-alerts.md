@@ -303,7 +303,7 @@ curl -X POST http://admin:admin@localhost:3000/api/alertmanager/grafana/api/v2/s
     ],
     "startsAt": "2026-06-01T02:00:00Z",
     "endsAt":   "2026-06-01T04:00:00Z",
-    "createdBy": "igal",
+    "createdBy": "oncall-engineer",
     "comment":   "Kernel upgrade maintenance"
   }'
 ```

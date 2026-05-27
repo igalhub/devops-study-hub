@@ -1,7 +1,7 @@
 # DevOps Study Hub — Project Instructions
 
 ## Project Purpose
-An interactive study hub to teach Igal the DevOps skills required to land a job in the field.
+An interactive study hub to learn the DevOps skills required to land a job in the field.
 
 ## Curriculum Scope
 23 modules across 5 groups:

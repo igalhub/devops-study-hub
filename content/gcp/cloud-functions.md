@@ -58,7 +58,7 @@ gcloud functions deploy hello-http \
 # Invoke
 gcloud functions call hello-http \
   --region us-central1 \
-  --data '{"name": "Igal"}'
+  --data '{"name": "Alice"}'
 ```
 
 ### Pub/Sub Event Function

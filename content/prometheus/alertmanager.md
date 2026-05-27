@@ -334,7 +334,7 @@ curl -s -X POST http://alertmanager:9093/api/v2/silences \
     ],
     "startsAt": "2024-01-01T02:00:00Z",
     "endsAt": "2024-01-01T04:00:00Z",
-    "createdBy": "igal",
+    "createdBy": "oncall-engineer",
     "comment": "Scheduled maintenance window"
   }'
 
@@ -351,7 +351,7 @@ curl -s -X DELETE http://alertmanager:9093/api/v2/silences/<silence_id>
 amtool --alertmanager.url=http://alertmanager:9093 silence add \
   alertname=InstanceDown instance=host1:9100 \
   --duration=2h \
-  --author=igal \
+  --author=oncall-engineer \
   --comment="Maintenance"
 
 amtool --alertmanager.url=http://alertmanager:9093 alert query

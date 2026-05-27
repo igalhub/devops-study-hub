@@ -48,7 +48,7 @@ A Dockerfile is a sequence of instructions that Docker executes top-to-bottom to
 FROM ubuntu:22.04
 
 # Metadata label — useful for tooling, auditing, and registry UIs
-LABEL maintainer="igal@example.com" \
+LABEL maintainer="developer@example.com" \
       version="1.0"
 
 # Combine RUN commands to minimize layers and clean up in the same layer.

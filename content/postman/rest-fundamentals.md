@@ -32,8 +32,8 @@ Accept: application/json
 X-Request-ID: 550e8400-e29b-41d4-a716-446655440000
 
 {
-  "name": "Igal Vexler",
-  "email": "igal@example.com",
+  "name": "Alex Chen",
+  "email": "alex@example.com",
   "role": "admin"
 }
 ```
@@ -183,7 +183,7 @@ curl -s \
 curl -s -X POST https://api.example.com/users \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"name": "Igal", "email": "igal@example.com", "role": "admin"}' \
+  -d '{"name": "Alex", "email": "alex@example.com", "role": "admin"}' \
   | jq '{id, name, created_at}'
 
 # POST from a file (useful for large bodies or reusable payloads)

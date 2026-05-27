@@ -74,10 +74,10 @@ ssh-keyscan -H bastion.example.com >> ~/.ssh/known_hosts
 
 ```bash
 # Generate an Ed25519 key — preferred
-ssh-keygen -t ed25519 -C "igal@work-laptop"
+ssh-keygen -t ed25519 -C "user@workstation"
 
 # Generate RSA 4096 for legacy compatibility
-ssh-keygen -t rsa -b 4096 -C "igal@work-laptop"
+ssh-keygen -t rsa -b 4096 -C "user@workstation"
 
 # Generate a named key for a specific purpose (never clobber your default)
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_github -C "github-personal"
@@ -87,7 +87,7 @@ ssh-keygen -p -f ~/.ssh/id_ed25519
 
 # Display the fingerprint of a key — useful for verifying identity before trusting
 ssh-keygen -lf ~/.ssh/id_ed25519.pub
-# 256 SHA256:abc123xyz... igal@work-laptop (ED25519)
+# 256 SHA256:abc123xyz... user@workstation (ED25519)
 ```
 
 **Key size vs. passphrase:** a 4096-bit RSA key without a passphrase is less secure than a 256-bit Ed25519 key with a strong passphrase. The passphrase encrypts the private key file at rest using AES-256. Without it, anyone who reads the file can impersonate you everywhere that key is authorized. The passphrase never leaves your machine — it only unlocks the local file.
@@ -131,7 +131,7 @@ ls -la ~/.ssh/
 # ~/.ssh/authorized_keys on the server
 
 # Standard entry — unrestricted
-ssh-ed25519 AAAA...base64... igal@work-laptop
+ssh-ed25519 AAAA...base64... user@workstation
 
 # Deployment key — can only run one specific script, no interactive terminal
 command="/usr/local/bin/deploy.sh",no-pty,no-agent-forwarding,no-x11-forwarding ssh-ed25519 AAAA...base64... ci-deploy-key
@@ -236,8 +236,8 @@ ssh-add -t 4h ~/.ssh/id_ed25519_prod
 
 # List keys currently loaded in the agent
 ssh-add -l
-# 256 SHA256:abc123... igal@work-laptop (ED25519)
-# 3072 SHA256:def456... igal@work-laptop (RSA)
+# 256 SHA256:abc123... user@workstation (ED25519)
+# 3072 SHA256:def456... user@workstation (RSA)
 
 # Show full public key of a loaded key (useful for adding to authorized_keys)
 ssh-add -L

@@ -240,16 +240,16 @@ getfacl /var/www/html/
 # other::r-x
 
 # Grant a specific user read+write access
-setfacl -m u:igal:rw /var/www/html/config.json
+setfacl -m u:appuser:rw /var/www/html/config.json
 
 # Grant a specific group execute on a directory
 setfacl -m g:deploy:rx /var/www/html/
 
 # Set default ACL on a directory (inherited by new files/subdirs)
-setfacl -d -m u:igal:rw /var/www/html/
+setfacl -d -m u:appuser:rw /var/www/html/
 
 # Remove a specific ACL entry
-setfacl -x u:igal /var/www/html/config.json
+setfacl -x u:appuser /var/www/html/config.json
 
 # Remove all ACLs, revert to standard permissions
 setfacl -b /var/www/html/config.json

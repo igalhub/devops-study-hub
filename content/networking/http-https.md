@@ -305,7 +305,7 @@ curl -si https://api.example.com/health
 curl -X POST https://api.example.com/users \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer $TOKEN" \
-     -d '{"name": "Igal", "role": "admin"}'
+     -d '{"name": "Alice", "role": "admin"}'
 
 # POST with a file as the body (useful for large payloads)
 curl -X POST https://api.example.com/configs \
