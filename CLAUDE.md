@@ -31,3 +31,6 @@ Rigorous, direct, no fluff. Cover things properly but don't pad. Breadth and rig
 
 ## Architecture Authority
 Always reference `devops-study-hub-prd.md` at the project root for authoritative architecture and component specs before making any structural changes.
+
+## Content Expansion
+Use `/expand-content` to expand thin lesson content. The skill enforces code-review after patches and a single-module smoke test before the full run — do not bypass it by running `seed_curriculum.py` directly for a full batch.
