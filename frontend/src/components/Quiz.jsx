@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { fetchQuiz, logAttempt } from '../store/curriculumStore'
 
+const shuffle = arr => [...arr].sort(() => Math.random() - 0.5)
+
 export default function Quiz({ lessonSlug, onXpEarned }) {
   const [questions, setQuestions] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -23,7 +25,7 @@ export default function Quiz({ lessonSlug, onXpEarned }) {
     setError(null)
     try {
       const data = await fetchQuiz(lessonSlug)
-      setQuestions(data)
+      setQuestions(shuffle(data))
       setCurrent(0)
       setSelected(null)
       setRevealed(false)
@@ -66,6 +68,7 @@ export default function Quiz({ lessonSlug, onXpEarned }) {
   }
 
   const retake = () => {
+    setQuestions(q => shuffle(q))
     setCurrent(0)
     setSelected(null)
     setRevealed(false)
