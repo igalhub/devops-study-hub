@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { markLessonComplete } from '../store/curriculumStore'
+import { markLessonComplete, resetLessonProgress } from '../store/curriculumStore'
 
 export default function ModuleView({ modules, progress, onProgressUpdate }) {
   const { moduleSlug } = useParams()
@@ -18,6 +18,15 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
       onProgressUpdate()
     } catch (e) {
       console.error('Failed to mark lesson complete:', e)
+    }
+  }
+
+  const handleReset = async (lessonId) => {
+    try {
+      await resetLessonProgress(lessonId)
+      onProgressUpdate()
+    } catch (e) {
+      console.error('Failed to reset lesson:', e)
     }
   }
 
@@ -69,7 +78,15 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
                 </button>
               )}
               {done && (
-                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Done</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Done</span>
+                  <button
+                    onClick={() => handleReset(lesson.id)}
+                    className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </div>
               )}
             </div>
           )
