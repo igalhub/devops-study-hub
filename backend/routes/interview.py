@@ -59,6 +59,11 @@ def _generate_and_store(module_id: int, title: str) -> None:
 
     conn = get_conn()
     try:
+        # Double-check: another concurrent request may have already inserted questions
+        if conn.execute(
+            "SELECT COUNT(*) as n FROM interview_questions WHERE module_id = ?", (module_id,)
+        ).fetchone()["n"] > 0:
+            return
         for q in questions:
             conn.execute(
                 "INSERT INTO interview_questions (module_id, question) VALUES (?, ?)",
@@ -119,6 +124,8 @@ def evaluate_answer(req: EvaluateRequest):
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"Claude returned unparseable JSON: {e}")
 
+    if not isinstance(result, dict):
+        raise HTTPException(status_code=502, detail=f"Claude returned unexpected type: {type(result).__name__}")
     required = {'score', 'feedback', 'model_answer'}
     missing = required - result.keys()
     if missing:
