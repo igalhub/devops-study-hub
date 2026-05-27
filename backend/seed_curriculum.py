@@ -156,8 +156,8 @@ correct_index is 0-based (0 = first option is correct).
 def _strip_frontmatter(text: str) -> str:
     if text.startswith("---"):
         try:
-            end = text.index("---", 3)
-            return text[end + 3:].strip()
+            end = text.index("\n---", 3)
+            return text[end + 4:].strip()
         except ValueError:
             pass
     return text
@@ -185,7 +185,7 @@ def _expand_content(title: str, module_slug: str, raw_content: str, client: Anth
     # Strip accidental markdown fence wrappers
     if text.startswith("```"):
         parts = text.split("```")
-        text = parts[1].lstrip("markdown").strip() if len(parts) > 1 else text
+        text = parts[1].removeprefix("markdown").strip() if len(parts) > 1 else text
     return text
 
 
@@ -199,7 +199,7 @@ def _generate_questions(title: str, content: str, client: Anthropic) -> list[dic
     text = response.content[0].text.strip()
     if text.startswith("```"):
         parts = text.split("```")
-        text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
+        text = parts[1].removeprefix("json").strip() if len(parts) > 1 else text
     return json.loads(text)
 
 
@@ -245,7 +245,7 @@ def _auto_commit(expanded_files: list[str]) -> None:
     if not expanded_files:
         return
     result = subprocess.run(
-        ["git", "add", "content/"],
+        ["git", "add", "--"] + expanded_files,
         cwd=PROJECT_ROOT,
         capture_output=True, text=True,
     )
@@ -269,7 +269,8 @@ def _auto_commit(expanded_files: list[str]) -> None:
         )
         print(f"\nCommitted {n} expanded lesson(s) as {hash_result.stdout.strip()}")
     else:
-        if "nothing to commit" in result.stdout:
+        combined = result.stdout + result.stderr
+        if "nothing to commit" in combined:
             print("\nNothing to commit (content already staged or clean).")
         else:
             print(f"\ngit commit failed: {result.stderr.strip()}")
@@ -322,9 +323,9 @@ def main() -> None:
             raw = md_file.read_text()
             content = _strip_frontmatter(raw)
             thin, reason = _is_thin(content, min_lines) if not quiz_only else (False, "")
-            has_quiz = lesson["question_count"] >= 5
+            has_quiz = lesson["question_count"] > 0
 
-            content_status = f"thin ({reason})" if (thin and not force_content is False) else "OK"
+            content_status = f"thin ({reason})" if (thin and not force_content) else "OK"
             if force_content and not quiz_only:
                 content_status = f"will re-expand ({sum(1 for l in content.splitlines() if l.strip())} lines)"
             quiz_status = "has quiz" if has_quiz else "needs quiz"
@@ -350,6 +351,7 @@ def main() -> None:
 
         # --- Content phase ---
         content_tag = ""
+        expansion_failed = False
         if not quiz_only:
             thin, reason = _is_thin(content_body, min_lines)
             if thin or force_content:
@@ -372,6 +374,7 @@ def main() -> None:
                         else:
                             content_tag = f"EXPAND FAILED ({e})"
                             content_failed += 1
+                            expansion_failed = True
             else:
                 content_tag = "content OK"
                 content_ok += 1
@@ -379,9 +382,12 @@ def main() -> None:
         # --- Quiz phase ---
         quiz_tag = ""
         if not content_only:
-            if lesson["question_count"] >= 5:
+            if lesson["question_count"] > 0:
                 quiz_tag = "quiz OK"
                 quiz_ok += 1
+            elif expansion_failed:
+                quiz_tag = "quiz SKIPPED (content expansion failed)"
+                quiz_failed += 1
             else:
                 for attempt in range(3):
                     try:
