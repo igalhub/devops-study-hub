@@ -292,4 +292,308 @@ journalctl -u cron --since today --grep "backup"
 # Jun 15 02:30:01 server CRON[12345]: (root) CMD (/usr/bin/backup.sh >> /var/log/backup.log 2>&1)
 ```
 
-The syslog entry confirms cron *launched* the job. Whether the job *succeeded* is
+The syslog entry confirms cron *launched* the job. Whether the job *succeeded* is a separate question — you need the job's own log output or exit code for that. A common pattern is to emit a final `echo "SUCCESS $(date -Iseconds)"` at the end of a script and then grep for it to confirm completion.
+
+**Checking for silent failures:**
+
+```bash
+# Confirm the last run left a success marker
+grep "SUCCESS" /var/log/backup.log | tail -1
+
+# Alert if the backup log hasn't been written to in over 25 hours
+find /var/log/backup.log -mmin +1500 && echo "ALERT: backup may not have run"
+```
+
+**Dead Man's Snitch / Healthchecks.io pattern:** For critical cron jobs, send an HTTP ping to an external monitoring service at the end of the script. If the ping doesn't arrive within the expected window, the service alerts you. This catches both missed runs and silent failures.
+
+```bash
+#!/bin/bash
+# backup.sh — with dead man's snitch
+set -e
+/usr/bin/pg_dump mydb | gzip > /backups/mydb-$(date +%Y%m%d).sql.gz
+# Only reached if the above succeeded (set -e)
+curl -fsS --retry 3 https://hc-ping.com/your-uuid-here > /dev/null
+```
+
+---
+
+### Cron Security Considerations
+
+Cron jobs run with real user permissions. A misconfigured job can be a privilege escalation vector.
+
+**`/etc/cron.allow` and `/etc/cron.deny`** control which users may use `crontab`. If `/etc/cron.allow` exists, only listed users can schedule jobs. If only `/etc/cron.deny` exists, everyone except listed users can. If neither exists, behavior is implementation-defined (usually root-only or all users depending on distro).
+
+```bash
+# Check who is allowed to schedule cron jobs
+cat /etc/cron.allow 2>/dev/null || echo "cron.allow not present"
+cat /etc/cron.deny  2>/dev/null || echo "cron.deny not present"
+```
+
+**World-writable script called by root cron = privilege escalation.** If root's crontab calls `/opt/scripts/backup.sh` and that file is writable by a non-root user, that user can inject arbitrary commands to run as root.
+
+```bash
+# Audit: find scripts called by root crontab that are writable by others
+crontab -u root -l | grep -oP '/[^ ]+\.sh' | xargs ls -l
+```
+
+**Always verify permissions on scripts called by cron:**
+
+```bash
+chmod 750 /opt/scripts/backup.sh
+chown root:root /opt/scripts/backup.sh
+```
+
+---
+
+## Examples
+
+### Example 1: Nightly Database Backup with Locking and Logging
+
+This example drops a complete production-style cron config into `/etc/cron.d/` for a PostgreSQL backup job. It uses flock to prevent overlapping runs, timestamps every run, and rotates logs.
+
+```bash
+# Step 1: Create the backup script
+cat > /usr/local/bin/pg-backup.sh << 'EOF'
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="/var/backups/postgres"
+DB_NAME="appdb"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+OUTFILE="${BACKUP_DIR}/${DB_NAME}_${TIMESTAMP}.sql.gz"
+
+mkdir -p "${BACKUP_DIR}"
+
+echo "[${TIMESTAMP}] Starting backup of ${DB_NAME}"
+pg_dump -U postgres "${DB_NAME}" | gzip > "${OUTFILE}"
+echo "[$(date -Iseconds)] Backup complete: ${OUTFILE} ($(du -sh "${OUTFILE}" | cut -f1))"
+
+# Prune backups older than 30 days
+find "${BACKUP_DIR}" -name "*.sql.gz" -mtime +30 -delete
+echo "[$(date -Iseconds)] Old backups pruned"
+
+# Signal success to monitoring
+curl -fsS --retry 3 "https://hc-ping.com/your-uuid" > /dev/null || true
+EOF
+
+chmod 750 /usr/local/bin/pg-backup.sh
+chown root:root /usr/local/bin/pg-backup.sh
+```
+
+```bash
+# Step 2: Create the cron.d file
+cat > /etc/cron.d/pg-backup << 'EOF'
+# PostgreSQL nightly backup — owned by platform team
+# Runs at 2:30 AM daily as the postgres user
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+30 2 * * * postgres flock -n /tmp/pg-backup.lock /usr/local/bin/pg-backup.sh >> /var/log/pg-backup.log 2>&1
+EOF
+
+chmod 644 /etc/cron.d/pg-backup
+chown root:root /etc/cron.d/pg-backup
+```
+
+```bash
+# Step 3: Add logrotate config
+cat > /etc/logrotate.d/pg-backup << 'EOF'
+/var/log/pg-backup.log {
+    daily
+    rotate 30
+    compress
+    missingok
+    notifempty
+    create 0640 root root
+}
+EOF
+```
+
+```bash
+# Step 4: Verify it's loaded — cron picks up /etc/cron.d/ automatically, no reload needed
+# Simulate the run manually to confirm the script works before waiting for 2:30 AM
+sudo -u postgres /usr/local/bin/pg-backup.sh
+
+# Verify log output
+tail -5 /var/log/pg-backup.log
+
+# After 2:30 AM passes, confirm cron launched it
+grep "pg-backup" /var/log/syslog
+```
+
+---
+
+### Example 2: Docker Image Cleanup Every 6 Hours
+
+Old Docker images accumulate quickly on CI workers and app servers. This job prunes dangling images every 6 hours with staggered timing to avoid hitting the Docker daemon at peak CI load.
+
+```bash
+# Step 1: Create the cleanup script
+cat > /usr/local/bin/docker-prune.sh << 'EOF'
+#!/bin/bash
+set -euo pipefail
+
+echo "[$(date -Iseconds)] Starting Docker prune"
+
+# Remove dangling images (untagged, not referenced by any container)
+REMOVED=$(docker image prune -f 2>&1)
+echo "${REMOVED}"
+
+# Remove stopped containers older than 24h
+docker container prune -f --filter "until=24h" 2>&1
+
+echo "[$(date -Iseconds)] Docker prune complete"
+EOF
+
+chmod 750 /usr/local/bin/docker-prune.sh
+chown root:root /usr/local/bin/docker-prune.sh
+```
+
+```bash
+# Step 2: Install the cron job
+# Runs at 1:15, 7:15, 13:15, 19:15 — offset from the hour to reduce contention
+cat > /etc/cron.d/docker-prune << 'EOF'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+15 1,7,13,19 * * * root flock -n /tmp/docker-prune.lock /usr/local/bin/docker-prune.sh >> /var/log/docker-prune.log 2>&1
+EOF
+
+chmod 644 /etc/cron.d/docker-prune
+chown root:root /etc/cron.d/docker-prune
+```
+
+```bash
+# Step 3: Verify
+# Run manually first
+/usr/local/bin/docker-prune.sh
+tail /var/log/docker-prune.log
+
+# Check the cron entry parsed correctly (no syntax errors cause cron to ignore the file)
+# cron does not provide a --check flag; watch syslog for parse errors after saving
+journalctl -u cron --since "1 minute ago"
+```
+
+---
+
+### Example 3: Environment-Sensitive Health Check with Python
+
+This example deliberately exercises the environment problem. A Python-based health check uses a virtualenv and reads a secret from a file — both things that break under naive cron setup.
+
+```bash
+# Step 1: The health check script
+cat > /opt/myapp/healthcheck.py << 'EOF'
+#!/usr/bin/env python3
+import os, sys, requests
+
+API_URL = os.environ["MYAPP_API_URL"]
+TOKEN   = open("/etc/myapp/api-token").read().strip()
+
+try:
+    r = requests.get(f"{API_URL}/health", headers={"Authorization": f"Bearer {TOKEN}"}, timeout=10)
+    r.raise_for_status()
+    print(f"OK: {r.status_code}")
+    sys.exit(0)
+except Exception as e:
+    print(f"FAIL: {e}", file=sys.stderr)
+    sys.exit(1)
+EOF
+
+chmod 750 /opt/myapp/healthcheck.py
+```
+
+```bash
+# Step 2: Wrapper script that sets up the environment before calling Python
+# This is Fix 3 from the Environment Problem section — source inside the script
+cat > /usr/local/bin/myapp-healthcheck.sh << 'EOF'
+#!/bin/bash
+set -euo pipefail
+
+# Activate virtualenv — not in cron's PATH
+source /opt/myapp/venv/bin/activate
+
+# Set required env var — not inherited from any shell profile
+export MYAPP_API_URL="https://api.internal.example.com"
+
+exec /opt/myapp/healthcheck.py
+EOF
+
+chmod 750 /usr/local/bin/myapp-healthcheck.sh
+```
+
+```bash
+# Step 3: Install the cron job — note MAILTO catches stderr if the exit code is non-zero
+cat > /etc/cron.d/myapp-healthcheck << 'EOF'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=oncall@example.com
+
+*/5 * * * * deploy flock -n /tmp/myapp-hc.lock /usr/local/bin/myapp-healthcheck.sh >> /var/log/myapp-healthcheck.log 2>&1
+EOF
+
+chmod 644 /etc/cron.d/myapp-healthcheck
+chown root:root /etc/cron.d/myapp-healthcheck
+```
+
+```bash
+# Step 4: Simulate the cron environment to verify before waiting 5 minutes
+# This is the env -i debugging technique from the Environment Problem section
+sudo -u deploy env -i HOME=/home/deploy SHELL=/bin/bash PATH=/usr/bin:/bin \
+  /bin/bash --noprofile --norc /usr/local/bin/myapp-healthcheck.sh
+
+# If it passes here, it will pass under cron
+tail /var/log/myapp-healthcheck.log
+```
+
+---
+
+## Exercises
+
+### Exercise 1: Audit and Fix a Broken Cron Job
+
+You are given the following cron job that was installed by a previous engineer. It works when run manually as the `deploy` user, but the cron logs show it launches and then produces no output, and the backup files are never created.
+
+```
+*/30 * * * * deploy backup.sh > /var/log/backup.log
+```
+
+**Tasks:**
+
+1. List at least three distinct problems with this cron entry and explain why each causes a failure.
+2. Rewrite the entry so it runs correctly. The backup script lives at `/usr/local/bin/backup.sh`. It must run every 30 minutes, append output with timestamps, and capture both stdout and stderr.
+3. Write the `env -i` command you would use to simulate the cron environment for the `deploy` user and test the script before deploying your fix.
+4. Where should this entry live if it's part of a deployed application — your personal crontab or `/etc/cron.d/`? Explain the operational reason.
+
+---
+
+### Exercise 2: Design a Schedule Without Overlaps
+
+A report generation script takes between 8 and 25 minutes to run depending on data volume. It must run at least once per hour. The script is not idempotent — if two instances run simultaneously, the output file is corrupted.
+
+**Tasks:**
+
+1. Write the cron entry with `flock` that prevents overlapping runs. Use `/tmp/report-gen.lock` as the lock file.
+2. Explain what happens if the script is still running when cron tries to start the next instance. What does the user see in the log? What does NOT happen (i.e., what would you need to add yourself if you wanted an alert)?
+3. Modify your entry so that if the script fails (non-zero exit), an email is sent to `reports-team@example.com`. What must be configured on the system for this to work?
+4. Using `journalctl`, write the exact command that would show you every time this job was launched in the last 24 hours.
+
+---
+
+### Exercise 3: Write and Deploy a Full Cron Job from Scratch
+
+Build a complete log archiving solution using cron. Requirements:
+
+- Every day at 3:45 AM, compress all `.log` files in `/var/log/myapp/` that are older than 7 days into a tarball named `myapp-archive-YYYYMMDD.tar.gz` in `/var/backups/myapp/`.
+- Tarballs older than 90 days should be deleted.
+- The job runs as the `root` user.
+- Each run appends a timestamped entry to `/var/log/myapp-archive.log`.
+- The log file is rotated weekly, keeping 8 weeks of history.
+
+**Deliverables:**
+
+1. The shell script at `/usr/local/bin/myapp-archive.sh` — complete and runnable.
+2. The file at `/etc/cron.d/myapp-archive` — including all necessary environment variables and correct permissions (`chmod 644`, owned by `root:root`).
+3. The logrotate config at `/etc/logrotate.d/myapp-archive`.
+4. The exact command to verify the job ran after its first scheduled execution, without waiting — i.e., how do you confirm the syslog shows cron launched it AND the log file shows it completed successfully?

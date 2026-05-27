@@ -117,6 +117,9 @@ ec2 = target_session.client("ec2", region_name="us-east-1")
 S3 is the most common boto3 target in DevOps scripts. The key distinction is between the **transfer methods** (`upload_file`, `download_file`) and the **API methods** (`put_object`, `get_object`).
 
 ```python
+import json
+import boto3
+
 s3 = boto3.client("s3")
 
 # --- Bucket operations ---
@@ -238,7 +241,7 @@ print("Instance is running")
 | `image_available` | AMI snapshot is complete |
 | `snapshot_completed` | EBS snapshot is complete |
 
-**Reservation gotcha:** `describe_instances` returns `Reservations`, not a flat list of instances. A Reservation can contain multiple instances (from the same RunInstances call). Always double-loop. Forgetting the outer loop and iterating `response["Reservations"]` directly will give you dicts with `Instances` keys, not instance data.
+**Reservation gotcha:** `describe_instances` returns `Reservations`, not a flat list of instances. A Reservation can contain multiple instances (from the same `RunInstances` call). Always double-loop. Forgetting the outer loop and iterating `response["Reservations"]` directly will give you dicts with `Instances` keys, not instance data.
 
 ---
 
@@ -249,7 +252,9 @@ AWS API responses are paginated. `list_objects_v2` returns at most 1000 objects.
 **Use paginators. Always.**
 
 ```python
-# Manual pagination — works but verbose
+s3 = boto3.client("s3")
+
+# Manual pagination — works but verbose and error-prone
 response = s3.list_objects_v2(Bucket="my-bucket", Prefix="data/")
 all_keys = [obj["Key"] for obj in response.get("Contents", [])]
 while response.get("IsTruncated"):
@@ -269,17 +274,24 @@ for page in pages:
     for obj in page.get("Contents", []):
         all_keys.append(obj["Key"])
 
-# Paginator with filtering (server-side, reduces data transfer)
+# Paginator with ceiling — stop after 5000 total results regardless of bucket size
 pages = paginator.paginate(
     Bucket="my-bucket",
     Prefix="logs/",
-    PaginationConfig={"MaxItems": 5000, "PageSize": 500},  # stop after 5000 total
+    PaginationConfig={"MaxItems": 5000, "PageSize": 500},
 )
+
+# EC2 paginator — same pattern, different service
+ec2 = boto3.client("ec2")
+paginator = ec2.get_paginator("describe_instances")
+for page in paginator.paginate(Filters=[{"Name": "instance-state-name", "Values": ["running"]}]):
+    for reservation in page["Reservations"]:
+        for instance in reservation["Instances"]:
+            print(instance["InstanceId"])
 ```
 
 **Checking paginator availability:**
 ```python
-# See all paginatable operations for a service
 client = boto3.client("ec2")
 print(client.can_paginate("describe_instances"))  # True
 print(client.can_paginate("run_instances"))        # False
@@ -296,6 +308,8 @@ print(client.can_paginate("run_instances"))        # False
 | IAM | `list_users` | 100 users |
 | Route53 | `list_resource_record_sets` | 300 records |
 
+**Silent truncation is the danger.** A script that lists IAM users in a small account will work fine for years, then silently return only the first 100 users after the org grows. Always use paginators from the start.
+
 ---
 
 ### Error Handling
@@ -303,7 +317,7 @@ print(client.can_paginate("run_instances"))        # False
 boto3 raises exceptions from the `botocore.exceptions` module. Understanding the error hierarchy lets you handle expected failure modes cleanly while letting unexpected errors propagate.
 
 ```python
-from botocore.exceptions import ClientError, NoCredentialsError, EndpointResolutionError
+from botocore.exceptions import ClientError, NoCredentialsError
 
 def get_secret(secret_name: str) -> str:
     client = boto3.client("secretsmanager", region_name="us-east-1")
@@ -313,11 +327,508 @@ def get_secret(secret_name: str) -> str:
 
     except ClientError as e:
         # ClientError wraps all HTTP 4xx/5xx responses from the AWS API.
-        # The error code is inside the response dict — not in the exception class.
+        # The error code is in the response dict — not encoded in the exception class.
         code = e.response["Error"]["Code"]
-        message = e.response["Error"]["Message"]
 
         if code == "ResourceNotFoundException":
             raise KeyError(f"Secret '{secret_name}' does not exist") from e
         elif code == "AccessDeniedException":
-            raise PermissionError(f"No access to secret '{
+            raise PermissionError(f"No access to secret '{secret_name}'") from e
+        elif code == "ThrottlingException":
+            # Caller should implement retry; re-raise so the caller decides
+            raise
+        else:
+            # Unexpected AWS error — let it propagate with full context
+            raise
+
+    except NoCredentialsError:
+        raise RuntimeError("No AWS credentials found. Configure ~/.aws/credentials or set env vars.") from None
+```
+
+**Common `ClientError` codes by service:**
+
+| Service | Code | Meaning |
+|---------|------|---------|
+| S3 | `NoSuchBucket` | Bucket does not exist |
+| S3 | `NoSuchKey` | Object key not found |
+| EC2 | `InvalidInstanceID.NotFound` | Instance ID doesn't exist |
+| IAM | `EntityAlreadyExists` | User/role/policy already exists |
+| SecretsManager | `ResourceNotFoundException` | Secret not found |
+| Any | `AccessDeniedException` | IAM permission denied |
+| Any | `ThrottlingException` | Rate limit exceeded |
+| Any | `RequestExpired` | System clock skew too large (>5 min) |
+
+**The `RequestExpired` gotcha:** If your clock is more than 5 minutes off from AWS time, every API call fails with `RequestExpired`. This is common in VMs that were suspended and resumed. Fix with `sudo ntpdate -u pool.ntp.org` or `chronyc makestep`.
+
+**Don't catch `Exception` broadly.** Catch `ClientError` and inspect the code. Catching everything masks misconfiguration, credential issues, and SDK bugs that should surface immediately.
+
+```python
+# Pattern: idempotent resource creation
+def ensure_bucket_exists(bucket_name: str, region: str) -> None:
+    s3 = boto3.client("s3", region_name=region)
+    try:
+        s3.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration={"LocationConstraint": region},
+        )
+        print(f"Created bucket {bucket_name}")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "BucketAlreadyOwnedByYou":
+            print(f"Bucket {bucket_name} already exists — continuing")
+        else:
+            raise
+```
+
+---
+
+### SSM Parameter Store and Secrets Manager
+
+These two services are the standard way to inject configuration and credentials into applications. boto3 is how scripts and Lambda functions retrieve them at runtime.
+
+```python
+import boto3
+import json
+
+ssm = boto3.client("ssm", region_name="us-east-1")
+
+# --- Read a single parameter ---
+response = ssm.get_parameter(
+    Name="/myapp/prod/db_host",
+    WithDecryption=True,   # required for SecureString parameters; no-op for String
+)
+db_host = response["Parameter"]["Value"]
+
+# --- Read multiple parameters at once (cheaper than N individual calls) ---
+response = ssm.get_parameters(
+    Names=[
+        "/myapp/prod/db_host",
+        "/myapp/prod/db_port",
+        "/myapp/prod/db_name",
+    ],
+    WithDecryption=True,
+)
+params = {p["Name"]: p["Value"] for p in response["Parameters"]}
+# response["InvalidParameters"] lists names that didn't exist — always check this
+if response["InvalidParameters"]:
+    raise ValueError(f"Missing parameters: {response['InvalidParameters']}")
+
+# --- Read all parameters under a path (paginated) ---
+paginator = ssm.get_paginator("get_parameters_by_path")
+all_params = {}
+for page in paginator.paginate(Path="/myapp/prod/", WithDecryption=True, Recursive=True):
+    for p in page["Parameters"]:
+        all_params[p["Name"]] = p["Value"]
+
+# --- Secrets Manager (for credentials, API keys, anything that rotates) ---
+sm = boto3.client("secretsmanager", region_name="us-east-1")
+
+response = sm.get_secret_value(SecretId="myapp/prod/db_credentials")
+# Secret may be a plain string or a JSON blob
+secret = json.loads(response["SecretString"])
+db_password = secret["password"]
+```
+
+**SSM Parameter Store vs Secrets Manager:**
+
+| | Parameter Store | Secrets Manager |
+|---|---|---|
+| Cost | Free (Standard tier) | $0.40/secret/month |
+| Automatic rotation | No | Yes (Lambda-based) |
+| Cross-account access | With resource policy | With resource policy |
+| Best for | Config values, feature flags, non-rotating secrets | Passwords, API keys, anything that rotates |
+
+**`WithDecryption=True` is not optional for SecureString.** If you omit it, you get the raw encrypted ciphertext — not an error. This is a silent failure mode that can propagate garbage values into your application.
+
+---
+
+## Examples
+
+### Example 1: S3 Artifact Cleanup — Delete Objects Older Than N Days
+
+A common CI/CD maintenance task: remove build artifacts from S3 that are older than a retention window to control storage costs.
+
+```python
+#!/usr/bin/env python3
+"""
+s3_cleanup.py — Delete S3 objects older than RETENTION_DAYS under a given prefix.
+
+Usage:
+    python s3_cleanup.py --bucket my-artifacts --prefix builds/ --days 30 --dry-run
+    python s3_cleanup.py --bucket my-artifacts --prefix builds/ --days 30
+"""
+
+import argparse
+from datetime import datetime, timezone
+
+import boto3
+from botocore.exceptions import ClientError
+
+
+def delete_old_objects(bucket: str, prefix: str, days: int, dry_run: bool) -> None:
+    s3 = boto3.client("s3")
+    paginator = s3.get_paginator("list_objects_v2")
+
+    cutoff = datetime.now(timezone.utc).timestamp() - (days * 86400)
+    to_delete = []
+
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            # LastModified is a timezone-aware datetime object
+            if obj["LastModified"].timestamp() < cutoff:
+                to_delete.append({"Key": obj["Key"]})
+                print(f"  {'[DRY RUN] ' if dry_run else ''}Marking for deletion: {obj['Key']} "
+                      f"({obj['Size']} bytes, modified {obj['LastModified'].date()})")
+
+    if not to_delete:
+        print("No objects to delete.")
+        return
+
+    if dry_run:
+        print(f"\nDry run: would delete {len(to_delete)} objects.")
+        return
+
+    # delete_objects accepts at most 1000 keys per call — chunk accordingly
+    for i in range(0, len(to_delete), 1000):
+        chunk = to_delete[i:i + 1000]
+        response = s3.delete_objects(Bucket=bucket, Delete={"Objects": chunk})
+        deleted = len(response.get("Deleted", []))
+        errors = response.get("Errors", [])
+        print(f"Deleted {deleted} objects.", end="")
+        if errors:
+            print(f" {len(errors)} errors: {errors}")
+        else:
+            print()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bucket", required=True)
+    parser.add_argument("--prefix", default="")
+    parser.add_argument("--days", type=int, default=30)
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    delete_old_objects(args.bucket, args.prefix, args.days, args.dry_run)
+```
+
+**Verify it worked:**
+```bash
+# Run dry-run first
+python s3_cleanup.py --bucket my-artifacts --prefix builds/ --days 30 --dry-run
+
+# Execute
+python s3_cleanup.py --bucket my-artifacts --prefix builds/ --days 30
+
+# Confirm remaining objects
+aws s3 ls s3://my-artifacts/builds/ --recursive | wc -l
+```
+
+---
+
+### Example 2: EC2 Instance Inventory with Tag Enforcement
+
+Query all EC2 instances across a region, report their state and tags, and flag any missing required tags — useful for cost allocation audits.
+
+```python
+#!/usr/bin/env python3
+"""
+ec2_inventory.py — List all EC2 instances and flag missing required tags.
+Exits with code 1 if any instance is missing a required tag (useful in CI).
+"""
+
+import sys
+import boto3
+
+REQUIRED_TAGS = {"Environment", "Owner", "CostCenter"}
+
+def get_instance_tags(instance: dict) -> dict:
+    return {t["Key"]: t["Value"] for t in instance.get("Tags", [])}
+
+def audit_instances(region: str) -> bool:
+    ec2 = boto3.client("ec2", region_name=region)
+    paginator = ec2.get_paginator("describe_instances")
+
+    violations = []
+    total = 0
+
+    for page in paginator.paginate():
+        for reservation in page["Reservations"]:
+            for instance in reservation["Instances"]:
+                # Skip terminated instances — they can't be tagged retroactively
+                if instance["State"]["Name"] == "terminated":
+                    continue
+
+                total += 1
+                tags = get_instance_tags(instance)
+                missing = REQUIRED_TAGS - set(tags.keys())
+
+                name = tags.get("Name", "<unnamed>")
+                state = instance["State"]["Name"]
+                itype = instance["InstanceType"]
+
+                status = "OK" if not missing else f"MISSING: {', '.join(sorted(missing))}"
+                print(f"  {instance['InstanceId']:25s}  {name:30s}  {state:10s}  {itype:15s}  {status}")
+
+                if missing:
+                    violations.append(instance["InstanceId"])
+
+    print(f"\nTotal: {total} instances, {len(violations)} with missing tags.")
+    return len(violations) == 0
+
+
+if __name__ == "__main__":
+    region = sys.argv[1] if len(sys.argv) > 1 else "us-east-1"
+    print(f"Auditing EC2 instances in {region}...\n")
+    clean = audit_instances(region)
+    sys.exit(0 if clean else 1)
+```
+
+**Verify:**
+```bash
+python ec2_inventory.py us-east-1
+echo "Exit code: $?"   # 0 = all tagged, 1 = violations found
+
+# Pipe to a file for the compliance report
+python ec2_inventory.py us-east-1 > ec2_audit_$(date +%Y%m%d).txt
+```
+
+---
+
+### Example 3: Cross-Account Secret Retrieval with Role Assumption
+
+A Lambda function running in the tooling account needs to fetch a database password stored in Secrets Manager in the production account.
+
+```python
+#!/usr/bin/env python3
+"""
+cross_account_secret.py — Retrieve a secret from a different AWS account via role assumption.
+
+IAM prerequisites:
+  - Calling principal has sts:AssumeRole on arn:aws:iam::PROD_ACCOUNT:role/SecretReaderRole
+  - SecretReaderRole trust policy allows the calling principal
+  - SecretReaderRole has secretsmanager:GetSecretValue on the target secret
+"""
+
+import json
+import boto3
+from botocore.exceptions import ClientError
+
+
+PROD_ACCOUNT_ID = "123456789012"
+READER_ROLE = f"arn:aws:iam::{PROD_ACCOUNT_ID}:role/SecretReaderRole"
+SECRET_NAME = "myapp/prod/db_credentials"
+REGION = "us-east-1"
+
+
+def get_cross_account_secret(role_arn: str, secret_name: str, region: str) -> dict:
+    # Step 1: assume the role in the target account
+    sts = boto3.client("sts")
+    try:
+        assumed = sts.assume_role(
+            RoleArn=role_arn,
+            RoleSessionName="secret-fetch",
+            DurationSeconds=900,   # 15 min is enough for a single operation
+        )
+    except ClientError as e:
+        raise RuntimeError(f"Could not assume role {role_arn}: {e}") from e
+
+    creds = assumed["Credentials"]
+
+    # Step 2: build a session using the temporary credentials
+    session = boto3.Session(
+        aws_access_key_id=creds["AccessKeyId"],
+        aws_secret_access_key=creds["SecretAccessKey"],
+        aws_session_token=creds["SessionToken"],
+    )
+
+    # Step 3: retrieve the secret using the assumed identity
+    sm = session.client("secretsmanager", region_name=region)
+    try:
+        response = sm.get_secret_value(SecretId=secret_name)
+    except ClientError as e:
+        code = e.response["Error"]["Code"]
+        if code == "ResourceNotFoundException":
+            raise KeyError(f"Secret '{secret_name}' not found in account") from e
+        raise
+
+    return json.loads(response["SecretString"])
+
+
+if __name__ == "__main__":
+    secret = get_cross_account_secret(READER_ROLE, SECRET_NAME, REGION)
+    # Never print secrets in production — this is for demonstration only
+    print(f"Retrieved secret with keys: {list(secret.keys())}")
+```
+
+**Verify:**
+```bash
+# Check which identity you're currently using
+aws sts get-caller-identity
+
+# Run the script
+python cross_account_secret.py
+
+# Verify role assumption worked by checking CloudTrail in the target account:
+# Event: AssumeRole, Source: your tooling account principal
+```
+
+---
+
+### Example 4: Parameter Store Config Loader for a 12-Factor App
+
+Load all configuration for an application from SSM Parameter Store at startup, falling back to environment variables for local development.
+
+```python
+#!/usr/bin/env python3
+"""
+config_loader.py — Load app config from SSM Parameter Store with local env fallback.
+
+In production: parameters live at /myapp/{env}/{key}
+Locally: set the same keys as environment variables (without the path prefix).
+
+Usage:
+    config = load_config(app="myapp", env="prod", region="us-east-1")
+    db_host = config["db_host"]
+"""
+
+import os
+import boto3
+from botocore.exceptions import ClientError, NoCredentialsError
+
+
+def load_config(app: str, env: str, region: str) -> dict:
+    """
+    Returns a flat dict of config values. Keys are the final path component:
+    /myapp/prod/db_host -> {"db_host": "..."}
+    """
+    ssm_path = f"/{app}/{env}/"
+
+    try:
+        ssm = boto3.client("ssm", region_name=region)
+        paginator = ssm.get_paginator("get_parameters_by_path")
+        config = {}
+
+        for page in paginator.paginate(
+            Path=ssm_path,
+            WithDecryption=True,   # decrypt SecureString params transparently
+            Recursive=False,       # don't descend into sub-paths
+        ):
+            for param in page["Parameters"]:
+                # Strip the path prefix to get a clean key name
+                key = param["Name"].removeprefix(ssm_path)
+                config[key] = param["Value"]
+
+        if not config:
+            raise ValueError(f"No parameters found at path {ssm_path}")
+
+        return config
+
+    except (NoCredentialsError, ClientError):
+        # Local fallback: read from environment variables
+        print(f"[config] SSM unavailable, falling back to environment variables")
+        keys = ["db_host", "db_port", "db_name", "db_user", "db_password", "log_level"]
+        config = {}
+        for key in keys:
+            val = os.environ.get(key.upper())
+            if val is not None:
+                config[key] = val
+        return config
+
+
+if __name__ == "__main__":
+    cfg = load_config(app="myapp", env="prod", region="us-east-1")
+    print(f"Loaded {len(cfg)} config values: {list(cfg.keys())}")
+
+    # Demonstrate safe usage: log keys but not values
+    for key in sorted(cfg):
+        masked = cfg[key] if "password" not in key else "***"
+        print(f"  {key} = {masked}")
+```
+
+**Setup and verify:**
+```bash
+# Write test parameters to SSM
+aws ssm put-parameter --name "/myapp/prod/db_host" --value "prod-db.internal" --type String
+aws ssm put-parameter --name "/myapp/prod/db_port" --value "5432" --type String
+aws ssm put-parameter --name "/myapp/prod/db_password" --value "s3cr3t" --type SecureString
+
+# Run the loader
+python config_loader.py
+
+# Verify the parameter exists and is readable
+aws ssm get-parameter --name "/myapp/prod/db_host" --with-decryption
+```
+
+---
+
+## Exercises
+
+### Exercise 1: Paginated S3 Inventory
+
+Write a script that accepts a bucket name as a command-line argument and prints a summary: total object count, total size in MB, and the 5 largest objects by size. The bucket will have more than 1000 objects — your solution must paginate correctly or it will produce wrong answers.
+
+**Requirements:**
+- Use a paginator, not manual token management
+- Format the size output in human-readable MB (2 decimal places)
+- The 5 largest objects should be sorted descending by size
+
+**Verify:** Create a bucket with more than 1000 objects using the AWS CLI:
+```bash
+for i in $(seq 1 1200); do aws s3 cp /dev/urandom s3://my-test-bucket/obj-$i --content-length 1024 2>/dev/null; done
+```
+Then confirm your script's count matches `aws s3 ls s3://my-test-bucket --recursive | wc -l`.
+
+---
+
+### Exercise 2: EC2 Start/Stop with Waiter
+
+Write a function `cycle_instance(instance_id: str)` that stops a running EC2 instance, waits for it to reach `stopped` state, then starts it again and waits for it to reach `running` state. Print a timestamped log line at each state transition.
+
+**Requirements:**
+- Use waiters — no `time.sleep()` loops
+- Handle the case where the instance is already stopped (start it directly)
+- The function should raise a clear error if the instance ID doesn't exist
+
+**Stretch goal:** Accept a `--dry-run` flag that calls the EC2 API with `DryRun=True` to validate IAM permissions without actually stopping the instance.
+
+---
+
+### Exercise 3: Multi-Account IAM Audit
+
+Write a script that assumes a read-only role in a target account (provide the role ARN as an argument) and lists all IAM users who have not used their password in more than 90 days (check `PasswordLastUsed` on the user object). Output a CSV with columns: `username,last_used,days_inactive`.
+
+**Requirements:**
+- Use role assumption — do not hardcode credentials
+- Use a paginator for `list_users`
+- Handle users who have never logged in (`PasswordLastUsed` may be absent)
+- Exit code 1 if any inactive users are found (useful in a CI compliance gate)
+
+**Verify:** Compare your output against:
+```bash
+aws iam generate-credential-report
+aws iam get-credential-report --query 'Content' --output text | base64 -d
+```
+
+---
+
+### Exercise 4: SSM Parameter Bulk Migration
+
+You have a set of plaintext SSM parameters under `/myapp/staging/` and need to copy them to `/myapp/prod/` as `SecureString` (KMS-encrypted) parameters. Write a script that:
+
+1. Reads all parameters under the source path using `get_parameters_by_path`
+2. Writes each one to the destination path as `SecureString` using the account's default KMS key (`alias/aws/ssm`)
+3. Skips any parameter that already exists at the destination (idempotent)
+4. Prints a summary: created, skipped, failed
+
+**Requirements:**
+- Handle `ParameterAlreadyExists` as a skip, not an error
+- Use `--overwrite False` behavior (do not overwrite existing destination params)
+- Paginate the source read
+- Accept `--src-path` and `--dst-path` as CLI arguments
+
+**Verify:**
+```bash
+# After running, list destination params
+aws ssm get-parameters-by-path --path /myapp/prod/ --with-decryption \
+  --query 'Parameters[*].{Name:Name,Type:Type}' --output table
+```
