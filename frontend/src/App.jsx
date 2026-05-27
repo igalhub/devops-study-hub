@@ -77,16 +77,6 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               <BookmarksDropdown />
             </div>
             <div className="flex items-center gap-3">
-              {lessonMatch && (
-                <button
-                  onClick={() => setReadingMode(r => !r)}
-                  className="text-xs px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                >
-                  {readingMode ? 'Side panel' : 'Focus'}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
               {streak.current > 0 && (
                 <div className={`text-xs font-medium ${streak.today_done ? 'text-orange-500 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   🔥 {streak.current}
@@ -94,6 +84,14 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               )}
               {xp > 0 && (
                 <div className="text-xs font-medium text-amber-600 dark:text-amber-400">⚡ {xp} XP</div>
+              )}
+              {lessonMatch && (
+                <button
+                  onClick={() => setReadingMode(r => !r)}
+                  className="text-xs px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  {readingMode ? 'Side panel' : 'Focus'}
+                </button>
               )}
               <ThemeToggle dark={dark} toggle={toggle} />
             </div>
