@@ -177,14 +177,13 @@ integrated practice environments.
 - Quiz questions: seeded into SQLite via seeding scripts; never embedded in JS
 - Content pipeline:
   - `seed.py` — seeds modules and lessons into DB from content/ directory
-  - `seed_quiz.py` — handcrafted quiz questions (Prometheus lessons)
-  - `seed_quiz_all.py` — batch AI-generated quiz questions for all lessons
   - `seed_curriculum.py` — full pipeline: detects thin content, expands via Claude API,
-    then seeds quiz questions in one pass (idempotent, auto-commits)
+    then seeds quiz questions in one pass (idempotent, auto-commits); `--quiz-only` or
+    `--force-quiz` to regenerate quiz questions without expanding content
   - `seed_interview.py` — pre-seeds interview questions (8 per module) for all 23 modules
 
 ## Code Sandbox
-- Monaco Editor for inline code editing (Bash, Python)
+- Monaco Editor for inline code editing (Bash, Python, YAML)
 - Actual subprocess execution via FastAPI backend — no simulated output
 - Local-only; no container isolation for MVP
 
@@ -221,8 +220,6 @@ devops-study-hub/
 │   ├── main.py              # FastAPI app entry point
 │   ├── db.py                # SQLite schema + connection helpers
 │   ├── seed.py              # Seeds modules & lessons from content/
-│   ├── seed_quiz.py         # Handcrafted quiz questions (Prometheus)
-│   ├── seed_quiz_all.py     # Batch AI quiz generation for all lessons
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
 │   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
 │   ├── requirements.txt
