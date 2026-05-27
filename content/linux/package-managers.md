@@ -29,15 +29,15 @@ The guiding design principle behind both systems is separation between the **hig
 
 `apt` and `yum`/`dnf` are **high-level wrappers**. They handle dependency resolution, contact remote repositories over HTTPS, verify package signatures, and manage the transaction as a whole. `dpkg` and `rpm` are **low-level tools** — they install or query individual package files but do not fetch dependencies automatically.
 
-**`dnf` vs `yum`:** `dnf` is the direct successor to `yum` and accepts all the same commands. On systems where both are present, `yum` is often a symlink to `dnf`. Prefer `dnf` in new scripts; use `yum` only when targeting older RHEL 7 / Amazon Linux 2 systems where `dnf` isn't available.
+**`dnf` vs `yum`:** `dnf` is the direct successor to `yum` and accepts nearly identical commands. On systems where both are present, `yum` is often a symlink to `dnf`. Prefer `dnf` in new scripts; use `yum` only when targeting older RHEL 7 / Amazon Linux 2 systems where `dnf` isn't available.
 
-**`apt` vs `apt-get`:** `apt` is the modern frontend and the right choice for interactive use. `apt-get` is older, less readable, but more stable for scripting — its output format is guaranteed not to change, which matters if you're parsing it. In practice, `apt` is fine for both interactive and scripted use in modern environments.
+**`apt` vs `apt-get`:** `apt` is the modern frontend and the right choice for interactive use. `apt-get` is older and less readable, but its output format is guaranteed stable — which matters if you're parsing output in a script. In practice, `apt` is fine for both interactive and scripted use in modern environments.
 
 ---
 
 ### Repositories and Package Sources
 
-Packages come from **repositories** — curated collections of packages hosted on remote servers. The package manager fetches a metadata index from each configured repo, then uses that index to locate and download packages.
+Packages come from **repositories** — curated collections of packages hosted on remote servers. The package manager fetches a metadata index from each configured repo, then uses that index to locate and download packages on demand.
 
 **apt repo config:**
 ```
@@ -53,7 +53,7 @@ deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.
 
 - `deb` = binary packages; `deb-src` = source packages
 - `signed-by` = path to the GPG public key used to verify packages from this repo (modern format; replaces the deprecated `apt-key` approach)
-- codename (`jammy`, `focal`, `bookworm`) pins the repo to your distro release
+- codename (`jammy`, `focal`, `bookworm`) pins the repo to your specific distro release — using the wrong codename is a frequent source of "package not found" errors
 
 **yum/dnf repo config:**
 ```
@@ -70,15 +70,17 @@ gpgcheck=1
 gpgkey=https://download.docker.com/linux/centos/gpg
 ```
 
-**`$releasever` and `$basearch`** are variables automatically substituted by dnf/yum — they expand to the OS major version and CPU architecture of the running system.
+**`$releasever` and `$basearch`** are variables automatically substituted by dnf/yum at runtime — they expand to the OS major version (e.g., `9`) and CPU architecture (e.g., `x86_64`) of the running system. This makes a single `.repo` file portable across versions and architectures.
 
-**Important:** `apt update` (or `dnf makecache`) does not install anything — it only refreshes the local metadata index from all configured repos. You must run this before installing packages on a fresh system or after adding a new repo, otherwise the package manager is working from a stale index and may report packages as not found or install outdated versions.
+**Important:** `apt update` (or `dnf makecache`) does not install anything — it only refreshes the local metadata index from all configured repos. You must run this before installing packages on a fresh system or after adding a new repo, otherwise the package manager works from a stale index and may report packages as not found or install outdated versions.
 
-**Gotcha: never run `apt upgrade` without `apt update` first in automation.** The upgrade will silently operate on the cached (possibly months-old) metadata. In Dockerfiles and provisioning scripts, always pair them:
+**Gotcha: never run `apt upgrade` without `apt update` first in automation.** The upgrade will silently operate on the cached (possibly months-old) metadata. In Dockerfiles and provisioning scripts, always pair them on the same line:
 
 ```bash
 apt-get update && apt-get install -y package-name
 ```
+
+Separating them into two `RUN` layers in a Dockerfile is a well-known antipattern — Docker may cache the `apt-get update` layer and skip it on subsequent builds, leaving the install step working from stale metadata.
 
 ---
 
@@ -107,19 +109,21 @@ dnf remove nginx                        # remove package and dependents
 dnf autoremove                          # remove unneeded dependencies
 dnf upgrade                             # upgrade all packages
 dnf upgrade nginx                       # upgrade a single package
-dnf downgrade nginx                     # roll back to previous version
+dnf downgrade nginx                     # roll back to the previous available version
 dnf reinstall nginx                     # reinstall current version (useful if files are corrupted)
 ```
 
-**`remove` vs `purge` (apt):** `remove` leaves config files behind, which is useful if you plan to reinstall — the config will be restored. `purge` is the clean slate option. In automated environments, prefer `purge` to avoid config drift between deploys.
+**`remove` vs `purge` (apt):** `remove` leaves config files behind, which is useful if you plan to reinstall — your existing config will be preserved. `purge` is the clean slate option. In automated environments and Dockerfiles, prefer `purge` to avoid config drift between deploys.
 
-**`remove` vs `autoremove`:** When you install package A and it pulls in packages B and C as dependencies, those are marked as "automatically installed." When you remove A, B and C are orphaned. `autoremove` cleans them up. In long-lived servers, running `apt autoremove` periodically keeps the system lean.
+**`upgrade` vs `dist-upgrade` (apt):** `upgrade` will never remove an installed package. `dist-upgrade` is smarter — it can remove packages if that's what the dependency resolution requires (e.g., a package was renamed or split). Use `dist-upgrade` when upgrading a system to a new release. On day-to-day servers, `upgrade` is the safer default.
+
+**`remove` vs `autoremove`:** When you install package A and it pulls in packages B and C as dependencies, those are marked "automatically installed." When you remove A, B and C become orphaned. `autoremove` cleans them up. On long-lived servers, running `apt autoremove` periodically prevents package accumulation.
 
 ---
 
 ### Querying and Searching Packages
 
-Querying is as important as installing — you need to audit what's on a server, find which package provides a binary, and verify installs succeeded.
+Querying is as important as installing — you need to audit what's on a server, find which package provides a binary, and verify that installs succeeded.
 
 **apt / dpkg queries:**
 ```bash
@@ -141,16 +145,16 @@ dnf search nginx                    # search by name or description
 dnf info nginx                      # full metadata
 dnf list installed                  # all installed packages
 dnf list installed | grep nginx
-dnf provides /usr/sbin/nginx        # which package provides this file/command?
+dnf provides /usr/sbin/nginx        # which package provides this file or command?
 rpm -qa                             # all installed packages (low-level)
 rpm -q nginx                        # is this specific package installed?
-rpm -qi nginx                       # package info
-rpm -ql nginx                       # files installed by package
+rpm -qi nginx                       # detailed package info
+rpm -ql nginx                       # files installed by this package
 rpm -qf /usr/sbin/nginx             # which package owns this file?
 rpm -qa --last | head -20           # most recently installed packages, newest first
 ```
 
-**`apt-cache policy` is one of the most useful diagnostic commands in apt.** It shows you exactly which version is installed, which version is available in the repos, and why a particular version was chosen (repository priority):
+**`apt-cache policy` is one of the most useful diagnostic commands in apt.** It shows exactly which version is installed, which version is available in the repos, and which repository each version comes from — critical for debugging version mismatches when multiple repos provide the same package:
 
 ```bash
 $ apt-cache policy nginx
@@ -164,13 +168,15 @@ nginx:
         500 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 Packages
 ```
 
-This tells you the package is installed from the nginx.org repo, not the Ubuntu default repo — critical to know when debugging version mismatches.
+This output tells you the installed package came from the nginx.org upstream repo, not the Ubuntu default — which explains why you're on 1.24 rather than 1.18.
+
+**`dpkg -S` and `rpm -qf` are indispensable on production systems** when you find an unknown file and need to know which package placed it there. This is the correct way to audit unexpected binaries on a compromised or misconfigured host.
 
 ---
 
 ### Version Pinning and Holds
 
-In production, you often need to lock a package to a specific version to prevent an `apt upgrade` or `dnf update` from pulling in a breaking change.
+In production, you often need to lock a package to a specific version to prevent `apt upgrade` or `dnf update` from pulling in a breaking change during routine maintenance.
 
 **apt — hold a package:**
 ```bash
@@ -188,22 +194,33 @@ Pin: version 1.24.0-1~jammy
 Pin-Priority: 1001
 ```
 
-Priority > 1000 means "hold at this version even if a newer one is available." This approach survives reimaging and can be checked into version control.
+Priority semantics:
+
+| Priority | Behavior |
+|----------|----------|
+| < 0 | Never install this package |
+| 1–99 | Install only if no other version is available |
+| 100 | Default for already-installed packages |
+| 500 | Default for repo packages |
+| 990 | Preferred for packages matching the target release |
+| > 1000 | Install even if it means downgrading; pin holds at this version |
+
+The file-based approach survives reimaging when baked into a config management tool, and can be checked into version control — prefer this over `apt-mark hold` for anything managed at scale.
 
 **dnf/yum — version locking:**
 ```bash
-dnf install 'dnf-command(versionlock)'   # install the plugin first
-dnf versionlock add nginx                # lock nginx at current version
-dnf versionlock list                     # show all locks
-dnf versionlock delete nginx             # remove lock
+dnf install -y 'dnf-command(versionlock)'   # install the plugin
+dnf versionlock add nginx                    # lock nginx at current installed version
+dnf versionlock list                         # show all locks
+dnf versionlock delete nginx                 # remove a lock
 ```
 
-Or specify the version explicitly in a lock file at `/etc/dnf/plugins/versionlock.list`:
+The lock is stored in `/etc/dnf/plugins/versionlock.list` in a format like:
 ```
 nginx-1:1.24.0-1.el9.ngx.x86_64
 ```
 
-**Pinning gotcha:** Held packages still receive security metadata updates — you'll see security advisories in `apt upgrade` output but the package won't actually be upgraded. This is intentional, but it means you're responsible for manually evaluating and applying security patches to pinned packages. Don't set-and-forget a hold.
+**Pinning gotcha:** Held packages still receive security metadata updates — you'll see security advisories in `apt upgrade` output, but the package won't be upgraded. This is intentional, but it means you are now manually responsible for evaluating and applying security patches to all pinned packages. Never pin a package and forget about it — build a process to review holds regularly.
 
 ---
 
@@ -216,35 +233,36 @@ Most DevOps tooling (Docker, Kubernetes, Datadog, HashiCorp, etc.) is not in the
 # 1. Create the keyrings directory if it doesn't exist
 install -m 0755 -d /etc/apt/keyrings
 
-# 2. Download and store the GPG key (dearmored = binary format apt expects)
+# 2. Download and store the GPG key
+#    --dearmor converts ASCII-armored PGP to binary format that apt expects
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
   | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
 
-# 3. Add the repository, referencing the key
+# 3. Add the repository definition, referencing the key via signed-by
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
   https://download.docker.com/linux/ubuntu \
   $(lsb_release -cs) stable" \
   > /etc/apt/sources.list.d/docker.list
 
-# 4. Update and install
+# 4. Update metadata and install
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io
 ```
 
-**`dpkg --print-architecture`** dynamically emits `amd64`, `arm64`, etc. — use this instead of hardcoding `amd64` so the script works on ARM instances (e.g., AWS Graviton).
+**`dpkg --print-architecture`** dynamically emits `amd64`, `arm64`, etc. — use this instead of hardcoding `amd64` so the script works transparently on ARM instances (e.g., AWS Graviton, Apple Silicon dev machines).
 
-**Deprecated pattern to avoid:** `apt-key add` — this adds the key to a global trusted keyring, meaning the key is trusted for all repositories, not just the one you added it for. The `signed-by=` approach in the repo definition scopes trust correctly.
+**Deprecated pattern to avoid:** `apt-key add` adds the GPG key to a single global trusted keyring, meaning that key is trusted to sign packages from *any* repository. The `signed-by=` field in the repo definition correctly scopes trust to that specific repository only. Never use `apt-key add` in new scripts.
 
-**dnf — repo file approach:**
+**dnf — adding a repo:**
 ```bash
-# Option 1: use dnf config-manager (requires dnf-plugins-core)
+# Option 1: use dnf config-manager (cleaner, requires dnf-plugins-core)
 dnf install -y dnf-plugins-core
 dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 dnf install -y docker-ce
 
-# Option 2: write the .repo file directly (more portable in scripts)
+# Option 2: write the .repo file directly — more portable, no plugin dependency
 cat > /etc/yum.repos.d/docker-ce.repo << 'EOF'
 [docker-ce-stable]
 name=Docker CE Stable - $basearch
@@ -257,62 +275,14 @@ EOF
 dnf install -y docker-ce
 ```
 
-**GPG check warning:** Never set `gpgcheck=0` in a `.repo` file in production — this disables signature verification and allows installation of tampered packages. If you're seeing GPG errors, the correct fix is to import the key properly, not to disable checking.
+**GPG check warning:** Never set `gpgcheck=0` in a `.repo` file in production. This disables signature verification entirely, allowing installation of tampered or malicious packages. If you're seeing GPG errors, the correct fix is to import the vendor's key properly — not to disable checking.
 
 ---
 
 ### Working with Local Package Files
 
-Sometimes you need to install a `.deb` or `.rpm` that isn't in any repo — an internally built artifact, a vendor-provided package, or a specific binary downloaded from GitHub releases.
+Sometimes you need to install a `.deb` or `.rpm` that isn't in any remote repo — an internally built artifact, a vendor-provided package, or a specific binary from GitHub releases.
 
 **dpkg — install a local .deb:**
 ```bash
 dpkg -i ./mypackage_1.0.0_amd64.deb
-```
-
-**The critical limitation:** `dpkg` does not resolve dependencies. If the package requires `libssl3` and it's not installed, `dpkg` will install the package in a broken state and you'll see:
-
-```
-dpkg: dependency problems prevent configuration of mypackage
-```
-
-Fix with:
-```bash
-apt-get install -f    # -f = fix broken; fetches and installs missing deps
-```
-
-A cleaner approach that handles dependencies automatically:
-```bash
-apt-get install -y ./mypackage_1.0.0_amd64.deb   # apt can install local .deb files directly
-```
-
-**rpm — install a local .rpm:**
-```bash
-rpm -ivh ./mypackage-1.0.0.x86_64.rpm   # i=install, v=verbose, h=hash progress bar
-rpm -Uvh ./mypackage-1.0.0.x86_64.rpm   # U=upgrade (installs if not present, upgrades if present)
-```
-
-Same limitation — `rpm` won't fetch dependencies. Use `dnf` instead:
-```bash
-dnf install -y ./mypackage-1.0.0.x86_64.rpm   # dnf resolves deps even for local files
-```
-
----
-
-### Package Manager Behavior in Dockerfiles
-
-Dockerfiles run `apt-get` and `dnf` non-interactively in ephemeral containers. Several conventions exist to make this reliable:
-
-```dockerfile
-# Always combine update + install in one RUN to prevent stale layer cache issues
-RUN apt-get update && apt-get install -y \
-    nginx \
-    curl \
-    git \
-  && rm -rf /var/lib/apt/lists/*   # delete apt cache to shrink image layer
-
-# Set DEBIAN_FRONTEND to avoid interactive prompts (e.g., timezone selection in tzdata)
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y tzdata
-
-#

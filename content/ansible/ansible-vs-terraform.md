@@ -31,7 +31,7 @@ In the broader DevOps toolchain, these tools occupy adjacent but distinct layers
 | **Secrets handling** | Terraform Vault provider, environment variables | Ansible Vault, `no_log: true` |
 | **Parallelism** | Native resource graph enables parallel API calls | `forks` setting controls parallel SSH connections |
 
-The most important row is **state tracking**. Terraform's state file is what allows it to know that `aws_instance.web` already exists and doesn't need to be recreated on the next run. Without state, every apply would try to create duplicate resources. Ansible checks the live system instead of a state file — which is perfect for configuration (idempotent modules check current file contents, package versions, service status), but inadequate for cloud provisioning where "does this VPC already exist?" requires a separate API call with no standardized mechanism.
+The most important row is **state tracking**. Terraform's state file is what allows it to know that `aws_instance.web` already exists and doesn't need to be recreated on the next run. Without state, every apply would try to create duplicate resources. Ansible checks the live system instead — which is perfect for configuration (idempotent modules check current file contents, package versions, service status), but inadequate for cloud provisioning where "does this VPC already exist?" requires a separate API call with no standardized mechanism.
 
 ### Terraform's Strengths
 
@@ -49,7 +49,7 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  vpc_id            = aws_vpc.main.id   # implicit dependency
+  vpc_id            = aws_vpc.main.id   # implicit dependency via reference
   cidr_block        = "10.0.1.0/24"
   availability_zone = "us-east-1a"
 }
@@ -65,7 +65,7 @@ resource "aws_route53_record" "web" {
   name    = "api.example.com"
   type    = "A"
   ttl     = 300
-  records = [aws_instance.web.public_ip]  # waits for EC2, gets its IP
+  records = [aws_instance.web.public_ip]  # waits for EC2, gets its public IP
 }
 ```
 
@@ -77,9 +77,9 @@ Terraform's strongest use cases:
 - IAM roles, policies, and cross-account trust relationships
 - Load balancers, target groups, listener rules
 - S3 buckets with policies and lifecycle rules
-- **Any resource where circular dependencies or creation order matter**
+- **Any resource where creation order or circular dependencies matter**
 
-**Key insight:** Terraform's `terraform destroy` cleanly removes everything it created, in reverse dependency order. Ansible has no equivalent — it can't reliably reverse a playbook run against cloud resources because it has no record of what it created.
+**Key insight:** `terraform destroy` cleanly removes everything it created, in reverse dependency order. Ansible has no equivalent — it can't reliably reverse a playbook run against cloud resources because it has no record of what it created or in what order.
 
 ### Ansible's Strengths
 
@@ -150,10 +150,10 @@ Ansible's strongest use cases:
 - Deploying application releases in a controlled, ordered sequence
 - Running one-time operational tasks: database migrations, cache flushes, log rotation
 - Ad-hoc fleet operations: `ansible all -m shell -a "systemctl status nginx"`
-- Rolling deployments with serial limits: `serial: 1` to update one server at a time
-- Bootstrapping before a config management system is fully in place
+- Rolling deployments with `serial: 1` to update one server at a time
+- Bootstrapping new hosts before a full config management system is in place
 
-**Handlers are a key Ansible pattern.** They only fire if the task that notified them reported a change — so `reload nginx` won't run on every playbook execution, only when the config template actually changed. This makes playbooks efficient and safe to re-run repeatedly.
+**Handlers are a key Ansible pattern.** They only fire if the task that notified them reported a change — so `reload nginx` won't run on every playbook execution, only when the config template actually changed. Handlers also deduplicate: if five tasks all notify the same handler, it fires once at the end of the play. This makes playbooks efficient and safe to re-run repeatedly.
 
 ### The Overlap Zone
 
@@ -162,17 +162,17 @@ Both tools can technically do what the other does. Neither does it well when use
 | Task | Terraform | Ansible |
 |---|---|---|
 | Create EC2 instance | ✅ Right tool | ⚠️ Possible via `amazon.aws` — no state, can't cleanly destroy |
-| Install nginx on EC2 | ⚠️ Possible via `user_data` — runs once, can't be re-run | ✅ Right tool |
+| Install nginx on EC2 | ⚠️ Possible via `user_data` — runs once at boot, not re-runnable | ✅ Right tool |
 | Create S3 bucket | ✅ Right tool | ⚠️ Possible — no drift detection without state |
-| Write `/etc/nginx/nginx.conf` | ❌ Awkward (null_resource + file provisioner) | ✅ Right tool |
-| Deploy application code | ❌ Wrong tool (null_resource + remote-exec) | ✅ Right tool |
-| Manage DNS record | ✅ Right tool | ⚠️ Possible — no cleanup on removal |
+| Write `/etc/nginx/nginx.conf` | ❌ Awkward (`null_resource` + file provisioner) | ✅ Right tool |
+| Deploy application code | ❌ Wrong tool (`null_resource` + `remote-exec`) | ✅ Right tool |
+| Manage DNS record | ✅ Right tool | ⚠️ Possible — no cleanup on record removal |
 | Create IAM policy | ✅ Right tool | ⚠️ Possible — no drift detection |
 | Rolling restart of services | ❌ Not designed for this | ✅ Right tool (`serial`) |
 
-**Terraform provisioners (`remote-exec`, `local-exec`) are a trap.** They run scripts after a resource is created, but Terraform does not re-run them if you run `terraform apply` again — only on resource creation. If the script fails midway, Terraform marks the resource as tainted and tries to recreate it on the next apply, which may cause data loss or downtime. The Terraform documentation explicitly labels provisioners as a "last resort." Any non-trivial configuration work should be handed off to Ansible.
+**Terraform provisioners (`remote-exec`, `local-exec`) are a trap.** They run scripts after a resource is created, but Terraform does not re-run them on subsequent `terraform apply` calls — only on resource creation. If the script fails midway, Terraform marks the resource as *tainted* and tries to recreate it on the next apply, which may cause data loss or downtime. The Terraform documentation explicitly labels provisioners a "last resort." Any non-trivial configuration work should be handed off to Ansible.
 
-**Ansible lacks cloud resource state**, which creates real operational problems at scale. If an Ansible task creates an EC2 instance and you run the playbook again, it may try to create a second one (depending on module idempotency implementation). If you delete the resource manually, Ansible doesn't know. You can't run `ansible-playbook destroy.yml` and expect it to reliably clean up cloud resources the way `terraform destroy` does.
+**Ansible lacks cloud resource state**, which creates real operational problems at scale. If an Ansible task creates an EC2 instance and you run the playbook again, it may try to create a second instance depending on the module's idempotency implementation. If you delete the resource manually, Ansible doesn't know. You cannot run `ansible-playbook destroy.yml` and expect it to reliably clean up cloud resources the way `terraform destroy` does.
 
 ### The Standard Integration Pattern
 
@@ -205,13 +205,15 @@ set -euo pipefail
 cd infra/
 terraform apply -auto-approve
 
-# Extract Terraform outputs
+# Extract Terraform outputs as plain strings
 DB_HOST=$(terraform output -raw db_host)
 REDIS_URL=$(terraform output -raw redis_url)
+# -json gives a JSON array; jq converts it to newline-separated IPs
 WEB_IPS=$(terraform output -json web_private_ips | jq -r '.[]')
 
-# Build an Ansible inventory dynamically from Terraform outputs
-# A real pipeline might use a dynamic inventory plugin instead
+# Build an Ansible inventory dynamically from Terraform outputs.
+# A production pipeline would use a dynamic inventory plugin instead,
+# but this approach is transparent and easy to debug.
 INVENTORY_FILE=$(mktemp /tmp/inventory.XXXXXX.ini)
 cat > "$INVENTORY_FILE" << EOF
 [webservers]
@@ -240,25 +242,28 @@ For more sophisticated setups, the `cloud.terraform` Ansible collection provides
 # ansible/inventory/terraform.yml
 plugin: cloud.terraform.terraform_provider
 project_path: ../infra/
-# This reads infra/terraform.tfstate and exposes resources as inventory hosts
+# Reads infra/terraform.tfstate and exposes resources as inventory hosts.
+# Instances tagged with ansible_group=webservers appear in the [webservers] group.
 # Requires: ansible-galaxy collection install cloud.terraform
 ```
+
+**Why not just use Terraform for everything?** Some teams reach for Terraform's `remote-exec` or `local-exec` provisioners to avoid the two-tool complexity. This almost always causes pain: you lose Ansible's idempotency, retry logic, templating, and the ability to re-run configuration independently of infrastructure lifecycle. The operational cost of two tools is lower than the debugging cost of misconfigured provisioners at 2 AM.
 
 ### Idempotency: Where Each Tool Stands
 
 Idempotency means running the same operation multiple times produces the same result. Both tools aim for this, but through different mechanisms.
 
-**Terraform idempotency** is handled at the engine level. The state file plus a live API read (the "refresh" step) tells Terraform exactly what exists. If the resource matches the config, no API call is made. This is reliable by default.
+**Terraform idempotency** is handled at the engine level. The state file plus a live API read (the "refresh" step) tells Terraform exactly what exists. If the resource matches the config, no API call is made. This is reliable by default — you don't have to write defensive HCL.
 
 **Ansible idempotency** is module-by-module. Well-written modules check before they act:
 - `ansible.builtin.apt` checks if the package is already at the right version
 - `ansible.builtin.template` checksums the rendered file against what's on disk
-- `ansible.builtin.service` checks current service state before start/stop
+- `ansible.builtin.service` reads current service state before issuing start/stop
 
 **The idempotency traps in Ansible:**
 
 ```yaml
-# ❌ NOT idempotent — runs every time, creates duplicate entries
+# ❌ NOT idempotent — appends every time the playbook runs
 - name: Add line to config
   ansible.builtin.command:
     cmd: echo "option=value" >> /etc/myapp/config.ini
@@ -270,11 +275,11 @@ Idempotency means running the same operation multiple times produces the same re
     line: "option=value"
     state: present
 
-# ❌ NOT idempotent without changed_when — Ansible always reports changed
+# ❌ NOT idempotent without changed_when — always reports "changed"
+# and always triggers any downstream handlers
 - name: Run migration
   ansible.builtin.command:
     cmd: /opt/myapp/bin/migrate
-  # Without changed_when, this always triggers downstream handlers
 
 # ✅ Use changed_when to control when Ansible considers this a change
 - name: Run migration (only if needed)
@@ -282,17 +287,8 @@ Idempotency means running the same operation multiple times produces the same re
     cmd: /opt/myapp/bin/migrate --check-first
   register: migrate_result
   changed_when: "'Applied' in migrate_result.stdout"
-```
 
-**Rule of thumb:** prefer Ansible built-in modules over `command` and `shell`. Built-in modules handle idempotency for you. `command` and `shell` are escape hatches that require you to implement idempotency yourself via `creates`, `changed_when`, or logic checks.
-
-### Ansible vs Other Configuration Management Tools
-
-| Tool | Push/Pull | Agent | Language | Strength | Weakness |
-|---|---|---|---|---|---|
-| **Ansible** | Push | No | YAML + Jinja2 | Low barrier, agentless, readable | SSH overhead at scale, no real-time |
-| **Chef** | Pull | Yes | Ruby DSL | Flexible, programmable, large ecosystem | High learning curve, complex setup |
-| **Puppet** | Pull | Yes | Puppet DSL | Enterprise compliance, mature | Steep DSL, heavy infrastructure |
-| **SaltStack** | Push/Pull | Yes (minion) | YAML + Python | Event-driven, high scale | Complex setup, inconsistent docs |
-
-Ansible's agentless design is its biggest practical advantage: there is nothing to install
+# ✅ Use creates: to skip a command if its output file already exists
+- name: Compile assets (skip if already done)
+  ansible.builtin.command:
+    cmd: /opt/myapp/bin/compile-assets

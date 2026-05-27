@@ -8,191 +8,338 @@ exercises: 4
 ---
 
 ## Overview
-`awk` and `sed` are the workhorses of Unix text processing. `sed` edits streams — find-and-replace, delete lines, insert text. `awk` processes structured data — extracts fields, computes sums, generates reports. Together they handle 90% of log parsing and config manipulation tasks without a scripting language.
+
+`awk` and `sed` are the workhorses of Unix text processing, and for a DevOps engineer they are as fundamental as knowing how to write a loop. Almost every system you operate emits text: log files, config files, command output, CSV exports, YAML fragments. The ability to reshape that text on the fly — without writing a Python script, without installing a dependency, without leaving the terminal — is what separates engineers who can debug production incidents in minutes from those who need to set up a notebook first.
+
+`sed` (stream editor) applies editing commands to a stream of text line by line. Its sweet spot is substitution, deletion, and insertion: patching a config value across a fleet, stripping comment lines before piping output, or toggling a flag from `true` to `false` across a directory of files. `awk` is a full programming language disguised as a field processor. It splits each line into columns, lets you filter on field values, accumulate totals, and format reports — making it the right tool for anything involving structured text: access logs, `ps` output, CSV data, or the output of any command that prints in columns.
+
+In the DevOps toolchain these two tools appear constantly in CI/CD pipeline scripts, Dockerfile `RUN` layers, Ansible tasks, Kubernetes init containers, and monitoring dashboards generated from log data. They run everywhere without installation, execute in microseconds on files that would choke a naive Python script, and compose naturally with `sort`, `uniq`, `grep`, and `xargs` in pipelines. Mastering them means you can solve the majority of text-manipulation problems with a single line rather than a dedicated script.
+
+---
 
 ## Concepts
 
 ### sed — Stream Editor
 
+#### How sed Processes Input
+
+`sed` reads input one line at a time into a **pattern space**, applies your commands to that space, then prints the result (unless you suppress output with `-n`). Understanding this model explains several non-obvious behaviors: commands operate on the already-modified pattern space, so two substitutions on the same line are cumulative.
+
+```bash
+echo "foo foo foo" | sed 's/foo/bar/; s/bar/baz/'
+# Output: baz bar bar
+# The first s// changes the first "foo" to "bar",
+# then the second s// changes the first "bar" to "baz".
+```
+
+**Key flags:**
+
+| Flag | Meaning |
+|------|---------|
+| `-n` | Suppress automatic print; only print explicitly with `p` |
+| `-e` | Add an expression (allows multiple commands) |
+| `-i` | Edit file in place |
+| `-i.bak` | Edit in place, save original with `.bak` suffix |
+| `-E` / `-r` | Use extended regex (ERE) — allows `+`, `?`, `\|`, `()` without backslash |
+
+**macOS vs Linux gotcha:** On macOS (BSD sed), `-i` *requires* a suffix argument — even an empty one: `sed -i '' 's/a/b/' file`. On GNU sed (Linux), `-i` alone works. For portable scripts, always provide a suffix or detect the OS.
+
 #### Substitution
+
+The `s` command is the one you will use 80% of the time.
+
 ```bash
-# s/pattern/replacement/flags
-sed 's/old/new/'          # replace first occurrence on each line
-sed 's/old/new/g'         # replace all occurrences (global)
-sed 's/old/new/2'         # replace second occurrence only
-sed 's/old/new/gi'        # global + case-insensitive
+# Basic form: s/PATTERN/REPLACEMENT/FLAGS
+sed 's/old/new/'            # first match per line
+sed 's/old/new/g'           # all matches per line (global)
+sed 's/old/new/2'           # second match only
+sed 's/old/new/gi'          # global + case-insensitive
 
-# In-place edit (modifies the file directly)
-sed -i 's/localhost/db.prod.internal/g' app.conf
+# Capture groups (with -E for extended regex)
+sed -E 's/(ERROR|WARN)/[\1]/g' app.log   # wrap severity in brackets
 
-# In-place with backup (safer — keeps original as .bak)
+# Alternate delimiters — use any char when pattern contains /
+sed 's|/usr/local|/opt|g' paths.txt
+sed 's@http://old.host@https://new.host@g' urls.txt
+
+# In-place substitution — the most common DevOps use
 sed -i.bak 's/debug: true/debug: false/' config.yaml
-
-# Use different delimiter when pattern contains /
-sed 's|/opt/old|/opt/new|g' paths.txt
+sed -i 's/localhost/db.prod.internal/g' app.conf
 ```
 
-#### Addressing — Which Lines to Act On
+**Backreference tip:** `&` in the replacement refers to the entire matched text, saving you a capture group when you just want to wrap something.
+
 ```bash
-# Line number
-sed '3s/old/new/'         # only line 3
-sed '3,7s/old/new/'       # lines 3 through 7
-sed '$s/old/new/'         # only last line
-
-# Pattern match
-sed '/ERROR/s/old/new/'   # only lines matching ERROR
-sed '/^#/d'               # delete comment lines (starting with #)
-
-# Range by pattern
-sed '/START/,/END/s/old/new/'   # between START and END
-sed '/^BEGIN/,/^END/d'          # delete between markers
+echo "192.168.1.1" | sed 's/[0-9.]*/[&]/'
+# Output: [192.168.1.1]
 ```
 
-#### Delete, Print, Append
+#### Addressing — Targeting Specific Lines
+
+Without an address, a sed command applies to every line. Addresses let you narrow scope.
+
+| Address syntax | Meaning |
+|----------------|---------|
+| `5` | Line 5 only |
+| `3,7` | Lines 3 through 7 |
+| `$` | Last line |
+| `/pattern/` | Lines matching regex |
+| `/start/,/end/` | From first line matching `start` to next matching `end` |
+| `~N` (GNU) | Every Nth line: `0~2` = even lines, `1~2` = odd lines |
+
 ```bash
-# Delete lines
-sed '5d'                  # delete line 5
-sed '/^$/d'               # delete blank lines
-sed '/^#/d'               # delete comment lines
-
-# Print specific lines (with -n to suppress default print)
-sed -n '10,20p' file.txt  # print lines 10-20
-sed -n '/ERROR/p' log     # print only error lines (like grep)
-
-# Insert / append text
-sed '2i\inserted line'    # insert before line 2
-sed '2a\appended line'    # append after line 2
-sed '/pattern/a\new line' # append after matching line
+sed '3s/old/new/'             # substitution on line 3 only
+sed '3,7s/old/new/'           # lines 3–7
+sed '$d'                      # delete last line
+sed '/ERROR/s/$/  <--/g'      # append marker to ERROR lines
+sed '/^#/d'                   # delete comment lines
+sed '/^$/d'                   # delete blank lines
+sed '/START/,/END/d'          # delete blocks between markers (inclusive)
 ```
 
-#### Multiple Expressions
+**Range gotcha:** `/START/,/END/` is greedy per-block — it matches the *next* occurrence of END after each START. If END never appears, it consumes to end of file. Use this to your advantage when deleting stanzas from config files.
+
+#### Delete, Print, Insert
+
 ```bash
-sed -e 's/foo/bar/' -e 's/baz/qux/' file.txt
-# Or with semicolons:
-sed 's/foo/bar/; s/baz/qux/' file.txt
+# Delete
+sed '5d'                      # delete line 5
+sed '/pattern/d'              # delete matching lines
+sed '/^#/d; /^$/d'            # strip comments and blank lines
+
+# Print (use -n to suppress default output)
+sed -n '10,20p' file.txt      # print lines 10–20
+sed -n '/ERROR/p' app.log     # equivalent to: grep ERROR app.log
+
+# Insert before / append after
+sed '2i\--- inserted line ---'       # insert before line 2
+sed '/pattern/a\  new_key: value'    # append YAML key after a matching line
+sed '/\[section\]/a\key=value' cfg   # add key under a config section header
 ```
+
+#### Multiple Expressions and Scripts
+
+```bash
+# Multiple -e flags
+sed -e 's/foo/bar/' -e '/^$/d' -e 's/baz/qux/' file.txt
+
+# Semicolon-separated (same effect)
+sed 's/foo/bar/; /^$/d; s/baz/qux/' file.txt
+
+# Multi-line script file for complex edits
+cat > fix.sed <<'EOF'
+s/debug: true/debug: false/
+s/log_level: info/log_level: warn/
+/^#.*TODO/d
+EOF
+sed -i -f fix.sed config.yaml
+```
+
+---
 
 ### awk — Field Processor
-awk processes text line by line. Each line is split into fields (`$1`, `$2`, ...). `$0` is the full line. The default field separator is whitespace.
 
-#### Basic Structure
-```bash
-awk 'pattern { action }' file
-# If pattern is omitted: action runs on every line
-# If action is omitted: print lines matching pattern
+#### Execution Model
+
+`awk` programs consist of `pattern { action }` rules. For each input line:
+1. The line is split into fields `$1`, `$2`, ... `$NF` using `FS`.
+2. Each rule is evaluated: if the pattern matches (or is absent), the action runs.
+3. `BEGIN` and `END` blocks run once before and after all input, respectively.
+
+```
+awk 'BEGIN { setup } pattern { action } END { teardown }' file
 ```
 
-#### Built-in Variables
+This is fundamentally different from sed: awk is stateful across lines, can do arithmetic, has arrays, and supports full control flow (`if/else`, `for`, `while`).
+
+#### Built-in Variables Reference
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `$0` | — | Full current line |
+| `$1`…`$NF` | — | Individual fields |
+| `NF` | — | Number of fields on current line |
+| `NR` | — | Current record (line) number, across all files |
+| `FNR` | — | Record number within the current file |
+| `FS` | `" "` | Input field separator (space/tab) |
+| `OFS` | `" "` | Output field separator |
+| `RS` | `"\n"` | Input record separator |
+| `ORS` | `"\n"` | Output record separator |
+| `FILENAME` | — | Name of current input file |
+
+**`FS=" "` special behavior:** a single space (the default) means "split on any run of whitespace and strip leading/trailing whitespace." This is different from `FS="\t"` or `FS=" "` set explicitly via `-v`. Set `FS="\t"` explicitly for TSV files.
+
+#### Field Separators and Output Formatting
+
 ```bash
-$1, $2, ... $NF    # fields ($NF = last field)
-$0                 # full line
-NF                 # number of fields
-NR                 # record number (line number)
-FS                 # field separator (default: whitespace)
-OFS                # output field separator (default: space)
-RS                 # record separator (default: newline)
+# Set FS at invocation
+awk -F: '{print $1, $7}' /etc/passwd          # colon-delimited
+awk -F'\t' '{print $2, $4}' report.tsv        # tab-delimited
+awk -F'[,;]' '{print $1}' mixed.csv           # regex separator: comma or semicolon
+
+# OFS controls what print $1,$2 puts between fields
+awk 'BEGIN {OFS=","} {print $1,$3,$5}' data.txt     # produces CSV
+awk 'BEGIN {OFS="\t"} {print $2,$4}' data.txt       # produces TSV
+
+# printf for fixed-width, aligned output
+awk '{printf "%-30s %8.2f MB\n", $1, $2/1024}' sizes.txt
 ```
 
-#### Common Patterns
+#### Patterns: Filtering Lines
+
 ```bash
-# Print specific fields
-awk '{print $1, $3}' access.log
+# Regex pattern
+awk '/ERROR/'  app.log                    # print lines matching ERROR
+awk '!/DEBUG/' app.log                    # print lines NOT matching DEBUG
 
-# Print last field
-awk '{print $NF}' file.txt
+# Field comparison
+awk '$9 >= 500'           access.log      # HTTP 5xx
+awk '$3 == "CRITICAL"'    syslog          # exact field match
+awk '$5 > 1000'           metrics.txt     # numeric comparison
+awk 'NR > 1'              file.txt        # skip header line
+awk 'NR==1 || $5 > 80'    df_output.txt  # header + high-usage rows
 
-# Use custom field separator
-awk -F: '{print $1, $7}' /etc/passwd        # colon-delimited
-awk -F, '{print $2}' data.csv               # CSV (simple, no quoted commas)
-awk -F'\t' '{print $3}' data.tsv            # tab-delimited
+# Compound conditions
+awk '$9 >= 500 && $9 < 600' access.log   # 5xx only (not 6xx if it existed)
+awk '/ERROR/ || /FATAL/'    app.log       # either pattern
+awk 'NR>=10 && NR<=20'      file.txt     # line range (alternative to sed)
+```
 
-# Filter lines by field value
-awk '$9 >= 500' access.log                  # HTTP 5xx responses
-awk '$3 == "root"' /etc/passwd              # lines where field 3 is "root"
-awk 'NR > 1' file.txt                       # skip header line
+#### Aggregation and Counters
 
+```bash
 # Sum a column
-awk '{sum += $5} END {print sum}' data.txt
+awk '{sum += $5} END {print "Total:", sum}' data.txt
 
-# Count lines matching a pattern
-awk '/ERROR/ {count++} END {print count}' app.log
+# Count occurrences
+awk '/ERROR/ {count++} END {print "Errors:", count+0}' app.log
 
-# Print line number with line
-awk '{print NR": "$0}' file.txt
-```
+# Frequency map using an associative array
+awk '{freq[$1]++} END {for (ip in freq) print freq[ip], ip}' access.log \
+  | sort -rn | head -10
 
-#### BEGIN and END Blocks
-```bash
+# Multiple counters
 awk '
-    BEGIN { print "Starting..." }
-    /ERROR/ { errors++ }
-    /WARN/  { warns++ }
-    END {
-        print "Errors:", errors+0
-        print "Warnings:", warns+0
-    }
-' app.log
+  {total++}
+  $9 ~ /^2/ {ok++}
+  $9 ~ /^4/ {client_err++}
+  $9 ~ /^5/ {server_err++}
+  END {
+    printf "Total: %d\n2xx: %d\n4xx: %d\n5xx: %d\n",
+           total, ok+0, client_err+0, server_err+0
+  }
+' access.log
 ```
 
-#### Formatting Output
+**Uninitialized variable gotcha:** In awk, uninitialized numeric variables are `0` and uninitialized strings are `""`. The `count+0` pattern forces numeric context so you print `0` instead of an empty string when no lines matched.
+
+#### Arrays
+
+awk arrays are associative (hash maps) — keys can be strings or numbers.
+
 ```bash
-# printf for formatted output
-awk '{printf "%-20s %5d\n", $1, $2}' data.txt
+# Build a map of status codes to counts
+awk '{codes[$9]++} END {
+    for (code in codes)
+        printf "%s: %d\n", code, codes[code]
+}' access.log | sort
 
-# Output field separator
-awk 'BEGIN {OFS=","} {print $1,$3,$5}' data.txt   # produce CSV
+# Two-dimensional key (awk simulates with SUBSEP)
+awk '{count[$1][$9]++}' access.log    # syntax error — not valid
+awk '{count[$1 SUBSEP $9]++}' access.log  # correct: use SUBSEP
 ```
+
+#### Multi-file Processing and FNR vs NR
+
+```bash
+# NR: global line number across all input files
+# FNR: line number within the current file — use this for per-file headers
+
+awk 'FNR==1 {print "--- File:", FILENAME} {print NR, $0}' file1.txt file2.txt
+
+# Process header from first file only
+awk 'FNR==1 && NR==1 {print; next} FNR==1 {next} {print}' *.csv
+# Prints header from first CSV, skips headers from subsequent CSVs — useful for concatenation
+```
+
+---
+
+### Combining sed and awk in Pipelines
+
+The real power is composition. Use each tool for what it does best:
+
+- **sed** for line-level editing: strip noise, normalize delimiters, fix encoding artifacts
+- **awk** for field-level analysis: extract columns, aggregate, report
+- **sort / uniq** between them for ranking
+
+```bash
+# Pattern: normalize → extract → aggregate → sort → limit
+sed '/^#/d; /^$/d' access.log \          # strip comments and blanks
+  | awk '{print $1, $9}' \              # extract IP and status code
+  | sort \                              # sort for uniq
+  | uniq -c \                           # count unique pairs
+  | sort -rn \                          # rank by frequency
+  | head -20                            # top 20
+```
+
+**Performance note:** For files under a few hundred MB, awk is fast enough that optimization rarely matters. For multi-GB log files, consider filtering with `grep` first to reduce input volume before piping to awk — `grep` is highly optimized and often 5–10× faster for simple pattern matching.
+
+---
+
+### In-Place Editing Safety Patterns
+
+In-place editing with `sed -i` is destructive. Follow these patterns in production scripts:
+
+```bash
+# Always create a backup
+sed -i.bak 's/old/new/g' critical.conf
+
+# Verify before applying (dry run: print to stdout)
+sed 's/old/new/g' critical.conf | diff critical.conf -
+
+# Apply only if diff shows expected changes
+sed 's/old/new/g' critical.conf | diff critical.conf - && \
+  sed -i.bak 's/old/new/g' critical.conf
+
+# Use a temp file for complex multi-step edits
+tmp=$(mktemp)
+sed 's/foo/bar/g' original.conf | awk '...' > "$tmp"
+mv "$tmp" original.conf
+```
+
+**`mv` atomicity:** On the same filesystem, `mv` is atomic (a rename syscall). Writing to a temp file then `mv`-ing it over the target is safer than in-place editing — the target is never partially written if your pipeline crashes midway.
+
+---
 
 ## Examples
 
-### Parse nginx Access Log
+### Example 1: nginx Access Log Analysis Script
+
+Parse a standard nginx combined log format and produce an operations summary.
+
 ```bash
 #!/usr/bin/env bash
-LOG="/var/log/nginx/access.log"
+# analyze_access_log.sh — nginx access log report
+# Usage: ./analyze_access_log.sh /var/log/nginx/access.log
 
-echo "=== Top 10 IPs by request count ==="
-awk '{print $1}' "$LOG" | sort | uniq -c | sort -rn | head -10
+LOG="${1:-/var/log/nginx/access.log}"
 
-echo "=== HTTP Status Code Distribution ==="
-awk '{print $9}' "$LOG" | sort | uniq -c | sort -rn
+if [[ ! -f "$LOG" ]]; then
+  echo "ERROR: Log file not found: $LOG" >&2
+  exit 1
+fi
 
-echo "=== Top 10 Slowest Requests ==="
-awk '{print $NF, $7}' "$LOG" | sort -rn | head -10
-```
+echo "========================================"
+echo " nginx Access Log Report"
+echo " File: $LOG"
+echo " Lines: $(wc -l < "$LOG")"
+echo "========================================"
 
-### Edit Config In Place
-```bash
-#!/usr/bin/env bash
-# Update an nginx upstream port
-OLD_PORT="8080"
-NEW_PORT="9090"
-
-sed -i.bak "s/server 127\.0\.0\.1:${OLD_PORT}/server 127.0.0.1:${NEW_PORT}/g" \
-    /etc/nginx/conf.d/upstream.conf
-
-nginx -t && systemctl reload nginx
-```
-
-### Extract Column with Header
-```bash
-#!/usr/bin/env bash
-# Print the "Memory" column from `free -m`
-free -m | awk 'NR==1 {
-    for (i=1; i<=NF; i++) {
-        if ($i == "total") col=i+1
-    }
-} NR==2 { print "Total memory:", $col, "MB" }'
-```
-
-### Disk Usage Report
-```bash
-df -h | awk 'NR==1 || $5+0 >= 80 {printf "%-20s %5s %5s %5s %s\n", $1,$2,$3,$4,$5}'
-# Prints header + any filesystem using 80%+ capacity
-```
-
-## Exercises
-
-1. Parse `/etc/passwd` with awk: print a table showing username (field 1) and home directory (field 6), only for users whose shell (field 7) is `/bin/bash` or `/bin/sh`.
-2. Use `sed` to comment out (prepend `#`) all lines in a config file that contain the word `debug`. Do it in-place with a `.bak` backup.
-3. Write an awk script that reads an nginx access log and prints a summary: total requests, total 2xx, total 4xx, total 5xx, and average response size.
-4. Write a pipeline using awk and sort to find the top 5 directories consuming the most disk space under `/var` (`du -sh /var/*/`), formatted as a table.
+echo ""
+echo "--- HTTP Status Code Distribution ---"
+# Field 9 in combined log is the status code
+awk '{codes[$9]++}
+     END {
+       for (c in codes)
+         printf "%5d  %s\n", codes[c], c
+     }'

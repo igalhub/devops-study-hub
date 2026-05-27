@@ -53,9 +53,9 @@ ip route show
 # 10.0.0.0/24 dev eth0 proto kernel scope link src 10.0.0.42
 
 # Show only the default route — useful in scripts
-ip route get 8.8.8.8       # which interface and gateway would be used
+ip route get 8.8.8.8       # which interface and gateway would be used for this destination
 
-# Add a static route — gone on reboot unless persisted in /etc/netplan or /etc/sysconfig
+# Add a static route — gone on reboot unless persisted
 ip route add 10.100.0.0/16 via 10.0.0.1 dev eth0
 ip route del 10.100.0.0/16
 
@@ -74,7 +74,15 @@ ip addr del 192.168.50.10/24 dev eth1
 
 **`ip route get` is underused.** `ip route get 8.8.8.8` tells you exactly which source IP and gateway the kernel would use to reach a destination — invaluable on multi-interface servers where routing asymmetry causes connection resets.
 
-**Changes made with `ip` are non-persistent.** They survive until next reboot. To persist them, edit `/etc/netplan/*.yaml` (Ubuntu), `/etc/sysconfig/network-scripts/` (RHEL/CentOS), or use `nmcli` (NetworkManager).
+**Changes made with `ip` are non-persistent.** They survive until next reboot. To persist them, edit `/etc/netplan/*.yaml` (Ubuntu), `/etc/sysconfig/network-scripts/` (RHEL/CentOS 7), or use `nmcli` (NetworkManager-managed systems).
+
+| Old command (`net-tools`) | Modern equivalent (`iproute2`) |
+|---------------------------|-------------------------------|
+| `ifconfig eth0` | `ip addr show eth0` |
+| `ifconfig eth0 up` | `ip link set eth0 up` |
+| `route -n` | `ip route show` |
+| `arp -n` | `ip neigh show` |
+| `ifconfig eth0 192.168.1.10` | `ip addr add 192.168.1.10/24 dev eth0` |
 
 ---
 
@@ -96,16 +104,16 @@ ss -tlunp
 # tcp    LISTEN  0      128     0.0.0.0:22            0.0.0.0:*          users:(("sshd",pid=987,fd=3))
 # tcp    LISTEN  0      511     127.0.0.1:5432        0.0.0.0:*          users:(("postgres",pid=1204,fd=7))
 
-# All established TCP connections — useful to see active client connections
+# All established TCP connections
 ss -tn state established
 
 # Filter by local port
 ss -tlnp sport = :443
 
-# Filter by destination address — what connections am I making to this host?
+# Filter by destination address
 ss -tn dst 10.0.1.50
 
-# Show connection counts per state — great for spotting SYN floods or FIN_WAIT buildup
+# Show connection counts per state — spot SYN floods or FIN_WAIT accumulation
 ss -s
 
 # Watch socket stats live
@@ -120,6 +128,8 @@ watch -n1 'ss -s'
 | `127.0.0.1:8080` | Loopback only | Same host only |
 | `192.168.1.10:8080` | Specific interface | That interface's network |
 | `:::8080` | All IPv6 interfaces | Anywhere via IPv6 |
+
+**`Recv-Q` and `Send-Q` in LISTEN state** represent the number of connections that have completed the three-way handshake but haven't been `accept()`-ed by the application yet. A non-zero `Recv-Q` on a listening socket means your application is not consuming connections fast enough — a sign of an overloaded or deadlocked service.
 
 ---
 
@@ -140,18 +150,18 @@ netstat -rn
 # Show per-interface statistics: packets, errors, dropped
 netstat -i
 
-# Continuous output (watch for changes)
+# Continuous output
 netstat -c -tlun
 ```
 
-| `ss` flag | `netstat` equivalent | Notes |
-|-----------|---------------------|-------|
+| `ss` command | `netstat` equivalent | Notes |
+|--------------|---------------------|-------|
 | `ss -tlnp` | `netstat -tlnp` | Same output, `ss` is faster |
 | `ss -s` | `netstat -s` | `netstat -s` is more verbose |
 | `ss -i` | `netstat -i` | Interface stats |
 | `ip route` | `netstat -rn` | Routing table |
 
-**`netstat` may not be installed** on minimal container images or fresh cloud instances. If it's missing, install `net-tools` or just use `ss` — they show the same data.
+**`netstat` may not be installed** on minimal container images or fresh cloud instances. If it's missing, install `net-tools` or just use `ss` — they show the same underlying data.
 
 ---
 
@@ -160,23 +170,23 @@ netstat -c -tlun
 `ping` sends ICMP Echo Request packets and measures round-trip time. It tests Layer 3 (IP) reachability but not application availability — a host can respond to ping and still have its web server down.
 
 ```bash
-# Basic ping — runs until you Ctrl+C
+# Basic ping — runs until Ctrl+C
 ping google.com
 
 # Send exactly 4 packets and exit (good for scripts)
 ping -c 4 google.com
 
-# Faster pings — 0.5s interval (default is 1s), useful for quick connectivity checks
+# Faster pings — 0.5s interval (default is 1s)
 ping -i 0.5 -c 10 192.168.1.1
 
-# Flood ping — as fast as possible (requires root, use with care on networks)
+# Flood ping — as fast as possible (requires root, use carefully on shared networks)
 ping -f -c 1000 192.168.1.1
 
-# Test MTU — large packet to expose fragmentation issues
-# Ethernet MTU is usually 1500. IP header = 20 bytes, ICMP header = 8 bytes.
-# So max payload to test full MTU: 1500 - 28 = 1472
+# Test MTU — expose fragmentation issues
+# Ethernet MTU = 1500. IP header = 20 bytes, ICMP header = 8 bytes.
+# Max payload to test full MTU: 1500 - 28 = 1472
 ping -s 1472 -M do google.com
-# -M do = don't fragment; if this fails but smaller sizes work, you have an MTU problem
+# -M do = don't fragment; failure here with smaller sizes succeeding = MTU mismatch
 
 # Ping a specific source interface — useful on multi-homed hosts
 ping -I eth1 8.8.8.8
@@ -185,10 +195,15 @@ ping -I eth1 8.8.8.8
 **ICMP can be blocked.** Many cloud providers (AWS, GCP) and firewalls block ICMP by default. A `ping` timeout does not prove a host is down — use `curl` or `nc` to verify application-level reachability before concluding a host is unreachable.
 
 **Interpreting ping output:**
-- `time=` — round-trip time in ms. Consistent low values = good. Intermittent spikes = packet loss or routing instability.
-- `packet loss` — any non-zero value in production is worth investigating.
-- `Destination Host Unreachable` — no route to host, or ARP failure at Layer 2.
-- `Request timeout` — ICMP is either blocked by firewall or host is truly down.
+
+| Output | Meaning |
+|--------|---------|
+| `time=2ms` consistent | Healthy, stable path |
+| `time=` spiking intermittently | Packet loss or routing instability |
+| `packet loss > 0%` | Investigate immediately in production |
+| `Destination Host Unreachable` | No route to host, or ARP failure at Layer 2 |
+| `Request timeout` | ICMP blocked by firewall, or host is truly down |
+| `ping: unknown host` | DNS resolution failed — check `/etc/resolv.conf` |
 
 ---
 
@@ -212,7 +227,7 @@ traceroute -m 15 google.com
 # Don't resolve hostnames — faster output
 traceroute -n google.com
 
-# tracepath — no root required, auto-discovers MTU path
+# tracepath — no root required, auto-discovers MTU along path
 tracepath google.com
 ```
 
@@ -226,7 +241,7 @@ tracepath google.com
 
 `* * *` at a hop means that router doesn't respond to ICMP Time Exceeded. **This is normal and does not mean the path is broken** — if later hops respond, traffic is flowing through that silent hop fine.
 
-**High latency that appears at a specific hop and persists to the destination** indicates a problem at or near that hop. Latency that spikes at one hop but recovers at the next is just that router deprioritizing ICMP responses — not a real bottleneck.
+**High latency that appears at a specific hop and persists to all subsequent hops** indicates a real problem at or near that hop. Latency that spikes at one hop but recovers at the next is just that router deprioritizing ICMP responses — not a real bottleneck. Only sustained latency increases that carry through to the destination matter.
 
 ---
 
@@ -266,61 +281,35 @@ curl -X POST https://api.example.com/config \
   -H "Content-Type: application/json" \
   -d @config.json
 
-# Follow HTTP redirects (301, 302) — needed for many CDN-fronted endpoints
+# Follow HTTP redirects (301, 302)
 curl -L https://example.com
 
-# Download a file, preserving the remote filename
+# Download a file, preserving remote filename
 curl -O https://releases.example.com/app-1.2.3.tar.gz
 
-# Download with progress bar suppressed and saved to specific path
-curl -sL https://example.com/install.sh -o /tmp/install.sh
+# Set connection timeout and max time — critical in CI/CD scripts
+curl --connect-timeout 5 --max-time 30 https://api.example.com/health
 
 # Skip TLS certificate verification — ONLY for debugging, never in production
 curl -k https://self-signed-internal.example.com
 
-# Set a connection timeout and max time — critical in CI/CD scripts
-curl --connect-timeout 5 --max-time 30 https://api.example.com/health
+# Connect to a specific IP but send the correct Host header — bypass DNS for testing
+curl --resolve api.example.com:443:10.0.1.50 https://api.example.com/health
 
-# Test that a service is reachable on a specific port (even non-HTTP)
-curl -v telnet://redis-host:6379
+# Test a Unix domain socket — used for Docker daemon, Kubernetes CRI, etc.
+curl --unix-socket /var/run/docker.sock http://localhost/version
 ```
 
 **`-s` silences the progress meter but not errors.** Use `-sS` to silence progress but still show error messages — important in scripts so failures don't disappear silently.
 
-**The `-w` format string** is a powerful feature for structured output in scripts. Common variables:
+**`--resolve` is one of curl's most powerful debugging flags.** It lets you bypass DNS and force a connection to a specific IP while still sending the correct SNI and Host header. This lets you test individual backend servers behind a load balancer without modifying `/etc/hosts`.
+
+**The `-w` format string** is a powerful feature for structured output in scripts:
 
 | Variable | Description |
 |----------|-------------|
 | `%{http_code}` | HTTP response status code |
-| `%{time_total}` | Total transaction time |
-| `%{time_connect}` | Time to TCP connect |
+| `%{time_total}` | Total transaction time in seconds |
+| `%{time_connect}` | Time to complete TCP connect |
 | `%{time_namelookup}` | Time for DNS resolution |
-| `%{time_appconnect}` | Time until TLS handshake complete |
-| `%{size_download}` | Bytes downloaded |
-| `%{remote_ip}` | IP address actually connected to |
-
----
-
-### `dig` — DNS Lookups
-
-`dig` (Domain Information Groper) is the standard tool for DNS interrogation. It shows the full DNS response including query time, authoritative server, and TTL values — critical for diagnosing propagation delays, misconfigured records, and split-horizon DNS.
-
-```bash
-# Look up the A record (IPv4) — default query type
-dig google.com
-
-# Short output — just the IP(s), no metadata
-dig +short google.com
-
-# Query a specific record type
-dig google.com MX       # mail exchange servers, with priority
-dig google.com AAAA     # IPv6 address
-dig google.com TXT      # SPF, DKIM, domain verification tokens
-dig google.com NS       # authoritative nameservers
-dig google.com CNAME    # canonical name alias
-dig google.com SOA      # start of authority — serial, TTL, admin contact
-dig google.com CAA      # certificate authority authorization
-
-# Query a specific DNS server — bypass your system resolver
-dig @8.8.8.8 google.com          # Google's public DNS
-dig @
+| `%{time_appconnect}` | Time until TLS handshake

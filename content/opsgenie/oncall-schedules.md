@@ -8,210 +8,319 @@ exercises: 3
 ---
 
 ## Overview
-Opsgenie is Atlassian's alert management and on-call scheduling platform. At its core it answers two questions: who is on call right now, and what happens if they don't respond? In DevOps teams, Opsgenie sits between monitoring tools (Prometheus, Datadog, Grafana) and the humans who fix things. Understanding schedules and escalation policies is the foundation — everything else (integrations, routing, incidents) builds on top of this.
+
+Opsgenie is Atlassian's alert management and on-call scheduling platform. At its core it answers two questions: who is on call right now, and what happens if they don't respond? In DevOps teams, Opsgenie sits between monitoring tools (Prometheus, Datadog, Grafana) and the humans who fix things. Without a system like Opsgenie, alerts land in a shared inbox or Slack channel where diffusion of responsibility is almost guaranteed — everyone assumes someone else saw it. Opsgenie solves this by making accountability explicit: a specific person is on call, they have a deadline to respond, and if they miss it, a defined chain of escalation fires automatically.
+
+The design philosophy is separation of concerns: *schedules* answer "who is available when," *escalation policies* answer "what happens when no one responds," and *routing rules* answer "which team owns this alert." These three concepts compose to handle arbitrarily complex organizational structures. A small startup might have one schedule and one escalation policy. A large enterprise might have hundreds, but each is built from the same primitives. This modularity means you can change one piece — swap a rotation type, add an escalation step — without rebuilding everything else.
+
+In the broader DevOps toolchain, Opsgenie is the last mile between detection and response. Prometheus fires an alert; Alertmanager routes it to Opsgenie; Opsgenie determines the on-call engineer and notifies them. It integrates with incident management (Jira, PagerDuty-style incident timelines), communication tools (Slack, Microsoft Teams), and runbook systems so that when an engineer is paged, they receive context alongside the notification. Mastering schedules and escalation policies is the foundation — everything else in Opsgenie assumes you have these configured correctly.
+
+---
 
 ## Concepts
 
 ### Teams and Users
 
 **Users** are individuals with an Opsgenie account. Each user has:
-- Contact methods: phone, SMS, email, mobile push (configured in profile).
-- Notification rules: personal preference for how and when to be notified (e.g., "during business hours: email only; outside hours: phone call if not acknowledged in 5 minutes").
-- Role: Admin, User, Stakeholder, or Read Only.
 
-**Teams** group users around a service or function. A team:
-- Owns one or more escalation policies.
-- Has its own alert queue.
-- Can own integrations (alerts from a specific source route to a specific team's queue).
+| Attribute | Description |
+|-----------|-------------|
+| **Contact methods** | Phone, SMS, email, mobile push — configured in user profile |
+| **Notification rules** | Personal rules for *how* and *when* to be notified per priority level |
+| **Role** | Admin, User, Stakeholder, or Read Only |
+| **Time zone** | Used to display schedule times and apply notification rules correctly |
 
-Teams are the organisational unit for routing. When an alert is routed to Team A, Opsgenie uses Team A's escalation policy to decide who to notify.
+**Teams** group users around a service or function and are the primary routing unit in Opsgenie. When an alert arrives, it is routed to a team, which then applies that team's escalation policy. A team owns:
+
+- One or more escalation policies
+- One or more schedules
+- Its own alert queue
+- Integrations (alerts from a specific monitoring source can route directly to a specific team)
 
 Navigate to: **Teams → [Team Name] → Members / On-call / Schedules / Escalation Policies**
 
-### Schedule Types
+**Gotcha:** A user can belong to multiple teams, but their notification rules are global — the same rules apply regardless of which team's alert reaches them. If a user wants different notification behavior for different services, the workaround is creating separate Opsgenie accounts, which is rarely worth the overhead. Design notification rules to cover the most critical scenario.
 
-A **schedule** defines a rotation — who is on call and when. Schedules consist of **rotations**, and each rotation defines:
+---
 
-- **Participants**: users or teams to include.
-- **Rotation type**: how participants cycle.
-- **Start date and time**.
-- **Rotation length**: how long before the schedule cycles to the next participant.
+### Schedule Structure
 
-#### Weekly Rotation
-The most common. Each participant is on call for a full week.
+A **schedule** is a named object that, at any given moment, resolves to a set of on-call participants. A schedule is made up of one or more **rotations**. Understanding this two-level structure is critical.
 
 ```
-Week 1: Alice
-Week 2: Bob
-Week 3: Carol
+Schedule: "Platform Team - Global"
+├── Rotation 1: EU Business Hours
+│     participants: [alice, bob]
+│     type: weekly
+│     restriction: Mon–Fri 07:00–15:00 UTC
+├── Rotation 2: US East Business Hours
+│     participants: [carol, dave]
+│     type: weekly
+│     restriction: Mon–Fri 14:00–22:00 UTC
+└── Rotation 3: Fallback (no restriction)
+      participants: [team-lead]
+      type: weekly
+```
+
+When Opsgenie evaluates who is on call, it looks at all active rotations at the current moment. If multiple rotations overlap, all matching participants are considered on call simultaneously. The escalation policy then determines which of those participants to notify first.
+
+**Key schedule properties:**
+
+| Property | What it controls |
+|----------|-----------------|
+| **Rotation type** | How participants cycle (daily, weekly, custom) |
+| **Rotation length** | Duration before advancing to the next participant |
+| **Time restriction** | Hours/days during which this rotation is active |
+| **Start date/time** | When the rotation begins; determines who is "first" in the cycle |
+| **Participants** | Ordered list of users or groups |
+
+---
+
+### Rotation Types
+
+#### Weekly Rotation
+The most common rotation. Each participant is on call for one full week before the cycle advances.
+
+```
+Week 1 (Mon 00:00 – Sun 23:59): Alice
+Week 2 (Mon 00:00 – Sun 23:59): Bob
+Week 3 (Mon 00:00 – Sun 23:59): Carol
 → repeat
 ```
 
-**Schedule time restriction**: limit the schedule to certain hours (e.g., Mon–Fri 09:00–17:00) so the rotation only applies during business hours.
+Best for teams with three or more members where a week of on-call is manageable. The fatigue trade-off: less context-switching, but seven consecutive days of responsibility.
 
 #### Daily Rotation
-Participants rotate every day. Suitable for high-traffic services where a week of on-call is too long.
+Participants rotate every 24 hours. Good for high-traffic services or teams that want to distribute load more evenly.
 
 ```
 Mon: Alice
 Tue: Bob
 Wed: Carol
 Thu: Alice
+Fri: Bob
 ...
 ```
 
-#### Follow-the-Sun (Timezone-based)
-For global teams, follow-the-sun uses multiple rotations within the same schedule, each restricted to a geographic timezone's business hours. Participants in each timezone cover their own business day.
+**Gotcha:** Daily rotations create more handoff points. Ensure your runbooks and incident context are well-documented — whoever picks up on Tuesday shouldn't need to phone whoever was on Monday to understand ongoing issues.
+
+#### Follow-the-Sun
+Not a distinct rotation type in the UI — it's a *pattern* implemented by combining multiple rotations with time restrictions in a single schedule. Each rotation covers one geographic region's business hours, creating continuous 24/7 coverage with no single engineer working outside their local day.
 
 ```
-Rotation 1: EU team (07:00–16:00 UTC)
-Rotation 2: US East team (14:00–23:00 UTC)
-Rotation 3: Asia-Pacific team (23:00–07:00 UTC)
-→ No gaps; always covered
+Rotation 1: EU (07:00–15:00 UTC)   → alice, bob alternate weekly
+Rotation 2: US East (14:00–22:00 UTC) → carol, dave alternate weekly
+Rotation 3: APAC (22:00–07:00 UTC) → eve, frank alternate weekly
 ```
 
-In Opsgenie, implement this by creating one schedule with three rotations, each with a **time restriction** and a different participant list.
+The one-hour overlaps (14:00–15:00, 22:00–23:00) are intentional — they create a handoff window where both outgoing and incoming engineers are nominally available.
 
 #### Custom Rotation Length
-Set any rotation length: 12 hours, 3 days, 2 weeks. Useful for services with lighter on-call loads or unusual team structures.
-
-### Override Management
-**Overrides** temporarily replace a scheduled participant with someone else. Use cases:
-- A team member is on vacation.
-- Swapping shifts between two engineers.
-- Adding extra coverage during a planned event (product launch, Black Friday).
-
-Creating an override: **Schedules → [Schedule Name] → Add Override**
-- Select replacement user.
-- Set start and end time.
-- The override appears in the schedule timeline with a different colour.
-
-Overrides are visible on the schedule calendar and via the API. They are also reported in on-call analytics, so time-tracking and fairness reporting remains accurate.
-
-Who-is-on-call API:
-
-```bash
-curl -X GET "https://api.opsgenie.com/v2/schedules/my-schedule/on-calls" \
-  -H "Authorization: GenieKey YOUR_API_KEY"
-```
-
-### Escalation Policies
-An **escalation policy** defines what happens when an alert is not acknowledged within a time limit. It is the "if nobody responds, then…" logic.
-
-An escalation policy consists of one or more **steps**:
+Set any duration: 12 hours, 3 days, 2 weeks. Useful for:
+- 12-hour shifts on a small team that wants day/night split
+- 2-week rotations when the on-call load is very low
 
 ```
-Step 1: Notify [on-call person from schedule]     — wait 5 minutes
-Step 2: Notify [backup on-call / next in rotation] — wait 10 minutes
-Step 3: Notify [team lead]                          — wait 15 minutes
-Step 4: Notify [VP Engineering]                    — wait 20 minutes
+Custom example — 12-hour split:
+  Shift A: Mon–Sun 06:00–18:00 UTC → Alice (day shift)
+  Shift B: Mon–Sun 18:00–06:00 UTC → Bob (night shift)
 ```
 
-Each step specifies:
-- **Who to notify**: on-call from a schedule, a specific user, a team, or all team members.
-- **Notify via**: any combination of contact methods (default is per-user notification rules).
-- **Wait time**: how long to wait before escalating if the alert is not acknowledged.
-
-**Auto-close escalation**: optionally stop escalating after a set time (e.g., if no response after 30 minutes, close the alert and create a post-mortem task). Rarely used in production — most teams prefer to escalate to a VP or emergency contact rather than auto-close.
-
-Configuration: **Teams → [Team Name] → Escalation Policies → Add Escalation Policy**
-
-### On-Call Participant Rules
-Within a schedule rotation, you can define **participant rules**:
-
-- **None**: notify all participants simultaneously (not a rotation — more of a broadcast).
-- **One at a time (rotation)**: standard rotation, one person at a time.
-- **Random**: randomly select from the list.
-
-For escalation steps that target "on-call from schedule", Opsgenie evaluates the schedule at the moment of escalation and uses the currently on-call participant.
+---
 
 ### Schedule Gaps
-A **gap** occurs when no one is scheduled for a time slot. Gaps mean alerts during that window will not notify anyone — a dangerous condition.
 
-Gap scenarios:
-- A rotation ends and the next one hasn't started.
-- A timezone restriction leaves hours uncovered.
-- All participants are removed from a rotation without replacements.
+A **gap** occurs when no rotation is active for a time window. Alerts during a gap will not notify anyone. This is a silent failure — Opsgenie will not error; it simply has no one to notify.
 
-Opsgenie warns about gaps in the schedule UI with a visual indicator. Review gaps before they occur:
+**Common gap causes:**
 
-**Schedules → [Schedule Name] → Timeline view** — gaps appear as empty (white) periods.
+| Cause | Example |
+|-------|---------|
+| Time restriction leaves hours uncovered | Rotation set to Mon–Fri 09:00–17:00 with no weekend coverage |
+| All participants removed from a rotation | Rotation still exists but participant list is empty |
+| Rotation end date reached | Rotation was set with an expiry that passed |
+| Override applied but replacement not covering full window | Override ends at 18:00; schedule resumes at 09:00 next day — 15-hour gap |
 
-Mitigation: add a fallback rotation with the team lead as participant with no time restriction, placed after all primary rotations. This catches any gaps.
+**How to detect gaps:** Open **Schedules → [Schedule Name] → Timeline view**. Gaps appear as empty (white or greyed-out) periods with no participant label. Opsgenie also displays a warning banner on the schedule if gaps exist within the next 30 days.
+
+**Mitigation pattern — fallback rotation:**
+
+```
+Add a final rotation with:
+  Participant: [team-lead or on-call manager]
+  Time restriction: none (covers all hours)
+  Rotation type: weekly (single participant, always the same person)
+  Priority: lowest (only activates when no other rotation matches)
+```
+
+Because rotations within a schedule are evaluated in order, a fallback rotation at the bottom with no time restriction catches anything the primary rotations miss.
+
+---
+
+### Override Management
+
+An **override** temporarily replaces a scheduled participant without modifying the underlying rotation. This is the correct mechanism for vacations, shift swaps, and event coverage.
+
+**Override fields:**
+
+| Field | Description |
+|-------|-------------|
+| **User** | The replacement (who will be on call instead) |
+| **Start time** | When the override begins (inclusive) |
+| **End time** | When the override ends (exclusive) |
+| **Alias** | Optional label for the override (e.g., "Alice vacation") |
+
+Navigate to: **Schedules → [Schedule Name] → Add Override**
+
+Overrides are visible in the schedule timeline (displayed in a distinct color) and are included in on-call analytics — so fairness reporting and compensation calculations remain accurate even when shifts are swapped.
+
+**API: create an override**
+
+```bash
+# Create an override: replace alice with carol from Dec 20 to Dec 30
+curl -X POST "https://api.opsgenie.com/v2/schedules/platform-global/overrides" \
+  -H "Authorization: GenieKey YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user": {
+      "type": "user",
+      "username": "carol@company.com"
+    },
+    "startDate": "2024-12-20T00:00:00Z",
+    "endDate": "2024-12-30T00:00:00Z",
+    "alias": "alice-vacation-dec"
+  }'
+```
+
+**API: verify who is on call at a future date**
+
+```bash
+# Check who would be on call on Dec 25 at 14:00 UTC
+curl -X GET \
+  "https://api.opsgenie.com/v2/schedules/platform-global/on-calls?scheduleIdentifierType=name&flat=true&date=2024-12-25T14:00:00Z" \
+  -H "Authorization: GenieKey YOUR_API_KEY" | jq '.data.onCallParticipants'
+```
+
+Expected output if override is correctly applied:
+```json
+[
+  {
+    "name": "Carol Smith",
+    "type": "user"
+  }
+]
+```
+
+**Gotcha:** Overrides do not cascade through escalation policies. If your escalation policy says "notify on-call from schedule," it picks up the override correctly. But if your escalation policy hardcodes a specific user's name (e.g., "notify alice@company.com"), the override has no effect — Alice still gets paged even while on vacation. Always reference schedules in escalation steps, not individual users, for vacation coverage to work automatically.
+
+---
+
+### Escalation Policies
+
+An **escalation policy** defines what happens when an alert is not acknowledged within a time window. It is the "if nobody responds, then…" chain. Every alert routed to a team triggers that team's escalation policy.
+
+**Escalation policy structure:**
+
+```
+Policy: "Platform - P1 Escalation"
+│
+├─ Step 1 [at 0 min]:  Notify on-call from schedule "platform-global"
+│                       via: push notification + SMS
+├─ Step 2 [at 5 min]:  Notify on-call from schedule "platform-global"
+│                       via: phone call (re-notify same person, different method)
+├─ Step 3 [at 10 min]: Notify user: platform-lead@company.com
+│                       via: phone call
+├─ Step 4 [at 20 min]: Notify team: Engineering Leadership (all members)
+│                       via: push + phone call
+│
+└─ Repeat policy: 3 times, then keep alert open (never auto-close)
+```
+
+**Step configuration options:**
+
+| Field | Options |
+|-------|---------|
+| **Notify** | On-call from schedule, specific user, team (all members), team (on-call only) |
+| **Via** | Default (user's own notification rules), or override with specific methods |
+| **Wait before next step** | Minutes to wait for acknowledgment before escalating |
+
+**Escalation repeat:** After all steps complete without acknowledgment, the policy can repeat (notify all steps again) up to N times. After repeats are exhausted, the alert remains open but escalation stops. Never configure auto-close for production services — a silent unacknowledged alert is worse than an annoying ongoing one.
+
+**Gotcha:** The wait time in each step is measured from the *previous step*, not from the alert creation time. Step 1 fires at 0 min. Step 2 fires 5 min later (5 min total). Step 3 fires 10 min after step 2 (15 min total). Read your policy's cumulative times carefully, especially in an SLA context where you've promised "P1 alert reaches a human within 10 minutes."
+
+---
 
 ### Notification Methods and Priority
-Each user configures their personal notification preferences under **Profile → Notification Rules**. Typical setup:
+
+Each user configures personal notification rules under **Profile → Notification Rules**. These rules are independent of escalation policies — they control *how* an individual is contacted, not *when* or *who*.
+
+**Typical notification rule setup:**
 
 ```
-Priority P1 / P2 alerts:
-  - Immediately: push notification
-  - If not acknowledged in 3 min: phone call
+For alerts with priority P1 or P2:
+  Immediately:           mobile push notification
+  If not ack in 2 min:  SMS
+  If not ack in 4 min:  phone call
 
-Priority P3 / P4 alerts:
-  - Immediately: email + push notification
+For alerts with priority P3 or P4:
+  Immediately:           email + mobile push notification
 
-Priority P5 (informational):
-  - Email only
+For alerts with priority P5 (informational):
+  Immediately:           email only
 ```
 
-The separation between priority-based notification rules and escalation policies is important: escalations determine *who* gets notified over time, while notification rules determine *how* the individual is notified.
+**Alert priority mapping:**
+
+| Priority | Typical use | Expected response |
+|----------|-------------|-------------------|
+| P1 | Customer-facing outage, data loss | Immediate, any time |
+| P2 | Degraded performance, partial outage | Within 15 minutes |
+| P3 | Non-customer-facing, recoverable | Business hours |
+| P4 | Warning, investigate soon | Best effort |
+| P5 | Informational | No action required |
+
+**Separation of concerns — the key mental model:**
+
+- **Escalation policy** = *who* gets notified and *when* (the chain of responsibility over time)
+- **Notification rules** = *how* each person is reached (phone vs. push vs. email, per priority)
+
+This separation means you can update how a person is contacted without touching the escalation policy, and you can restructure team responsibility chains without touching individual notification preferences.
+
+**Gotcha:** If an escalation step is configured with an explicit contact method override (e.g., "always phone call"), it bypasses the user's personal notification rules entirely. Use this sparingly — it removes the user's ability to tune their own experience.
+
+---
+
+### On-Call Participant Rules Within Rotations
+
+When a rotation has multiple participants and an escalation step targets "on-call from schedule," exactly one participant is on call at any moment (the current rotation slot). However, you can configure the rotation to present participants differently:
+
+| Mode | Behavior | Use case |
+|------|----------|----------|
+| **One at a time (default)** | Single participant on call per rotation slot | Standard weekly/daily rotation |
+| **All participants simultaneously** | Everyone in the rotation is on call at once | Broadcast coverage, small critical teams |
+| **Random** | One participant selected randomly each period | Load distribution, unpredictable assignment |
+
+For most production services, use "one at a time." Simultaneous mode is occasionally useful for a small leadership team where any executive should be reachable, but it creates ambiguity about who is *responsible*.
+
+---
 
 ## Examples
 
-### Follow-the-sun schedule configuration
+### Example 1: Follow-the-Sun Schedule Configuration
+
+A platform team with engineers in London and New York wants continuous 24/7 coverage. Weekend coverage falls to a rotating lead.
 
 ```
-Schedule: "Platform Team - Global"
+Schedule name: "Platform Team - Global"
 
-Rotation 1: EU Coverage
-  Participants: alice@co.com, bob@co.com
+─── Rotation 1: EU Business Hours ───────────────────────────────
+  Participants (in order): alice@company.com, bob@company.com
   Rotation type: Weekly
-  Start: Monday 07:00 UTC
-  Restrictions: Mon–Fri 07:00–15:00 UTC
+  Rotation start: 2024-01-01 Monday 07:00 UTC
+  Time restriction: Mon–Fri  07:00–15:00 UTC
+  # Alice covers week 1; Bob covers week 2; repeat.
+  # Ends at 15:00 UTC (16:00 London time) — engineers finish their day.
 
-Rotation 2: US East Coverage
-  Participants: carol@co.com, dave@co.com
+─── Rotation 2: US East Business Hours ──────────────────────────
+  Participants (in order): carol@company.com, dave@company.com
   Rotation type: Weekly
-  Start: Monday 13:00 UTC
-  Restrictions: Mon–Fri 13:00–22:00 UTC
-
-Rotation 3: Weekend Fallback
-  Participants: alice@co.com (team lead)
-  Rotation type: Weekly
-  Start: Saturday 00:00 UTC
-  Restrictions: Sat–Sun 00:00–23:59 UTC
-```
-
-### Escalation policy for a P1 alert
-
-```
-Policy name: "Platform - P1 Escalation"
-
-Step 1 (0 min): Notify on-call from "Platform Team - Global" schedule
-Step 2 (5 min): Notify on-call from "Platform Team - Global" schedule (re-notify)
-Step 3 (10 min): Notify user: platform-lead@co.com (direct, phone call)
-Step 4 (20 min): Notify team: Engineering Leadership (all members)
-Repeat: 3 times if still unacknowledged, then keep open
-```
-
-### Checking schedule via Opsgenie API
-
-```bash
-# Get current on-call for a named schedule
-curl -X GET \
-  "https://api.opsgenie.com/v2/schedules/platform-global/on-calls?scheduleIdentifierType=name&flat=true" \
-  -H "Authorization: GenieKey YOUR_API_KEY" | jq '.data.onCallParticipants'
-
-# List all overrides for a schedule
-curl -X GET \
-  "https://api.opsgenie.com/v2/schedules/platform-global/overrides" \
-  -H "Authorization: GenieKey YOUR_API_KEY"
-```
-
-## Exercises
-
-1. Design an on-call schedule for a 5-person SRE team (3 in London, 2 in New York) running a 24/7 production service. Specify: rotation type for each geographic group, time restrictions, how weekend coverage is handled, and how gaps are avoided. Draw the schedule as a weekly table showing who is on call for each time block.
-
-2. Write the escalation policy for a critical payment processing service. Requirements: P1 alerts must reach a human within 5 minutes; if unacknowledged at 5 minutes escalate to the backup; at 15 minutes escalate to the engineering manager; never auto-close. Specify each step with wait times, who is notified, and via what method.
-
-3. An on-call engineer is going on vacation for 10 days next month. Describe the full process to create an override in Opsgenie: what fields you'd fill in, how you'd verify the override was applied correctly in the schedule UI, and how you'd use the API to confirm the replacement engineer would have been returned for a query during that vacation window.

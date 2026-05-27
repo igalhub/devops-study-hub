@@ -48,6 +48,8 @@ Reading a cron expression is a skill that comes up constantly — in code review
 0 9 1 * 1   /usr/bin/script.sh
 ```
 
+Use [crontab.guru](https://crontab.guru) to sanity-check expressions before deploying them. Pasting a broken expression into production is a common source of jobs that silently never run.
+
 ---
 
 ### Field Value Syntax
@@ -76,8 +78,6 @@ Steps and ranges can combine. `*/15` is shorthand for `0-59/15`. `0-23/6` means 
 
 **`@reboot` gotcha:** `@reboot` jobs run when the cron daemon starts, not strictly when the OS boots. If crond restarts mid-session, the job runs again. Don't use it for truly one-time initialization.
 
-Use [crontab.guru](https://crontab.guru) to sanity-check expressions before deploying them. Pasting a broken expression into production is a common source of jobs that silently never run.
-
 ---
 
 ### Where Cron Jobs Live
@@ -94,7 +94,7 @@ Cron jobs are not all in one place. The location determines who owns the job, wh
 | `/etc/cron.weekly/` | Scripts run weekly | No | Drop executable script |
 | `/etc/cron.monthly/` | Scripts run monthly | No | Drop executable script |
 
-**`/etc/cron.d/` is the right place for application-owned jobs in production.** When you deploy an application via a package, Ansible, or Chef, you drop a file in `/etc/cron.d/` named after your app. This keeps jobs discoverable, auditable, and version-controlled.
+**`/etc/cron.d/` is the right place for application-owned jobs in production.** When you deploy an application via a package, Ansible, or Chef, you drop a file in `/etc/cron.d/` named after your app. This keeps jobs discoverable, auditable, and version-controlled. Files in `/etc/cron.d/` must be owned by root and must not be world-writable — cron silently ignores files that fail this permission check.
 
 **`crontab -e` is for personal or ad hoc jobs.** Jobs installed this way live in `/var/spool/cron/crontabs/<username>`. They disappear if the user is deleted. Avoid using personal crontabs for production workloads — no one else knows they exist.
 
@@ -118,40 +118,49 @@ PATH=/usr/bin:/bin  (nothing else)
 This causes two categories of failures:
 
 1. **Command not found** — `/usr/local/bin/python3`, `aws`, `node`, `docker` are not in `/usr/bin:/bin`
-2. **Wrong behavior** — the script works interactively because it sources config that sets `AWS_REGION`, `JAVA_HOME`, etc.
+2. **Wrong behavior** — the script works interactively because it sources config that sets `AWS_REGION`, `JAVA_HOME`, `VIRTUAL_ENV`, etc.
 
-**Fix — set everything explicitly at the top of the crontab:**
+**Fix 1 — set variables explicitly at the top of the crontab:**
 
 ```bash
-# crontab -e
+# /etc/cron.d/myapp
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin
 MAILTO=oncall@example.com
 AWS_DEFAULT_REGION=us-east-1
 
-30 2 * * * /usr/bin/backup.sh
+30 2 * * * deploy /usr/local/bin/backup.sh
 ```
 
-**Fix — use absolute paths everywhere in the command itself:**
+**Fix 2 — use absolute paths everywhere in the command itself:**
 
 ```bash
-30 2 * * * /usr/bin/aws s3 sync /data s3://bucket/ >> /var/log/backup.log 2>&1
+30 2 * * * deploy /usr/bin/aws s3 sync /data s3://mybucket/ >> /var/log/backup.log 2>&1
 ```
 
-**Fix — source the environment inside the script:**
+**Fix 3 — source the environment inside the script:**
 
 ```bash
 #!/bin/bash
 # backup.sh
 source /etc/profile.d/myapp.sh
+export JAVA_HOME=/usr/lib/jvm/java-17
 # ... rest of script
 ```
+
+**Debugging tip:** If a job works manually but fails under cron, reproduce the minimal environment with:
+
+```bash
+env -i HOME=/root SHELL=/bin/bash PATH=/usr/bin:/bin /bin/bash --noprofile --norc /usr/local/bin/yourscript.sh
+```
+
+This strips the environment down to roughly what cron sees and usually reveals the missing variable or binary immediately.
 
 ---
 
 ### Handling Output and Logging
 
-By default, if a cron job produces any output (stdout or stderr), cron tries to email it to the user via the local MTA. On most servers there is no MTA, so the output is lost. On servers that do have one, you get flooded with emails. Either way, you need an explicit output strategy.
+By default, if a cron job produces any output (stdout or stderr), cron tries to email it to the user via the local MTA. On most servers there is no MTA, so the output is silently discarded. On servers that do have one, you get flooded with emails. Either way, you need an explicit output strategy.
 
 ```bash
 # BAD — output goes to local mail or nowhere. You'll never know if it failed.
@@ -171,9 +180,9 @@ MAILTO=alerts@example.com
 30 2 * * * /usr/bin/backup.sh > /dev/null  # stdout suppressed; stderr mailed
 ```
 
-**`2>&1` order matters.** It must appear after the redirect: `>> /var/log/backup.log 2>&1`. The reverse — `2>&1 >> /var/log/backup.log` — redirects stderr to the terminal first, then redirects stdout to the file. Stderr ends up in the wrong place.
+**`2>&1` order matters.** It must appear after the redirect: `>> /var/log/backup.log 2>&1`. The reverse — `2>&1 >> /var/log/backup.log` — redirects stderr to the terminal first, then redirects stdout to the file. Stderr ends up in the wrong place and you lose error output.
 
-**Log rotation** — if your cron job appends to a log file indefinitely, the file will grow unboundedly. Either manage this inside the script (keep last N lines), or add a logrotate config in `/etc/logrotate.d/`:
+**Log rotation** — if your cron job appends to a log file indefinitely, the file will grow unboundedly. Either manage this inside the script, or add a logrotate config in `/etc/logrotate.d/`:
 
 ```
 /var/log/backup.log {
@@ -182,6 +191,7 @@ MAILTO=alerts@example.com
     compress
     missingok
     notifempty
+    create 0640 root root
 }
 ```
 
@@ -189,13 +199,13 @@ MAILTO=alerts@example.com
 
 ### Preventing Overlapping Runs
 
-Cron has no awareness of whether a previous instance of a job is still running. If your backup job takes 70 minutes and runs at 2 AM daily, it will still try to start a new instance at 3 AM — two backup processes competing for the same database.
+Cron has no awareness of whether a previous instance of a job is still running. If your backup job takes 70 minutes and runs at 2 AM daily, it will still try to start a new instance at 3 AM — two backup processes competing for the same database, the same lock files, or the same output path.
 
 **Use `flock` for file-based locking:**
 
 ```bash
-# -n = non-blocking (exit immediately if lock is held)
-# -e 1 = exit code 1 if lock is unavailable
+# -n = non-blocking (exit immediately if lock is held, don't queue)
+# /tmp/backup.lock is created automatically if it doesn't exist
 30 2 * * * flock -n /tmp/backup.lock /usr/bin/backup.sh >> /var/log/backup.log 2>&1
 ```
 
@@ -206,18 +216,27 @@ Cron has no awareness of whether a previous instance of a job is still running. 
 30 2 * * * flock -w 10 /tmp/backup.lock /usr/bin/backup.sh >> /var/log/backup.log 2>&1
 ```
 
-**Inside a script, `flock` with the script locking itself:**
+**Self-locking pattern inside a script:**
 
 ```bash
 #!/bin/bash
-# backup.sh — self-locking
-exec 9>/tmp/backup.lock
-flock -n 9 || { echo "Already running, exiting."; exit 1; }
+# backup.sh — self-locking via file descriptor
+LOCKFILE=/tmp/backup.lock
 
-# ... actual work here
+exec 9>"${LOCKFILE}"
+flock -n 9 || { echo "[$(date -Iseconds)] Already running, exiting."; exit 1; }
+
+# All work happens here; lock released automatically on exit
+echo "[$(date -Iseconds)] Starting backup..."
 ```
 
-**`flock` gotcha:** the lock is released when the file descriptor closes — which happens when the process exits, even abnormally. No stale lock files to clean up manually, unlike `mkdir`-based locking.
+**`flock` gotcha:** the lock is tied to the file descriptor, not the file path. The lock is released automatically when the process exits — even abnormally (crash, kill signal). This means no stale lock files to clean up manually, unlike `mkdir`-based or `pidfile`-based locking patterns that require cleanup logic.
+
+| Locking method | Stale lock risk | Works across scripts | Notes |
+|---------------|----------------|----------------------|-------|
+| `flock` | None (kernel-managed) | Yes | Preferred; available on all Linux systems |
+| `mkdir` | Yes — must clean up | No | Fragile; avoid |
+| PID file | Yes — must validate PID | Yes | More complex; used by some daemons |
 
 ---
 
@@ -233,17 +252,23 @@ crontab -l
 # Remove all your cron jobs — NO CONFIRMATION PROMPT
 crontab -r
 
+# Remove with confirmation (supported on most modern systems)
+crontab -i -r
+
 # Edit another user's crontab (must be root)
 crontab -u www-data -e
 
 # List another user's crontab
 crontab -u deploy -l
 
-# Install a crontab from a file (replaces existing)
+# Install a crontab from a file (replaces existing entirely)
 crontab /path/to/mycrontab.txt
+
+# Pipe a crontab in (useful in provisioning scripts)
+echo "*/5 * * * * /usr/bin/healthcheck.sh > /dev/null 2>&1" | crontab -
 ```
 
-**`crontab -r` vs `-e` gotcha:** `-r` (remove) and `-e` (edit) look similar and are adjacent on the keyboard. Several engineers have accidentally deleted all their production cron jobs. Some systems support `crontab -i` which prompts for confirmation before removing. Always use `-i` if your system supports it, and always keep crontabs in version control.
+**`crontab -r` vs `-e` gotcha:** `-r` (remove) and `-e` (edit) are adjacent on the keyboard. Mistyping `-r` instead of `-e` deletes all cron jobs with no confirmation and no undo. Always keep crontabs in version control (an Ansible task, a file in your repo) so recovery is `git checkout` rather than reconstruction from memory.
 
 ---
 
@@ -260,50 +285,11 @@ tail -30 /var/log/cron
 
 # systemd-based systems — via journald
 journalctl -u cron --since "1 hour ago"
-journalctl -u crond -f   # follow in real time (RHEL/CentOS uses crond)
+journalctl -u crond -f          # follow in real time (RHEL/CentOS uses crond)
+journalctl -u cron --since today --grep "backup"
 
-# Example syslog output showing successful execution:
+# Example syslog output showing successful launch:
 # Jun 15 02:30:01 server CRON[12345]: (root) CMD (/usr/bin/backup.sh >> /var/log/backup.log 2>&1)
 ```
 
-The syslog entry confirms cron *launched* the job. Whether the job *succeeded* depends on your script's own logging. That's why output redirection to a log file matters — it's your primary debugging tool.
-
----
-
-## Examples
-
-### Example 1: Daily Database Backup with Locking and Logging
-
-**Scenario:** Dump a PostgreSQL database to disk every night at 2:30 AM, keep 7 days of backups, and log everything with timestamps. Prevent overlap if the dump takes longer than a day.
-
-```bash
-# /etc/cron.d/postgres-backup
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-MAILTO=dba-alerts@example.com
-
-# minute hour day month weekday user command
-30 2 * * * postgres flock -n /tmp/pg-backup.lock /usr/local/bin/pg-backup.sh >> /var/log/pg-backup.log 2>&1
-```
-
-```bash
-#!/bin/bash
-# /usr/local/bin/pg-backup.sh
-
-set -euo pipefail   # exit on error, undefined vars, pipe failures
-
-BACKUP_DIR="/var/backups/postgres"
-DB_NAME="appdb"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/${DB_NAME}_${TIMESTAMP}.dump"
-KEEP_DAYS=7
-
-echo "[$(date -Iseconds)] Starting backup of ${DB_NAME}"
-
-# Create backup directory if it doesn't exist
-mkdir -p "${BACKUP_DIR}"
-
-# Dump in custom format (compressed, supports selective restore)
-pg_dump --format=custom --file="${BACKUP_FILE}" "${DB_NAME}"
-
-echo "[$(date -Iseconds)] Backup written to ${BACKUP_FILE} ($(du -sh "${BACKUP_FILE}" | cut -f1))"
+The syslog entry confirms cron *launched* the job. Whether the job *succeeded* is

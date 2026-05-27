@@ -8,245 +8,326 @@ exercises: 3
 ---
 
 ## Overview
-Kibana's alerting system (formerly known as Watcher in its early form) lets you define rules that run on a schedule against Elasticsearch data and trigger actions through connectors when conditions are met. For DevOps, this means you can alert on log error rates, metric thresholds, and ML anomalies from the same tool you use for dashboards — without needing a separate alerting system for Elasticsearch-backed data. Reporting adds scheduled PDF/CSV delivery of dashboards and Discover searches to stakeholders.
+
+Kibana's alerting system lets you define rules that run on a schedule against Elasticsearch data and fire actions through connectors when conditions are met. For DevOps, this consolidates alerting on logs, metrics, and ML anomalies into the same tool you already use for dashboards — eliminating a separate alerting tier for Elasticsearch-backed observability data. Rules are first-class objects stored in the `.kibana` index, managed through the UI or API, and executed by Kibana's background task manager, which means alerting scales with your Kibana deployment rather than requiring external components.
+
+The design philosophy centers on three decoupled primitives: **rules** (what to check), **connectors** (how to notify), and **actions** (which connector to call at which lifecycle stage). This separation means you define a Slack webhook once and reference it from dozens of rules. It also means changing a notification channel is a one-place edit, not a mass rule update. Alert instances are stateful — Kibana tracks whether a condition is currently active or has recovered, enabling auto-resolution workflows in downstream tools like PagerDuty.
+
+In the broader DevOps toolchain, Kibana alerting sits between data ingestion (Beats, Logstash, APM agents pushing into Elasticsearch) and incident management (PagerDuty, OpsGenie, ServiceNow). The Reporting feature extends this by automating scheduled delivery of dashboards and search results as PDF or CSV — bridging the gap between real-time monitoring and asynchronous stakeholder communication like weekly operations reviews or compliance exports.
+
+---
 
 ## Concepts
 
-### Kibana Alerting Architecture
+### Alerting Architecture
 
-Three components:
+Three components make up every alert workflow:
 
-| Component | Role |
-|---|---|
-| **Rule** | Defines what to check, how often, and the threshold condition |
-| **Connector** | Defines how to notify (email, Slack, webhook, etc.) |
-| **Action** | Binds a rule outcome to a connector; runs on alert/recovery |
+| Component | Role | Where configured |
+|-----------|------|-----------------|
+| **Rule** | What to check, how often, and the threshold condition | Stack Management → Rules |
+| **Connector** | Reusable notification channel (Slack, email, PagerDuty, webhook) | Stack Management → Connectors |
+| **Action** | Binds a rule lifecycle event to a connector with a templated message | Inside each rule definition |
 
-Rules run inside Kibana on a schedule using a background task manager. Rule state is persisted in the `.kibana` index. Each rule can have multiple actions with different conditions (on active, on recovery, on every interval the alert stays active).
+Rules run inside Kibana's task manager on a configurable schedule. Each execution queries Elasticsearch, evaluates the condition, and updates persisted alert instance state. One rule can produce multiple **alert instances** — for example, a rule grouped by `service.name` creates a separate instance per service that breaches the threshold, so notifications are scoped to the offending service rather than firing a generic global alert.
 
-Navigate to: **Stack Management → Rules** (or **Observability → Alerts → Rules** depending on your Kibana version).
+**Task manager gotcha:** if Kibana is overloaded or task manager falls behind, rule executions can be delayed. Monitor `kibana_task_manager_run_duration_seconds` and the **Stack Monitoring → Kibana → Task Manager** panel. If `drift` is consistently high, reduce rule frequency or scale Kibana horizontally.
+
+Navigate to rules via: **Stack Management → Rules** or **Observability → Alerts → Rules** (Kibana 8.x reorganized the navigation; both paths reach the same underlying system).
+
+---
 
 ### Built-in Rule Types
 
 #### Elasticsearch Query Rule
-Most flexible. Run any Elasticsearch query; alert when result count or aggregation crosses a threshold.
 
-Configuration:
-- **Index**: which indices to query (e.g., `logs-*`)
-- **Query**: KQL or Elasticsearch DSL
-- **Aggregation**: count, or a metric aggregation (sum, avg, max)
-- **Group by**: field to group results (one alert instance per group value)
-- **Threshold**: condition and value (count > 50, avg > 500)
-- **Time window**: rolling window for the query (last 5 minutes)
-- **Check interval**: how often the rule runs (every 1 minute)
+The most flexible rule type. Runs any Elasticsearch query (KQL or full DSL) against any index pattern, then alerts when a count or aggregation crosses a threshold.
 
-Example: alert if error count exceeds 100 in any 5-minute window, grouped by `service.name`:
+Key configuration parameters:
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `index` | Index pattern to query | `logs-*`, `apm-*-transaction` |
+| `query` | KQL or Lucene filter | `level: ERROR AND env: prod` |
+| `aggType` | `count`, `avg`, `sum`, `min`, `max`, `pct` (percentile) | `avg` |
+| `aggField` | Field to aggregate (required for non-count types) | `transaction.duration.us` |
+| `timeWindowSize` + `timeWindowUnit` | Rolling window for the query | `5` + `m` |
+| `thresholdComparator` | `>`, `>=`, `<`, `<=`, `between`, `notBetween` | `>` |
+| `threshold` | Value(s) for the comparator | `[100]` or `[50, 200]` for between |
+| `termField` + `termSize` | Group by field and number of top groups | `service.name`, `10` |
+
+Example — alert if the average response time in any service exceeds 2 seconds over a 5-minute window:
 
 ```
-Index: logs-*
-Query (KQL): level: ERROR
-Aggregate: Count
-When: count IS ABOVE 100
-Over: 5 minutes
-Group by: service.name (top 10)
-Run every: 1 minute
+Index:         apm-*-transaction
+Query (KQL):   transaction.type: request AND labels.env: production
+Aggregate:     Average of transaction.duration.us
+When:          avg IS ABOVE 2000000   (2s in microseconds)
+Over:          5 minutes
+Group by:      service.name (top 10)
+Run every:     1 minute
 ```
 
-This creates one alert *instance* per service that breaches the threshold.
+**Units gotcha:** APM stores durations in **microseconds**. `2000 ms = 2,000,000 µs`. Getting this wrong is a very common source of alerts that never fire or fire constantly.
 
-#### Threshold Rule (Metrics)
-Purpose-built for metric threshold alerting on time series data. Simpler to configure than an ES query rule for straightforward scenarios.
+#### Metric Threshold Rule
 
-- Works on `metrics-*` and `metricbeat-*` indices.
-- Supports: above, below, above or below, between.
-- Can set multiple conditions combined with AND/OR.
+Purpose-built for infrastructure metrics from `metrics-*` or `metricbeat-*` indices. Simpler to configure for straightforward threshold scenarios.
+
+Supports conditions combined with AND/OR:
+- `system.cpu.total.norm.pct IS ABOVE 0.85`
+- `system.memory.actual.used.pct IS ABOVE 0.90`
+- Multiple conditions on the same rule: CPU **AND** memory both above threshold before firing.
+
+**When to prefer Metric Threshold over ES Query:** when you're alerting on standard infrastructure metrics and don't need custom KQL filtering or percentile aggregations. For anything custom, use ES Query.
 
 #### Anomaly Detection Rule (ML)
-Fires when an Elastic ML anomaly detection job finds anomalies scoring above a configured threshold.
 
-- Requires an active ML anomaly detection job.
-- **Anomaly score threshold**: 50 (moderate), 75 (major), 90 (critical).
-- Useful for surfacing unexpected patterns (traffic spikes, unusual error rates) without defining explicit thresholds.
+Fires when an Elastic ML job records an anomaly score above a configured threshold. Requires an active ML anomaly detection job — the rule doesn't run ML itself, it monitors ML job output.
 
-### Alert Lifecycle
+| Anomaly score | Severity |
+|---------------|----------|
+| 25–49 | Warning |
+| 50–74 | Minor |
+| 75–89 | Major |
+| 90–100 | Critical |
+
+Practical use: alert on `score > 75` to catch major anomalies while ignoring statistical noise. ML rules excel at detecting volume-based anomalies (sudden drop in login events, unusual spike in 4xx errors) where static thresholds would require constant tuning.
+
+**Prerequisite:** the ML job must be in a running or closed state with results. If the job is stopped, the anomaly rule will have nothing to evaluate and won't fire.
+
+---
+
+### Alert Lifecycle and State Management
+
+Every alert instance (per rule, per group value) moves through a defined state machine:
 
 ```
-INACTIVE  →  [condition met]  →  ACTIVE  →  [condition clears]  →  RECOVERED
-                                    │
-                              [still active]
-                                    │
-                              ACTIVE (re-notifies if configured)
+INACTIVE
+    │
+    ▼ [threshold breached]
+ACTIVE ──────────────────────────────────────────────┐
+    │                                                 │
+    ▼ [condition clears]                    [still active on next check]
+RECOVERED                                    (re-notifies if configured)
+    │
+    ▼ [threshold breaches again]
+ACTIVE
 ```
 
-- **Active**: condition is currently breaching threshold. Actions with "When: Active" trigger.
-- **Recovered**: condition has cleared. Actions with "When: Recovered" trigger — critical for automated "all clear" notifications.
-- **Flapping detection**: Kibana tracks rules that rapidly alternate between active and recovered and can suppress noisy flapping alerts.
+Actions are bound to **action groups**, which map to lifecycle events:
 
-Action frequency options:
-- **On check intervals** (every run while active) — can be very noisy.
-- **On custom intervals** (e.g., every 4 hours while active).
-- **Only on status change** (alert → active, active → recovered) — the recommended setting for most ops alerts.
+| Action group | When it fires |
+|---|---|
+| `query matched` / `threshold met` | Each check where the condition is active |
+| `recovered` | First check after condition clears |
+
+**Notify frequency** controls how often actions fire while an alert stays active:
+
+| Option | Behavior | Use case |
+|--------|-----------|----------|
+| On every check interval | Fires on every rule execution while active | High-urgency, needs repeated paging |
+| On custom interval | Fires every N hours while active | Reminder notifications |
+| **Only on status change** | Fires once on transition (inactive→active, active→recovered) | **Recommended for most ops alerts** |
+
+**Flapping detection:** when an alert alternates between active and recovered rapidly (e.g., a borderline threshold), Kibana marks it as **flapping** and suppresses notifications to reduce noise. Configure the lookback window and threshold under rule settings. Flapping state is visible in the Rules list — investigate the underlying instability rather than just suppressing.
+
+---
 
 ### Connectors
 
-Connectors are reusable notification channels. Create them once and reference them from multiple rules.
+Connectors are reusable, credentials-stored notification channels. Configure once, reference from many rules. Credentials (webhook URLs, API keys, SMTP passwords) are stored encrypted in Elasticsearch.
 
 Navigate to: **Stack Management → Connectors → Create connector**
 
-| Connector | Use case |
-|---|---|
-| Email (SMTP) | Send structured alert emails |
-| Slack | Post to a Slack channel via incoming webhook |
-| PagerDuty | Create/resolve PagerDuty incidents via Events API v2 |
-| Webhook | HTTP POST to any URL (generic integration) |
-| Jira | Create Jira issues on alert |
-| ServiceNow | Create ITSM incidents |
-| Microsoft Teams | Post to Teams channel |
-| OpsGenie | Create OpsGenie alerts |
+| Connector | Protocol | Primary use case |
+|-----------|----------|-----------------|
+| Email (SMTP) | SMTP | Structured alert emails to teams |
+| Slack | Incoming webhook | Channel notifications |
+| PagerDuty | Events API v2 | Incident creation and auto-resolution |
+| Webhook | HTTP POST | Custom integrations, Alertmanager bridge |
+| Jira | REST API | Auto-create tickets on alert |
+| ServiceNow ITSM | REST API | Enterprise incident management |
+| Microsoft Teams | Incoming webhook | Teams channel notifications |
+| OpsGenie | REST API | On-call alert routing |
 
-#### Slack connector configuration
+#### Slack Connector
 
-```json
-{
-  "name": "Slack #alerts-prod",
-  "connector_type_id": ".slack",
-  "config": {
-    "webhookUrl": "https://hooks.slack.com/services/T00/B00/XXXX"
-  }
-}
+Create via UI or API:
+
+```bash
+curl -X POST "http://kibana:5601/api/actions/connector" \
+  -H "kbn-xsrf: true" \
+  -H "Authorization: ApiKey <base64-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Slack #alerts-prod",
+    "connector_type_id": ".slack",
+    "config": {
+      "webhookUrl": "https://hooks.slack.com/services/T00/B00/XXXX"
+    }
+  }'
+# Response includes "id" — save this; you reference it in rule actions
 ```
 
-Action body (Mustache template):
+Action body uses **Mustache templates** to inject alert context:
 
 ```
 *Alert:* {{rule.name}}
 *Status:* {{alert.actionGroup}}
-*Condition:* {{context.conditions}}
-*Value:* {{context.value}}
 *Service:* {{context.group}}
+*Value:* {{context.value}}
+*Conditions:* {{context.conditions}}
+*Link:* {{context.alertDetailsUrl}}
 ```
 
-#### PagerDuty connector
-The PagerDuty connector uses the Events API v2. Configure:
-- **Integration key**: from your PagerDuty service's Events API v2 integration.
-- **Event action**: `trigger` (on active), `resolve` (on recovery).
-- **Severity**: `critical`, `error`, `warning`, `info`.
+Common context variables (vary by rule type — check rule type documentation):
 
-Map alert recovery → event action `resolve` to auto-resolve PagerDuty incidents when the condition clears.
+| Variable | Value |
+|----------|-------|
+| `{{rule.name}}` | Rule display name |
+| `{{alert.actionGroup}}` | `query matched` or `recovered` |
+| `{{context.group}}` | The group-by field value (e.g., service name) |
+| `{{context.value}}` | The metric value that triggered the alert |
+| `{{context.conditions}}` | Human-readable condition description |
+| `{{context.alertDetailsUrl}}` | Deep link to the alert in Kibana |
 
-#### Webhook connector
-Use for integrations not covered by built-in connectors. HTTP POST with JSON body.
+#### PagerDuty Connector
+
+The PagerDuty connector uses Events API v2. Critical configuration for auto-resolution:
 
 ```json
 {
-  "name": "Custom Webhook",
-  "connector_type_id": ".webhook",
+  "name": "PagerDuty Production",
+  "connector_type_id": ".pagerduty",
   "config": {
-    "url": "https://internal-alertmanager/api/alerts",
-    "method": "post",
-    "headers": {
-      "Authorization": "Bearer {{secrets.token}}",
-      "Content-Type": "application/json"
-    }
+    "apiUrl": "https://events.pagerduty.com/v2/enqueue"
+  },
+  "secrets": {
+    "routingKey": "your-integration-key-here"
   }
 }
 ```
 
+In the rule, configure **two actions**:
+
+| Action group | Event action | Severity |
+|---|---|---|
+| `query matched` (active) | `trigger` | `critical` |
+| `recovered` | `resolve` | — |
+
+**The most common PagerDuty misconfiguration:** only creating an action for the active state (`trigger`) and omitting the `recovered` action with event action `resolve`. Kibana cannot auto-resolve PagerDuty incidents without an explicit `resolve` action on the recovery group. Stale incidents accumulate and on-call fatigue increases.
+
+The `dedup_key` is automatically set by Kibana to the alert instance ID — this is what links the `trigger` and `resolve` events so PagerDuty knows which incident to close.
+
+#### Webhook Connector
+
+Use for any integration not covered by built-in connectors, or to bridge into Prometheus Alertmanager:
+
+```json
+{
+  "name": "Internal Alertmanager",
+  "connector_type_id": ".webhook",
+  "config": {
+    "url": "https://alertmanager.internal/api/v2/alerts",
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "X-API-Key": "{{secrets.apiKey}}"
+    }
+  },
+  "secrets": {
+    "apiKey": "my-secret-token"
+  }
+}
+```
+
+**Secrets handling:** never hardcode credentials in the `config` block. Use the `secrets` block — it is write-only (not returned by the API after creation) and encrypted at rest.
+
+---
+
+### Action Templates and Mustache Rendering
+
+Every action body is rendered as a Mustache template at execution time. Understanding template syntax prevents malformed notifications:
+
+```mustache
+{{! Single value }}
+Service: {{context.group}}
+
+{{! Conditional block }}
+{{#context.isRecovered}}
+✅ Alert has resolved
+{{/context.isRecovered}}
+
+{{^context.isRecovered}}
+🔴 Alert is active — value: {{context.value}}
+{{/context.isRecovered}}
+
+{{! Escaping — triple braces skip HTML escaping }}
+Raw URL: {{{context.alertDetailsUrl}}}
+```
+
+**Mustache gotcha:** Kibana's Mustache implementation does **not** support arbitrary JavaScript logic, loops over unknown arrays, or helper functions. If you need complex formatting, use a webhook connector to a middleware service that transforms the payload before forwarding.
+
+---
+
 ### Stack Monitoring Alerts
-Stack Monitoring (under **Stack Management → Stack Monitoring**) provides built-in alerts for the Elastic Stack itself:
 
-| Alert | Condition |
-|---|---|
-| Cluster health | Elasticsearch cluster status is yellow or red |
-| Disk usage | Data node disk above threshold (e.g., 85%) |
-| CPU usage | Node CPU above threshold |
-| JVM memory | JVM heap > 85% |
-| Logstash pipeline throughput | Events/second drops significantly |
-| Kibana task manager | Task execution failures |
+Stack Monitoring provides pre-built alerts for the Elastic Stack's own health. These are critical — they alert on the infrastructure that runs your other alerts.
 
-These alerts are pre-built — you just need to configure connectors and enable them. Essential for monitoring your monitoring infrastructure.
+| Alert | Default threshold | Why it matters |
+|-------|------------------|---------------|
+| Cluster health | Yellow or Red | Data loss risk (Red = shards unassigned) |
+| Disk usage | 85% | Elasticsearch stops writing at 95% (flood-stage watermark) |
+| CPU usage | 85% | Sustained high CPU causes indexing lag and query timeouts |
+| JVM heap | 85% | Approaching GC pressure; potential OOM and node drop |
+| Logstash pipeline throughput | Significant drop | Events are stuck or pipeline is down |
+| Kibana task manager health | Execution failures | Alerts may stop firing silently |
+
+Enable under **Stack Management → Stack Monitoring**. These alerts use the same connector/action framework — configure a connector first, then enable each alert and attach the connector.
+
+**Disk usage gotcha:** Elasticsearch has a [disk watermark](https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-cluster.html) system. At 85% (`low`), no new shards are allocated to that node. At 90% (`high`), shards are moved away. At 95% (`flood_stage`), all indices on that node are set to read-only. Alert at 80% to give yourself a response window before the 85% allocation cutoff.
+
+---
 
 ### Reporting: PDF and CSV Export
 
-#### On-demand export
-From any dashboard or Discover session:
-- **Share → PDF Reports** — generates a paginated PDF of the current dashboard view.
-- **Share → CSV Reports** — exports the raw Discover search results as CSV.
+#### On-Demand Export
 
-Reports are generated asynchronously. Kibana sends an email (if email connector is configured) or you download from **Stack Management → Reporting**.
+From any dashboard: **Share → PDF Reports → Generate PDF**
+From Discover: **Share → CSV Reports → Generate CSV**
+
+Reports are generated asynchronously by a headless Chromium browser (PDF) or directly from Elasticsearch scroll API (CSV). Track status and download under **Stack Management → Reporting**.
+
+| Format | Source | Best for |
+|--------|--------|---------|
+| PDF | Dashboard (Chromium render) | Executive/stakeholder reports, visualizations |
+| CSV | Discover saved search | Data exports, compliance logs, bulk analysis |
+| PNG | Individual visualization panel | Embedding in documents or tickets |
+
+**PDF rendering gotcha:** the Chromium renderer uses the dashboard's saved time range and filters. If the dashboard uses a relative time range (`last 7 days`), the PDF captures data at generation time — which is usually what you want for scheduled reports. If it uses an absolute range, the PDF will always show the same historical window.
 
 #### Scheduled Reports
-Kibana can generate and email reports on a schedule:
 
-**From a dashboard**: Share → PDF Reports → Generate report → **Schedule** tab → set frequency and recipient emails.
+Configure via the dashboard Share dialog:
+1. Open the target dashboard.
+2. **Share → PDF Reports → Generate report → Schedule** tab.
+3. Set frequency (daily, weekly, monthly, custom cron).
+4. Enter recipient emails (requires an email connector to be configured).
+5. Save the schedule.
 
-Behind the scenes, Kibana uses a headless Chromium instance to render dashboards. The report captures the dashboard exactly as configured, with the time range at generation time.
+For CSV: same flow via **Share → CSV Reports** from a saved Discover search.
 
-CSV reports from Discover use the saved search's query and respect the time range at report run time — useful for automated daily log summaries.
+**Requirement:** an SMTP email connector must exist in **Stack Management → Connectors**. Reports cannot be emailed without it.
 
-Requirements for email delivery: an email connector must be configured in **Stack Management → Connectors**.
+#### Reporting API
 
-## Examples
-
-### Full alert configuration: 5xx error rate
-
-Rule type: **Elasticsearch query**
-
-```yaml
-name: "High 5xx Error Rate - Production"
-rule_type: ".es-query"
-schedule: "1m"           # run every minute
-params:
-  index: ["logs-*"]
-  query: '{"kql": "http.response.status_code >= 500 AND environment: production"}'
-  timeWindowSize: 5
-  timeWindowUnit: "m"
-  threshold: [50]
-  thresholdComparator: ">"
-  aggType: "count"
-  groupBy: "top"
-  termField: "service.name"
-  termSize: 10
-
-actions:
-  # On alert active
-  - id: slack-connector-id
-    group: "query matched"
-    frequency:
-      notifyWhen: "onActionGroupChange"
-    params:
-      message: ":red_circle: *{{context.group}}* has {{context.value}} 5xx errors in 5min (threshold: 50)"
-
-  # On recovery
-  - id: slack-connector-id
-    group: "recovered"
-    params:
-      message: ":white_check_mark: *{{context.group}}* 5xx error rate has recovered"
-```
-
-### Reporting API — generate programmatically
+Generate reports programmatically (useful in CI/CD pipelines or external schedulers):
 
 ```bash
-# Trigger a PDF report generation
-curl -X POST "http://kibana:5601/api/reporting/generate/printablePdfV2" \
-  -H "kbn-xsrf: true" \
-  -H "Authorization: ApiKey <base64-encoded-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jobParams": {
-      "browserTimezone": "UTC",
-      "layout": {"id": "print"},
-      "objectType": "dashboard",
-      "savedObjectId": "dashboard-uuid-here",
-      "title": "Weekly Operations Report"
-    }
-  }'
-```
+# Generate a PDF of a specific dashboard
+DASHBOARD_ID="abc123-your-dashboard-uuid"
+KIBANA_URL="https://kibana.internal:5601"
+API_KEY="<base64-encoded-id:api_key>"
 
-## Exercises
-
-1. Configure an Elasticsearch query rule that alerts when the 95th percentile response time of the `checkout-service` exceeds 2000 ms, measured over a 10-minute rolling window, checked every 2 minutes. Specify all required fields: index, KQL query, aggregation type, aggregation field, threshold, and check interval. Include both an active and a recovery action using a Slack connector.
-
-2. A PagerDuty incident is being created every time an alert fires but never auto-resolved, causing PagerDuty to accumulate stale incidents. Identify the misconfiguration and describe exactly what needs to be changed in Kibana to enable automatic incident resolution.
-
-3. Your security team needs a weekly CSV report every Monday at 06:00 UTC containing all authentication failure events from the past 7 days, with fields `@timestamp`, `user.name`, `source.ip`, and `error.message`. Describe how to set this up using Kibana Discover and the Reporting feature, including how to save the search and configure the schedule.
+curl -s -X POST "${KIB

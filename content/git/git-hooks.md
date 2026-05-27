@@ -8,146 +8,228 @@ exercises: 4
 ---
 
 ## Overview
-Git hooks are scripts that run automatically at specific points in the git workflow — before a commit, before a push, after a merge. They enforce code quality at the source: no linting errors committed, no broken tests pushed, no hardcoded secrets ever hitting the remote. Understanding hooks is essential for setting up any serious development workflow.
+
+Git hooks are shell scripts (or any executable) that Git invokes automatically at well-defined points in its workflow — before a commit is recorded, before a push is sent, after a merge completes. For DevOps practitioners, hooks are the first line of defense in a quality pipeline: they catch linting errors, enforce commit message standards, block accidental secret leaks, and run test suites before code ever reaches a remote repository. Shifting these checks to the developer's local machine reduces CI feedback loops from minutes to seconds.
+
+The core design principle is simple: hooks are plain executables living in `.git/hooks/`. A non-zero exit code from a hook aborts the Git operation in progress. There is no special syntax or framework required — a five-line bash script is a fully functional hook. That simplicity is also the main friction point: because `.git/` is not version-controlled, hooks don't travel with a clone by default, so teams must establish a sharing strategy.
+
+In the broader DevOps toolchain, hooks occupy the leftmost quality gate — they run on the developer's workstation before code reaches a pull request or CI pipeline. They complement but don't replace CI: hooks are fast and local; CI is authoritative and shared. A healthy workflow uses both: hooks prevent embarrassing pushes, CI enforces policy with full infrastructure access. Understanding how to write, share, and manage hooks is a practical skill interviewers expect from candidates working on developer experience, platform engineering, or any team that owns a CI/CD pipeline.
+
+---
 
 ## Concepts
 
-### Where Hooks Live
-```bash
-.git/hooks/          # local hooks — not committed, not shared
-                     # (sample files with .sample extension exist by default)
+### How Git Invokes Hooks
+
+When Git runs a hook, it looks for an executable file with the exact hook name in the `.git/hooks/` directory (or the path configured by `core.hooksPath`). No file extension — a file named `pre-commit.sh` will be silently ignored. Git sets `PATH` and a handful of environment variables before calling the hook, and it waits for the process to exit.
+
+```
+.git/hooks/
+├── pre-commit          # ← Git finds and runs this
+├── pre-commit.sh       # ← Git ignores this entirely
+├── commit-msg.sample   # ← .sample files are disabled examples shipped by Git
+└── pre-push
 ```
 
-Because `.git/` is not tracked, hooks don't share across clones by default. Solutions:
-1. A shared `scripts/hooks/` directory + a setup script to symlink
-2. `husky` (Node.js projects)
-3. `pre-commit` (Python, cross-language)
+The hook receives context through arguments and environment variables that vary by hook type. For example, `commit-msg` receives the path to the message file as `$1`; `pre-push` receives the remote name as `$1` and the remote URL as `$2` and reads pushed refs from stdin.
 
-### Common Hook Points
-| Hook | When it runs | Return code behavior |
-|---|---|---|
-| `pre-commit` | Before commit message prompt | Non-zero aborts commit |
-| `commit-msg` | After message written, before commit completes | Non-zero aborts commit |
-| `prepare-commit-msg` | Before editor opens | Modify the message |
-| `pre-push` | Before pushing to remote | Non-zero aborts push |
-| `post-commit` | After commit completes | Return code ignored |
-| `post-merge` | After `git merge` completes | Return code ignored |
-| `pre-rebase` | Before rebase starts | Non-zero aborts rebase |
+**Execution model:** Git runs the hook synchronously and blocks until it exits. For hooks that can be slow (e.g., running a test suite in `pre-push`), this is intentional — the developer waits, sees the output, and gets feedback before anything is sent.
 
-### Writing a Hook
-Hooks are executable scripts in any language. Name must match exactly (no extension):
+**Required permissions:** the hook file must be executable. Forgetting `chmod +x` is the most common reason a hook silently doesn't run. Git will not error — it just skips a non-executable file.
 
 ```bash
-cat > .git/hooks/pre-commit << 'EOF'
+# Verify hook is executable and will actually fire
+ls -la .git/hooks/pre-commit
+# -rwxr-xr-x  1 user group  512 Jan 10 09:00 .git/hooks/pre-commit
+```
+
+### Hook Lifecycle and Return Codes
+
+| Hook | Trigger | Non-zero exit effect | Arguments |
+|------|---------|----------------------|-----------|
+| `pre-commit` | Before commit message prompt | Aborts commit | None |
+| `prepare-commit-msg` | Before editor opens for commit message | Aborts commit | `<msg-file> <commit-type> [<sha>]` |
+| `commit-msg` | After message written, before commit object created | Aborts commit | `<msg-file>` |
+| `post-commit` | After commit object created | Ignored | None |
+| `pre-rebase` | Before rebase begins | Aborts rebase | `<upstream> [<branch>]` |
+| `pre-push` | Before objects are sent to remote | Aborts push | `<remote-name> <remote-url>` |
+| `post-merge` | After `git merge` completes | Ignored | `<squash-flag>` |
+| `pre-receive` | Server-side: before refs are updated | Aborts entire push | None (reads stdin) |
+| `update` | Server-side: once per ref being updated | Aborts that ref's update | `<ref> <old-sha> <new-sha>` |
+| `post-receive` | Server-side: after refs are updated | Ignored | None (reads stdin) |
+
+**Client vs. server hooks:** hooks in `.git/hooks/` are client-side — they run on the developer's machine and can be bypassed with `--no-verify`. Server-side hooks (`pre-receive`, `update`, `post-receive`) run on the hosting infrastructure (GitHub Actions, GitLab server hooks, Gitolite) and cannot be bypassed by the client. For policy enforcement that must be guaranteed, use server-side hooks or branch protection rules.
+
+**`post-*` hooks for notifications:** `post-commit` and `post-merge` have their exit codes ignored, making them safe for side effects like sending Slack notifications or running `npm install` after a dependency file changes. They cannot block the operation.
+
+### Writing a Hook: Shell Scripting Patterns
+
+Hooks can be written in any language available in the PATH — bash, Python, Node, Ruby. Bash is most portable. A well-structured hook follows a consistent pattern:
+
+```bash
 #!/usr/bin/env bash
 set -euo pipefail
+# set -e: exit on any error
+# set -u: treat unset variables as errors
+# set -o pipefail: catch failures in pipes, not just the last command
 
-echo "Running pre-commit checks..."
+# --- helpers ---
+log_error() { echo "[hook error] $*" >&2; }
+log_info()  { echo "[hook] $*"; }
 
-# Run linter on staged Python files
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
-if [ -n "$STAGED" ]; then
-    echo "Linting Python files..."
-    flake8 $STAGED
+# --- get staged files by type ---
+# --diff-filter=ACM: Added, Copied, Modified (excludes Deleted)
+# || true: prevent grep exit-1 from killing the script when no matches
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+STAGED_JS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts)$' || true)
+
+# --- run checks only if relevant files exist ---
+if [ -n "$STAGED_PY" ]; then
+    log_info "Linting Python files..."
+    # Pass filenames as array to avoid word-splitting issues with spaces
+    flake8 $STAGED_PY || { log_error "flake8 failed"; exit 1; }
 fi
 
-# Check for debug breakpoints
-if git diff --cached | grep -q "import pdb\|breakpoint()"; then
-    echo "ERROR: Remove debug breakpoints before committing" >&2
-    exit 1
+if [ -n "$STAGED_JS" ]; then
+    log_info "Running ESLint..."
+    npx eslint $STAGED_JS || { log_error "ESLint failed"; exit 1; }
 fi
 
-echo "Pre-commit checks passed."
-EOF
-
-chmod +x .git/hooks/pre-commit
+log_info "All checks passed."
+exit 0
 ```
 
-### commit-msg Hook — Enforce Message Format
+**`set -euo pipefail` is essential.** Without it, a failing command in the middle of a hook may be silently ignored and the hook exits 0, meaning Git proceeds as if checks passed. Always include this at the top of bash hooks.
+
+**Quoting and word splitting:** filenames with spaces will break `flake8 $STAGED_PY` if not handled carefully. Use `read -ra` arrays or `xargs -0` with null-delimited output for production-grade hooks.
+
+```bash
+# Safer: null-delimited filenames
+git diff --cached --name-only -z --diff-filter=ACM | \
+  grep -z '\.py$' | \
+  xargs -0 -r flake8
+```
+
+### commit-msg Hook — Enforcing Commit Conventions
+
+Conventional Commits is a widely adopted standard in DevOps teams. It makes changelogs automatable, makes semantic versioning deterministic, and makes `git log` readable by machines and humans alike.
+
+```
+<type>(<scope>): <subject>     ← header (required)
+                                ← blank line
+<body>                          ← optional detail
+                                ← blank line
+<footer>                        ← optional: BREAKING CHANGE, closes #123
+```
+
+Valid types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `style`, `perf`, `build`.
+
 ```bash
 cat > .git/hooks/commit-msg << 'EOF'
 #!/usr/bin/env bash
-MSG=$(cat "$1")
+set -euo pipefail
 
-# Enforce Conventional Commits format
-if ! echo "$MSG" | grep -qE "^(feat|fix|docs|chore|refactor|test|ci|style|perf)(\(.+\))?: .{1,72}"; then
-    echo "ERROR: Commit message must follow Conventional Commits format" >&2
-    echo "  Example: feat(auth): add OAuth2 login" >&2
-    echo "  Got: $MSG" >&2
+MSG_FILE="$1"
+MSG=$(cat "$MSG_FILE")
+
+# Strip comment lines (lines starting with #) before checking
+CLEAN_MSG=$(grep -v '^#' "$MSG_FILE" | sed '/^$/d' | head -1)
+
+PATTERN="^(feat|fix|docs|chore|refactor|test|ci|style|perf|build)(\(.+\))?: .{1,72}$"
+
+if ! echo "$CLEAN_MSG" | grep -qE "$PATTERN"; then
+    echo "" >&2
+    echo "  ✗ Commit message does not follow Conventional Commits format." >&2
+    echo "" >&2
+    echo "  Required: <type>(<scope>): <subject>" >&2
+    echo "  Example:  feat(api): add rate limiting to /search endpoint" >&2
+    echo "  Example:  fix: handle null pointer in user service" >&2
+    echo "" >&2
+    echo "  Your message: $CLEAN_MSG" >&2
+    echo "" >&2
     exit 1
 fi
 EOF
-
 chmod +x .git/hooks/commit-msg
 ```
 
-### pre-push Hook — Block Broken Pushes
-```bash
-cat > .git/hooks/pre-push << 'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-REMOTE="$1"
-URL="$2"
-
-# Don't run tests when deleting a branch (empty local ref)
-while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
-    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
-        continue   # branch deletion
-    fi
-    # Run tests before pushing to main or develop
-    if [[ "$remote_ref" == "refs/heads/main" || "$remote_ref" == "refs/heads/develop" ]]; then
-        echo "Running tests before push to $remote_ref..."
-        npm test || { echo "Tests failed — push aborted" >&2; exit 1; }
-    fi
-done
-
-exit 0
-EOF
-
-chmod +x .git/hooks/pre-push
-```
+**`$1` is a file path, not the message itself.** A common mistake is treating `$1` as the string. It's the path to a temporary file Git created — use `cat "$1"` or `MSG_FILE="$1"` then read from it.
 
 ### Sharing Hooks with the Team
 
-#### Method 1: Symlinks Setup Script
+The single biggest operational challenge with Git hooks is distribution. A hook that exists only on one developer's machine is a policy that half the team ignores.
+
+| Method | Best for | Committed to repo | Requires setup step |
+|--------|----------|-------------------|---------------------|
+| Symlinks + setup script | Any language | Hook scripts yes, symlinks no | Yes — run script after clone |
+| `core.hooksPath` (Git 2.9+) | Any language, simplest | Yes | Yes — one `git config` command |
+| `husky` | Node.js projects | Yes (via `package.json`) | Yes — `npm install` |
+| `pre-commit` framework | Python/polyglot projects | Yes (`.pre-commit-config.yaml`) | Yes — `pre-commit install` |
+
+#### `core.hooksPath` — Simplest Shared Approach
+
 ```bash
-#!/usr/bin/env bash
-# scripts/install-hooks.sh
-HOOKS_DIR=".git/hooks"
-SHARED_DIR="scripts/hooks"
+# In repo root, store hooks in a committed directory
+mkdir -p scripts/hooks
 
-for hook in "$SHARED_DIR"/*; do
-    name=$(basename "$hook")
-    ln -sf "../../$SHARED_DIR/$name" "$HOOKS_DIR/$name"
-    chmod +x "$hook"
-    echo "Installed: $name"
-done
-```
-
-Add to README: "Run `./scripts/install-hooks.sh` after cloning."
-
-#### Method 2: Git core.hooksPath (Git 2.9+)
-```bash
-# Point git at a shared directory
+# Tell Git to look there instead of .git/hooks/
 git config core.hooksPath scripts/hooks
-# Or globally for all repos:
-git config --global core.hooksPath ~/.git-hooks
+
+# Commit the hooks
+git add scripts/hooks/
+git commit -m "ci: add shared git hooks"
 ```
 
-#### Method 3: husky (Node.js projects)
+New team members run one command after cloning:
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+Automate this with a Makefile target or onboarding script:
+```makefile
+# Makefile
+.PHONY: setup
+setup:
+	git config core.hooksPath scripts/hooks
+	@echo "Git hooks configured."
+```
+
+**`core.hooksPath` disables `.git/hooks/` entirely.** When set, Git only looks at the configured path — the default `.git/hooks/` directory is completely ignored. This is usually what you want (one authoritative location), but be aware that existing hooks in `.git/hooks/` will silently stop running.
+
+#### husky (Node.js Projects)
+
+husky integrates with `package.json` lifecycle scripts to auto-install hooks after `npm install`.
+
 ```bash
 npm install --save-dev husky
-npx husky init
-
-# .husky/pre-commit
-npm run lint
-
-# .husky/commit-msg
-npx commitlint --edit "$1"
+npx husky init          # creates .husky/ directory, adds prepare script to package.json
 ```
 
-#### Method 4: pre-commit (Python, cross-language)
+```json
+// package.json — husky auto-runs `npm run prepare` after install
+{
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
+  }
+}
+```
+
+```bash
+# .husky/pre-commit
+npm run lint
+npm run test:unit
+
+# .husky/commit-msg
+npx --no -- commitlint --edit "$1"
+```
+
+#### pre-commit Framework (Python / Polyglot)
+
+The `pre-commit` framework manages hook dependencies as versioned, isolated environments — it downloads and runs linters without requiring them to be globally installed.
+
 ```yaml
 # .pre-commit-config.yaml
 repos:
@@ -157,61 +239,89 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: detect-private-key
+        args: [--unsafe]          # allow custom YAML tags
+      - id: check-json
+      - id: detect-private-key   # blocks PEM keys, AWS keys
+      - id: check-merge-conflict
+
   - repo: https://github.com/psf/black
     rev: 23.12.1
     hooks:
       - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        additional_dependencies: [flake8-bugbear]
 ```
 
 ```bash
 pip install pre-commit
-pre-commit install   # installs .git/hooks/pre-commit
-pre-commit run --all-files   # run manually
+pre-commit install              # writes .git/hooks/pre-commit
+pre-commit install --hook-type commit-msg  # also install commit-msg hook
+
+# Test against all files without committing
+pre-commit run --all-files
+
+# Update hook versions to latest
+pre-commit autoupdate
 ```
 
-### Bypassing Hooks (use sparingly)
+**`pre-commit` hooks auto-fix and re-stage:** some hooks (like `black`, `trailing-whitespace`) modify files and exit non-zero on the first run. Re-run the commit — the second attempt will pass because the files are now fixed. This surprises new users but is by design.
+
+### Bypassing Hooks
+
 ```bash
-git commit --no-verify -m "WIP: skip hooks"
+git commit --no-verify -m "hotfix: emergency deploy, skipping hooks"
 git push --no-verify
 ```
 
-Use only for genuine emergencies — never make it a habit.
+**`--no-verify` is an escape hatch, not a workflow.** If team members reach for it regularly, the hooks are too slow or too strict — fix the hooks, not the culture. Legitimate uses: emergency hotfixes, migration commits that don't match message conventions, seed data commits in new repos. Consider logging `--no-verify` usage with a `post-commit` audit hook that checks `$GIT_COMMIT_ARGS` if compliance tracking is needed.
+
+### Hook Performance
+
+Slow hooks destroy developer experience. A `pre-commit` hook taking 30 seconds will be bypassed daily.
+
+| Technique | Impact |
+|-----------|--------|
+| Only lint staged files, not the entire project | 10× faster for large codebases |
+| Run type-checkers only on changed modules | Avoids full `mypy` runs |
+| Cache tool results (`pre-commit` does this automatically) | Eliminates repeated installs |
+| Parallelize independent checks with `&` and `wait` | Cuts wall time |
+| Move slow checks (integration tests) to `pre-push`, not `pre-commit` | Commit stays fast |
+
+```bash
+# Run linting and security checks in parallel
+flake8 $STAGED_PY &
+FLAKE_PID=$!
+
+bandit -r $STAGED_PY &
+BANDIT_PID=$!
+
+wait $FLAKE_PID  || { echo "flake8 failed" >&2; exit 1; }
+wait $BANDIT_PID || { echo "bandit failed" >&2; exit 1; }
+```
+
+---
 
 ## Examples
 
-### Secret Detection Hook
+### Example 1: Full pre-commit Hook — Python Project
+
+This hook lints, checks formatting, and blocks secrets on every commit. Designed to run in under 3 seconds on typical changesets.
+
 ```bash
-cat > .git/hooks/pre-commit << 'EOF'
 #!/usr/bin/env bash
-# Prevent committing common secret patterns
+# scripts/hooks/pre-commit
+set -euo pipefail
 
-PATTERNS=(
-    "AKIA[0-9A-Z]{16}"                    # AWS Access Key ID
-    "-----BEGIN (RSA|EC|DSA) PRIVATE KEY" # Private key
-    "password\s*=\s*['\"][^'\"]{8,}"      # Hardcoded password
-    "api_key\s*=\s*['\"][^'\"]{8,}"       # Hardcoded API key
-)
+log()  { echo "  [pre-commit] $*"; }
+fail() { echo "  [pre-commit] ✗ $*" >&2; exit 1; }
+pass() { echo "  [pre-commit] ✓ $*"; }
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM)
-[ -z "$STAGED" ] && exit 0
+# Collect staged Python files (avoid failing when none exist)
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
-for PATTERN in "${PATTERNS[@]}"; do
-    if git diff --cached | grep -qP "$PATTERN"; then
-        echo "BLOCKED: Possible secret detected matching: $PATTERN" >&2
-        echo "Review staged changes with: git diff --cached" >&2
-        exit 1
-    fi
-done
-
-exit 0
-EOF
-chmod +x .git/hooks/pre-commit
-```
-
-## Exercises
-
-1. Write a `pre-commit` hook that checks all staged `.sh` files with `bash -n` (syntax check) and aborts the commit if any have syntax errors.
-2. Write a `commit-msg` hook that enforces a minimum message length of 10 characters and rejects messages that are just "fix", "wip", "update", or "changes".
-3. Set up `core.hooksPath` to point to a `scripts/hooks/` directory in a test repo, put a hook there, and verify it runs on commit.
-4. Write a `pre-push` hook that prevents pushing directly to `main` or `master` (only branches are allowed), printing a message explaining the policy.
+# --- Secret detection (runs on all staged diffs, not just .py) ---

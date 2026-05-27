@@ -94,11 +94,11 @@ PartOf=myapp-stack.target
 
 [Service]
 # Type controls how systemd tracks the service as "ready"
-# simple: ready immediately when ExecStart forks (default; use for most daemons)
+# simple:  ready immediately when ExecStart forks (default; use for most daemons)
 # forking: legacy; ready after the process double-forks (old-style daemons)
-# notify: ready when the process sends sd_notify(READY=1)
+# notify:  ready when the process sends sd_notify(READY=1)
 # oneshot: for scripts; systemd waits for the process to exit before marking active
-# exec: like simple but waits until the exec() call succeeds
+# exec:    like simple but waits until the exec() call succeeds
 Type=simple
 
 User=myapp
@@ -135,6 +135,8 @@ WantedBy=multi-user.target   # standard for nearly all server daemons
 
 **`Type=simple` vs `Type=notify` gotcha:** If you use `Type=simple` with a service that takes time to become ready (e.g., loads a large model, runs DB migrations), systemd will consider it "started" the instant the process is exec'd. Any services declared `After=myapp.service` will start immediately, potentially connecting before myapp is ready. If your application uses a library that supports `sd_notify` (Node.js `systemd-notify`, Go `coreos/go-systemd`, Python `sdnotify`), switch to `Type=notify` for correct readiness signaling.
 
+**`Requires` vs `Wants`:** `Requires` is a hard dependency — if `postgresql.service` fails, your service fails. `Wants` is soft — postgres failure is ignored. In most real deployments, `Wants` + `After` is the right combination: express ordering without coupling failure modes unnecessarily.
+
 ### Restart Policies in Depth
 
 | Policy | Restarts on clean exit (0)? | Restarts on failure? | Restarts on SIGTERM? |
@@ -160,6 +162,8 @@ StartLimitAction=reboot-force   # or none (default), reboot, poweroff
 
 **`RestartSec` interacts with `StartLimitBurst`:** A `RestartSec=30s` with `StartLimitBurst=5` means the limit won't be hit unless 5 crashes happen within 60 seconds even with 30s delays — tune both together.
 
+**Placement gotcha:** `StartLimitIntervalSec` and `StartLimitBurst` belong in the `[Unit]` section in newer systemd versions (≥ 230), not `[Service]`. On older systems they live in `[Service]`. The wrong placement is silently ignored — always verify with `systemctl show myapp.service | grep StartLimit`.
+
 ### Targets (Runlevels)
 
 Targets are synchronization points — named milestones the boot process passes through. They replace SysV runlevels.
@@ -184,6 +188,8 @@ systemctl isolate rescue.target
 ```
 
 When you `systemctl enable myapp.service`, systemd creates a symlink at `/etc/systemd/system/multi-user.target.wants/myapp.service` (assuming `WantedBy=multi-user.target`). The target "wants" the service, so when the system reaches `multi-user.target`, it starts your service.
+
+**`enable` does not start:** `systemctl enable` only creates the symlink for next boot. Use `systemctl enable --now` to enable and start in a single command. Forgetting `--now` is one of the most common deployment mistakes — the service looks configured but is not actually running.
 
 ### journalctl — Querying the Journal
 
@@ -219,7 +225,7 @@ journalctl -k                                # kernel messages only (dmesg equiv
 journalctl -b                                # all messages from current boot
 journalctl --list-boots                      # show available boot records
 
-# --- Disk usage ---
+# --- Disk usage and cleanup ---
 journalctl --disk-usage
 journalctl --vacuum-size=500M               # trim journal to 500MB
 journalctl --vacuum-time=30d                # remove entries older than 30 days
@@ -234,6 +240,8 @@ systemctl restart systemd-journald
 ```
 
 Or set `Storage=persistent` in `/etc/systemd/journald.conf`.
+
+**Rate limiting:** journald rate-limits log lines per service by default (`RateLimitIntervalSec=30s`, `RateLimitBurst=10000`). A chatty service that exceeds this will have log lines dropped, and you'll see `Suppressed N messages from myapp.service` in the journal. Raise the limits in `/etc/systemd/journald.conf` for noisy but important services, or fix the application's log verbosity.
 
 ### Overriding Package Unit Files
 
@@ -259,7 +267,7 @@ LimitNOFILE=65536
 LimitCORE=infinity
 ```
 
-**Clearing a directive:** To unset a directive inherited from the base unit, set it to empty first, then set your value:
+**Clearing a directive:** To unset a directive inherited from the base unit, set it to empty first, then set your value. This is mandatory for list-type directives like `ExecStart` — appending a second `ExecStart` without clearing adds a second execution, not a replacement:
 
 ```ini
 [Service]
@@ -275,55 +283,4 @@ systemctl daemon-reload    # re-read all unit files from disk
 systemctl restart nginx    # apply changes to the running service
 ```
 
-### Timers (Cron Replacement)
-
-A systemd timer consists of two units: a `.timer` that defines the schedule and a `.service` that does the work. This separation gives you full service features (logging, restart policies, sandboxing) for scheduled tasks.
-
-```ini
-# /etc/systemd/system/backup.service
-[Unit]
-Description=Database Backup
-
-[Service]
-Type=oneshot
-User=backup
-ExecStart=/usr/local/bin/backup.sh
-```
-
-```ini
-# /etc/systemd/system/backup.timer
-[Unit]
-Description=Run database backup daily at 2am
-
-[Timer]
-# Calendar syntax: DayOfWeek Year-Month-Day Hour:Minute:Second
-OnCalendar=*-*-* 02:00:00
-# Randomize start within a 10-minute window to avoid thundering herd
-RandomizedDelaySec=600
-# Catch up on missed runs (e.g., if system was off at 2am)
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-```bash
-systemctl enable --now backup.timer
-
-# Monitor timers
-systemctl list-timers --all          # shows next/last trigger time for all timers
-
-# Test a timer's service manually without waiting for the schedule
-systemctl start backup.service
-journalctl -u backup.service -n 50
-```
-
-**`OnCalendar` syntax quick reference:**
-
-| Expression | Meaning |
-|-----------|---------|
-| `daily` | Every day at midnight |
-| `hourly` | Top of every hour |
-| `Mon *-*-* 08:00:00` | Every Monday at 8am |
-| `*-*-* 02,14:00:00` | 2am and 2pm every day |
-| `*-*
+**`daemon-reload` is mandatory.** Editing a unit file on disk has zero effect until you reload. Forgetting this step is a very common source of confusion — you change the file, restart the service, and the old behavior persists because systemd is still running from its cached version
