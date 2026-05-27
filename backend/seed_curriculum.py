@@ -361,17 +361,23 @@ def main() -> None:
                 for attempt in range(3):
                     try:
                         expanded = _expand_content(lesson["title"], lesson["module_slug"], raw, client)
-                        md_file.write_text(expanded)
                         new_body = _strip_frontmatter(expanded)
+                        missing = [s for s in REQUIRED_SECTIONS if s not in new_body]
+                        if missing and attempt < 2:
+                            print(f"retry (missing {', '.join(missing)}) ...", end=" ", flush=True)
+                            time.sleep(2)
+                            continue
+                        md_file.write_text(expanded)
                         new_lines = sum(1 for l in new_body.splitlines() if l.strip())
                         content_body = new_body  # use expanded content for quiz step
-                        content_tag = f"expanded ({original_lines}→{new_lines} lines)"
+                        suffix = f", missing {', '.join(missing)}" if missing else ""
+                        content_tag = f"expanded ({original_lines}→{new_lines} lines{suffix})"
                         expanded_files.append(lesson["md_path"])
                         content_expanded += 1
                         break
                     except Exception as e:
                         if attempt < 2:
-                            print(f"retry (content: {type(e).__name__}) ...", end=" ", flush=True)
+                            print(f"retry ({type(e).__name__}) ...", end=" ", flush=True)
                             time.sleep(5)
                         else:
                             content_tag = f"EXPAND FAILED ({e})"
