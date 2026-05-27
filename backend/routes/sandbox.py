@@ -12,12 +12,20 @@ TIMEOUT = 10
 MAX_OUTPUT = 50_000  # 50 KB per stream
 
 
+_SAFE_ENV = {
+    'PATH': '/usr/local/bin:/usr/bin:/bin',
+    'HOME': '/tmp',
+    'TERM': 'dumb',
+    'PYTHONDONTWRITEBYTECODE': '1',
+}
+
+
 def _apply_resource_limits():
-    """Called as preexec_fn in child process — limits memory, file size, and process count."""
+    """Called as preexec_fn in child process — limits memory and file writes."""
     MB = 1024 * 1024
-    resource.setrlimit(resource.RLIMIT_AS,    (256 * MB, 256 * MB))   # 256 MB virtual memory
+    resource.setrlimit(resource.RLIMIT_AS,    (512 * MB, 512 * MB))   # 512 MB virtual (CPython needs ~150 MB baseline)
     resource.setrlimit(resource.RLIMIT_FSIZE, (10  * MB, 10  * MB))   # 10 MB max written file
-    resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))                # no fork bombs
+    # RLIMIT_NPROC is per-UID and would starve other server subprocesses — intentionally omitted
 
 
 class RunRequest(BaseModel):
@@ -39,6 +47,7 @@ def run_code(request: RunRequest):
                 ['bash', '--norc', '--noprofile', '-c', request.code],
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
+                env=_SAFE_ENV,
             )
         elif request.language == 'yaml':
             validate = (
@@ -55,6 +64,7 @@ def run_code(request: RunRequest):
                 input=request.code,
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
+                env=_SAFE_ENV,
             )
         else:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -65,6 +75,7 @@ def run_code(request: RunRequest):
                     [sys.executable, tmpfile],
                     capture_output=True, text=True, timeout=TIMEOUT,
                     preexec_fn=_apply_resource_limits,
+                    env=_SAFE_ENV,
                 )
             finally:
                 os.unlink(tmpfile)
