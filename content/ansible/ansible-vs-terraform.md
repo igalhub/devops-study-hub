@@ -8,160 +8,291 @@ exercises: 4
 ---
 
 ## Overview
-Ansible and Terraform are both Infrastructure as Code tools, but they solve different problems. Using the wrong one for a job — or trying to replace one with the other — leads to pain. Understanding where each excels and how they complement each other is one of the most common DevOps interview topics and a genuine architectural decision you'll face repeatedly.
+
+Ansible and Terraform are both Infrastructure as Code tools, but they solve fundamentally different problems. Terraform is a provisioner: it creates and manages the existence of infrastructure resources — VPCs, EC2 instances, RDS databases, DNS records — by talking directly to cloud APIs and tracking what it created in a state file. Ansible is a configurator: it connects to servers that already exist, installs software, writes config files, restarts services, and runs deployment steps. The mental model is simple: Terraform builds the stage; Ansible sets the props and directs the actors.
+
+The core design difference is how each tool thinks about state. Terraform maintains a `.tfstate` file that represents the last known condition of your infrastructure. When you run `terraform apply`, it diffs your configuration against that state file and against the real world, then issues only the API calls needed to converge. Ansible has no such file. Every time an Ansible playbook runs, it reaches out to the live system, checks the current condition of each task, and acts if the condition isn't already satisfied. This makes Ansible resilient and self-healing for configuration drift, but it means Ansible has no memory of what cloud resources it created last Tuesday.
+
+In the broader DevOps toolchain, these tools occupy adjacent but distinct layers. Terraform sits at the infrastructure layer — it's often run in CI pipelines during environment provisioning or by platform engineers managing shared infrastructure. Ansible sits at the configuration and deployment layer — it's invoked during application releases, OS hardening runs, and operational tasks. In Kubernetes-centric shops, Helm partially displaces Ansible for application delivery, but Ansible remains essential for everything that isn't a container: CI runners, bastion hosts, bare-metal nodes, legacy workloads. Knowing when to reach for each tool — and when they're being misused — is one of the most practical and frequently tested skills in a DevOps interview.
 
 ## Concepts
 
 ### Core Distinction
-| | Terraform | Ansible |
+
+| Attribute | Terraform | Ansible |
 |---|---|---|
-| Primary purpose | Provisioning infrastructure | Configuring software |
-| Model | Declarative (desired state) | Declarative in intent, procedural in execution |
-| State | Tracks infrastructure state in `.tfstate` | Stateless — checks live system each run |
-| Targets | Cloud resources, DNS, databases, k8s objects | Running servers, applications, files, packages |
-| Agent | None (uses cloud APIs) | None (uses SSH) |
-| Language | HCL | YAML + Jinja2 |
-| Idempotency | Built-in (resource graph) | Per-module (mostly built-in, but not always) |
+| **Primary purpose** | Provision and manage infrastructure resources | Configure software and systems on existing servers |
+| **Execution model** | Declarative: describe desired end state | Declarative in intent, procedural in execution order |
+| **State tracking** | `.tfstate` file tracks every managed resource | Stateless — checks live system on every run |
+| **Idempotency** | Built into the resource graph | Per-module; mostly built-in, but not guaranteed for `command`/`shell` |
+| **Primary targets** | Cloud APIs, DNS providers, databases, Kubernetes objects | Running hosts reachable via SSH or WinRM |
+| **Agent required** | No — uses cloud provider APIs | No — uses SSH (or WinRM for Windows) |
+| **Language** | HCL (HashiCorp Configuration Language) | YAML + Jinja2 templating |
+| **Secrets handling** | Terraform Vault provider, environment variables | Ansible Vault, `no_log: true` |
+| **Parallelism** | Native resource graph enables parallel API calls | `forks` setting controls parallel SSH connections |
+
+The most important row is **state tracking**. Terraform's state file is what allows it to know that `aws_instance.web` already exists and doesn't need to be recreated on the next run. Without state, every apply would try to create duplicate resources. Ansible checks the live system instead of a state file — which is perfect for configuration (idempotent modules check current file contents, package versions, service status), but inadequate for cloud provisioning where "does this VPC already exist?" requires a separate API call with no standardized mechanism.
 
 ### Terraform's Strengths
+
+Terraform excels at any task where you need to create a resource, record that it exists, understand the dependency order between resources, and potentially destroy it cleanly later.
+
 ```hcl
-# Terraform is best at: creating and managing cloud infrastructure
-resource "aws_eks_cluster" "main" { ... }
-resource "aws_rds_instance" "db" { ... }
-resource "aws_vpc" "main" { ... }
-resource "aws_lb" "web" { ... }
-resource "cloudflare_record" "api" { ... }
-resource "github_repository" "myapp" { ... }
+# terraform/main.tf
+# Terraform understands that the subnet depends on the VPC,
+# and that the EC2 instance depends on both — it builds this
+# dependency graph automatically and provisions in the right order.
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  tags        = { Name = "main" }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id            = aws_vpc.main.id   # implicit dependency
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-east-1a"
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+  subnet_id     = aws_subnet.public.id  # waits for subnet to exist
+}
+
+resource "aws_route53_record" "web" {
+  zone_id = var.zone_id
+  name    = "api.example.com"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.web.public_ip]  # waits for EC2, gets its IP
+}
 ```
 
-- Creating VPCs, subnets, security groups
-- Provisioning cloud databases (RDS, CloudSQL)
+Terraform's strongest use cases:
+- Creating VPCs, subnets, route tables, security groups
+- Provisioning cloud databases (RDS, CloudSQL, Aurora)
 - Managing DNS records (Route53, Cloudflare)
-- Kubernetes cluster creation (EKS, GKE, AKS)
-- IAM roles and policies
-- Load balancers and CDN configuration
-- **Anything where you need to know what exists before you can create it**
+- Kubernetes cluster creation (EKS, GKE, AKS) and node group management
+- IAM roles, policies, and cross-account trust relationships
+- Load balancers, target groups, listener rules
+- S3 buckets with policies and lifecycle rules
+- **Any resource where circular dependencies or creation order matter**
 
-Terraform's state file knows your infrastructure topology. It can create resources in the right order, handle dependencies, and cleanly destroy everything it created.
+**Key insight:** Terraform's `terraform destroy` cleanly removes everything it created, in reverse dependency order. Ansible has no equivalent — it can't reliably reverse a playbook run against cloud resources because it has no record of what it created.
 
 ### Ansible's Strengths
-```yaml
-# Ansible is best at: configuring servers after they exist
-- name: Install and configure application stack
-  hosts: webservers
-  roles:
-    - nginx
-    - myapp
-    - certbot
 
-- name: Deploy application release
+Ansible excels at anything that happens *on* a server after it exists: installing software, writing files, starting services, running commands in sequence, deploying code.
+
+```yaml
+# ansible/deploy.yml
+---
+- name: Configure web servers
   hosts: webservers
+  become: true  # escalate to root via sudo
+  vars:
+    app_version: "{{ lookup('env', 'APP_VERSION') | default('main') }}"
+    app_repo: "https://github.com/myorg/myapp.git"
+
   tasks:
-    - name: Pull latest code
+    - name: Install system dependencies
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-pip
+          - nginx
+        state: present
+        update_cache: true
+
+    - name: Deploy application code
       ansible.builtin.git:
         repo: "{{ app_repo }}"
         version: "{{ app_version }}"
         dest: /opt/myapp
+        force: true  # overwrite local changes; intentional for deploy
+      notify: restart app  # triggers handler only if this task changed something
+
+    - name: Write nginx config from template
+      ansible.builtin.template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/myapp
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload nginx
 
     - name: Run database migrations
-      ansible.builtin.command: /opt/myapp/bin/migrate
+      ansible.builtin.command:
+        cmd: /opt/myapp/bin/migrate --env production
+        chdir: /opt/myapp
+      run_once: true          # only run on one host even if targeting many
+      environment:
+        DATABASE_URL: "{{ db_url }}"
+      changed_when: true      # migrations always count as a change
+
+  handlers:
+    - name: restart app
+      ansible.builtin.systemd:
+        name: myapp
+        state: restarted
+
+    - name: reload nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
 ```
 
-- Installing and configuring OS packages
-- Deploying application code
-- Managing configuration files across many servers
-- Running one-time tasks (migrations, data backups)
-- Ad-hoc operations (`ansible all -m shell -a "uptime"`)
-- Orchestrating multi-step deployments
+Ansible's strongest use cases:
+- Installing and pinning OS packages across a fleet
+- Writing templated config files (nginx, systemd units, app config)
+- Managing services: start, stop, enable, disable, reload
+- Deploying application releases in a controlled, ordered sequence
+- Running one-time operational tasks: database migrations, cache flushes, log rotation
+- Ad-hoc fleet operations: `ansible all -m shell -a "systemctl status nginx"`
+- Rolling deployments with serial limits: `serial: 1` to update one server at a time
+- Bootstrapping before a config management system is fully in place
+
+**Handlers are a key Ansible pattern.** They only fire if the task that notified them reported a change — so `reload nginx` won't run on every playbook execution, only when the config template actually changed. This makes playbooks efficient and safe to re-run repeatedly.
 
 ### The Overlap Zone
-Both tools can do things the other does — poorly:
+
+Both tools can technically do what the other does. Neither does it well when used outside its core role.
 
 | Task | Terraform | Ansible |
 |---|---|---|
-| Create an EC2 instance | ✓ (right tool) | ✓ (via `amazon.aws` collection, but no state) |
-| Install nginx on EC2 | Possible (user_data) | ✓ (right tool) |
-| Create S3 bucket | ✓ (right tool) | Possible (via module) |
-| Deploy app code | Possible (null_resource + provisioner) | ✓ (right tool) |
-| Manage DNS records | ✓ (right tool) | Possible |
+| Create EC2 instance | ✅ Right tool | ⚠️ Possible via `amazon.aws` — no state, can't cleanly destroy |
+| Install nginx on EC2 | ⚠️ Possible via `user_data` — runs once, can't be re-run | ✅ Right tool |
+| Create S3 bucket | ✅ Right tool | ⚠️ Possible — no drift detection without state |
+| Write `/etc/nginx/nginx.conf` | ❌ Awkward (null_resource + file provisioner) | ✅ Right tool |
+| Deploy application code | ❌ Wrong tool (null_resource + remote-exec) | ✅ Right tool |
+| Manage DNS record | ✅ Right tool | ⚠️ Possible — no cleanup on removal |
+| Create IAM policy | ✅ Right tool | ⚠️ Possible — no drift detection |
+| Rolling restart of services | ❌ Not designed for this | ✅ Right tool (`serial`) |
 
-**Terraform provisioners** (`remote-exec`, `local-exec`) can run scripts after creating a resource — but they don't track state, can't be re-run safely, and are considered a last resort.
+**Terraform provisioners (`remote-exec`, `local-exec`) are a trap.** They run scripts after a resource is created, but Terraform does not re-run them if you run `terraform apply` again — only on resource creation. If the script fails midway, Terraform marks the resource as tainted and tries to recreate it on the next apply, which may cause data loss or downtime. The Terraform documentation explicitly labels provisioners as a "last resort." Any non-trivial configuration work should be handed off to Ansible.
 
-### The Standard Pattern: Both Together
+**Ansible lacks cloud resource state**, which creates real operational problems at scale. If an Ansible task creates an EC2 instance and you run the playbook again, it may try to create a second one (depending on module idempotency implementation). If you delete the resource manually, Ansible doesn't know. You can't run `ansible-playbook destroy.yml` and expect it to reliably clean up cloud resources the way `terraform destroy` does.
+
+### The Standard Integration Pattern
+
+The canonical pattern in production environments: Terraform provisions, outputs relevant information, and Ansible consumes those outputs to configure what Terraform created.
+
 ```
-[Terraform]                          [Ansible]
-  - Creates VPC, subnets               - Installs nginx, app deps
-  - Provisions EC2 instances    →      - Deploys application code
-  - Sets up RDS database               - Configures systemd services
-  - Creates EKS cluster                - Runs database migrations
-  - Outputs: instance IPs, DB URL      - Uses Terraform outputs as vars
+┌─────────────────────────────┐     ┌─────────────────────────────┐
+│         TERRAFORM           │     │           ANSIBLE           │
+│                             │     │                             │
+│  • VPC, subnets, SGs        │     │  • Install app dependencies │
+│  • EC2 instances            │────▶│  • Write config files       │
+│  • RDS database             │     │  • Deploy application code  │
+│  • EKS cluster              │     │  • Run DB migrations        │
+│  • S3 buckets               │     │  • Configure systemd units  │
+│  • Route53 records          │     │  • Set up cron jobs         │
+│  • IAM roles                │     │                             │
+│         ↓                   │     │         ↑                   │
+│  outputs: IPs, URLs,        │────▶│  vars: db_host, redis_url,  │
+│           ARNs, endpoints   │     │         instance IPs         │
+└─────────────────────────────┘     └─────────────────────────────┘
 ```
+
+The handoff point is Terraform outputs. After `terraform apply`, you extract outputs and pass them to Ansible as inventory variables or extra vars:
 
 ```bash
-# 1. Terraform provisions infrastructure
-terraform apply
-
-# 2. Get outputs for Ansible
-DB_HOST=$(terraform output -raw db_endpoint)
-WEB_IPS=$(terraform output -json web_ips)
-
-# 3. Build dynamic Ansible inventory from Terraform state
-# (or use terraform-inventory or a dynamic inventory script)
-
-# 4. Ansible configures the servers
-ansible-playbook -i inventory.py deploy.yml
-```
-
-### Ansible vs Other Config Management Tools
-| Tool | Model | Agent | Language | Best for |
-|---|---|---|---|---|
-| Ansible | Push, agentless | No | YAML | General purpose, low barrier |
-| Chef | Pull, agent | Yes | Ruby DSL | Large teams, complex policies |
-| Puppet | Pull, agent | Yes | Puppet DSL | Enterprise, compliance |
-| SaltStack | Push/pull | Yes | YAML + Python | Large scale, event-driven |
-
-**Ansible's advantage:** no agents to install and maintain. Works on any server reachable over SSH. Quick to get started. **Disadvantage:** slower for very large fleets (SSH overhead) and less real-time than agent-based tools.
-
-### When Kubernetes Changes the Equation
-In a Kubernetes-centric environment:
-- **Terraform** provisions the EKS/GKE cluster, node groups, networking, IAM
-- **Helm** handles application deployment and configuration (replaces some Ansible use cases)
-- **Ansible** still useful for: configuring EC2 bastion hosts, setting up the CI server, bootstrapping before k8s, non-containerized workloads
-
-Ansible's server configuration use case shrinks in fully containerized environments — configuration management moves into Dockerfiles and Helm charts.
-
-## Examples
-
-### Terraform + Ansible Together
-```bash
+# pipeline.sh — the glue between Terraform and Ansible
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 1. Provision
-terraform -chdir=./infra apply -auto-approve
+cd infra/
+terraform apply -auto-approve
 
-# 2. Wait for SSH to be available
-DB_HOST=$(terraform -chdir=./infra output -raw db_host)
-WEB_IPS=$(terraform -chdir=./infra output -json web_private_ips | jq -r '.[]')
+# Extract Terraform outputs
+DB_HOST=$(terraform output -raw db_host)
+REDIS_URL=$(terraform output -raw redis_url)
+WEB_IPS=$(terraform output -json web_private_ips | jq -r '.[]')
 
-# 3. Generate Ansible inventory from Terraform output
-cat > /tmp/inventory.ini << EOF
+# Build an Ansible inventory dynamically from Terraform outputs
+# A real pipeline might use a dynamic inventory plugin instead
+INVENTORY_FILE=$(mktemp /tmp/inventory.XXXXXX.ini)
+cat > "$INVENTORY_FILE" << EOF
 [webservers]
-$(echo "$WEB_IPS" | tr '\n' '\n')
+$(echo "$WEB_IPS")
 
-[all:vars]
+[webservers:vars]
 db_host=${DB_HOST}
+redis_url=${REDIS_URL}
 ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/deploy
+ansible_ssh_private_key_file=~/.ssh/deploy_key
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 EOF
 
-# 4. Configure
-ansible-playbook -i /tmp/inventory.ini ./ansible/deploy.yml
+cd ../ansible/
+ansible-playbook \
+  -i "$INVENTORY_FILE" \
+  --extra-vars "app_version=${APP_VERSION:-main}" \
+  deploy.yml
+
+rm "$INVENTORY_FILE"
 ```
 
-## Exercises
+For more sophisticated setups, the `cloud.terraform` Ansible collection provides a dynamic inventory plugin that reads directly from Terraform state without manual extraction:
 
-1. List three infrastructure tasks you'd use Terraform for and three configuration tasks you'd use Ansible for. For each, explain why the other tool would be the wrong choice.
-2. Design the IaC architecture for a 3-tier web application (load balancer, 3 app servers, RDS database): which parts does Terraform own, which parts does Ansible own, and how do they hand off to each other?
-3. Research one real-world limitation of using Terraform for configuration management (hint: look at `null_resource` + `remote-exec` provisioner behavior on re-runs). Write a short explanation of why it's problematic.
-4. Research one real-world limitation of using Ansible for infrastructure provisioning at scale (hint: look at its lack of state tracking for cloud resources). How does Terraform's state file solve this problem?
+```yaml
+# ansible/inventory/terraform.yml
+plugin: cloud.terraform.terraform_provider
+project_path: ../infra/
+# This reads infra/terraform.tfstate and exposes resources as inventory hosts
+# Requires: ansible-galaxy collection install cloud.terraform
+```
+
+### Idempotency: Where Each Tool Stands
+
+Idempotency means running the same operation multiple times produces the same result. Both tools aim for this, but through different mechanisms.
+
+**Terraform idempotency** is handled at the engine level. The state file plus a live API read (the "refresh" step) tells Terraform exactly what exists. If the resource matches the config, no API call is made. This is reliable by default.
+
+**Ansible idempotency** is module-by-module. Well-written modules check before they act:
+- `ansible.builtin.apt` checks if the package is already at the right version
+- `ansible.builtin.template` checksums the rendered file against what's on disk
+- `ansible.builtin.service` checks current service state before start/stop
+
+**The idempotency traps in Ansible:**
+
+```yaml
+# ❌ NOT idempotent — runs every time, creates duplicate entries
+- name: Add line to config
+  ansible.builtin.command:
+    cmd: echo "option=value" >> /etc/myapp/config.ini
+
+# ✅ Idempotent — checks if line exists before adding
+- name: Ensure option is set in config
+  ansible.builtin.lineinfile:
+    path: /etc/myapp/config.ini
+    line: "option=value"
+    state: present
+
+# ❌ NOT idempotent without changed_when — Ansible always reports changed
+- name: Run migration
+  ansible.builtin.command:
+    cmd: /opt/myapp/bin/migrate
+  # Without changed_when, this always triggers downstream handlers
+
+# ✅ Use changed_when to control when Ansible considers this a change
+- name: Run migration (only if needed)
+  ansible.builtin.command:
+    cmd: /opt/myapp/bin/migrate --check-first
+  register: migrate_result
+  changed_when: "'Applied' in migrate_result.stdout"
+```
+
+**Rule of thumb:** prefer Ansible built-in modules over `command` and `shell`. Built-in modules handle idempotency for you. `command` and `shell` are escape hatches that require you to implement idempotency yourself via `creates`, `changed_when`, or logic checks.
+
+### Ansible vs Other Configuration Management Tools
+
+| Tool | Push/Pull | Agent | Language | Strength | Weakness |
+|---|---|---|---|---|---|
+| **Ansible** | Push | No | YAML + Jinja2 | Low barrier, agentless, readable | SSH overhead at scale, no real-time |
+| **Chef** | Pull | Yes | Ruby DSL | Flexible, programmable, large ecosystem | High learning curve, complex setup |
+| **Puppet** | Pull | Yes | Puppet DSL | Enterprise compliance, mature | Steep DSL, heavy infrastructure |
+| **SaltStack** | Push/Pull | Yes (minion) | YAML + Python | Event-driven, high scale | Complex setup, inconsistent docs |
+
+Ansible's agentless design is its biggest practical advantage: there is nothing to install
