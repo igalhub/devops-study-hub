@@ -4,7 +4,14 @@
 An interactive study hub to learn the DevOps skills required to land a job in the field.
 
 ## Curriculum Scope
-Linux, Python, Bash, Docker, Kubernetes, Terraform, Datadog, Network Essentials, Postman — and any adjacent tools relevant to the job market.
+23 modules across 5 groups:
+- **Foundations:** Linux, Python, Bash/Shell, Git & VCS, Networking Essentials
+- **Containers & Infra:** Docker, Kubernetes, Helm, Terraform, Ansible
+- **CI/CD & Cloud:** CI/CD Pipelines, AWS, GCP, Monitoring (Datadog)
+- **Security & APIs:** DevSecOps, Postman / API Testing
+- **Observability:** Prometheus, Grafana, Zabbix, Elasticsearch, Logstash, Kibana, Opsgenie
+
+91 lessons total, 455 quiz questions seeded (5 per lesson).
 
 ## Core Features
 - **Study Content Tracking** — what's been covered, what's pending
@@ -15,7 +22,7 @@ Linux, Python, Bash, Docker, Kubernetes, Terraform, Datadog, Network Essentials,
 ## Killer Features
 - **AI Tutor** — answers questions in context of the current lesson
 - **Code Sandbox** — write and run Bash/Python exercises inline
-- **Spaced Repetition Quizzes** — flashcard-style review
+- **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson
 - **Roadmap View** — visual skill tree showing what to learn next
 - **Interview Prep Mode** — common DevOps interview questions with AI feedback
 
