@@ -77,6 +77,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     setLoading(true)
     setError(null)
     setActiveExercise(null)
+    setModuleBanner(false)
     setBookmarked(isBookmarked(lessonSlug))
     fetchLesson(lessonSlug)
       .then(data => {

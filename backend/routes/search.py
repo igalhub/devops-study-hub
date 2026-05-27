@@ -16,7 +16,7 @@ def _strip_frontmatter(raw: str) -> str:
     end = raw.find("\n---", 3)   # \n--- on its own line, not --- inside a value
     if end == -1:
         return raw
-    return raw[end + 4:].lstrip("\n")
+    return raw[end + 4:].lstrip("\r\n")
 
 
 @router.get("/search")
