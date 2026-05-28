@@ -32,6 +32,10 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Module Quiz** — dedicated per-module quiz page
 - **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent)
 
+### Quick Check authoring rules
+- **Python must be single-line** — markdown list indentation (3 spaces) is captured by the parser and causes `IndentationError` on multi-line blocks. Chain statements with semicolons instead.
+- **Remove stale epilogue prose** — if a lesson has trailing paragraphs after its last numbered exercise (e.g. `**Goal:**`, `*This is a real pattern...*`), remove them before adding Quick Checks. If left in, the parser appends them to the last QC exercise's `text` field and `extract_code()` returns garbage. Always verify via `curl http://localhost:8000/lessons/{slug}` after editing.
+
 ## Tone & Style
 Rigorous, direct, no fluff. Cover things properly but don't pad. Breadth and rigor equally — cast a wide net, do it well.
 
