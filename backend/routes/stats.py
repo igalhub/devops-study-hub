@@ -26,16 +26,44 @@ def get_stats():
         ]
 
         quiz_rows = conn.execute("""
-            SELECT m.title as module_title, m.slug as module_slug, m.order_index,
-                   COUNT(a.id) as total,
-                   SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) as correct
-            FROM quiz_attempts a
-            JOIN quiz_questions q ON CAST(a.question_id AS INTEGER) = q.id
-            JOIN lessons l ON q.lesson_id = l.id
-            JOIN modules m ON l.module_id = m.id
-            GROUP BY m.id
-            HAVING total > 0
-            ORDER BY m.order_index
+            SELECT module_title, module_slug, order_index, total, correct
+            FROM (
+                SELECT m.title AS module_title, m.slug AS module_slug, m.order_index,
+                       COUNT(a.id) AS total,
+                       SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct
+                FROM quiz_attempts a
+                JOIN quiz_questions q ON CAST(a.question_id AS INTEGER) = q.id
+                JOIN lessons l ON q.lesson_id = l.id
+                JOIN modules m ON l.module_id = m.id
+                GROUP BY m.id
+            )
+            WHERE total > 0
+            ORDER BY order_index
+        """).fetchall()
+
+        # Uses a.lesson_id directly (authoritative FK on quiz_attempts) rather
+        # than routing through quiz_questions. Threshold 70 must match the
+        # subheading string in frontend/src/pages/Stats.jsx.
+        weak_rows = conn.execute("""
+            SELECT lesson_slug, lesson_title, module_slug, module_title,
+                   attempt_count, accuracy
+            FROM (
+                SELECT l.slug  AS lesson_slug,
+                       l.title AS lesson_title,
+                       m.slug  AS module_slug,
+                       m.title AS module_title,
+                       COUNT(a.id) AS attempt_count,
+                       CAST(ROUND(
+                           100.0 * SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END)
+                           / COUNT(a.id)
+                       ) AS INTEGER) AS accuracy
+                FROM quiz_attempts a
+                JOIN lessons l ON a.lesson_id = l.id
+                JOIN modules m ON l.module_id = m.id
+                GROUP BY l.id
+            )
+            WHERE accuracy < 70
+            ORDER BY accuracy ASC
         """).fetchall()
 
         total_done = conn.execute(
@@ -80,6 +108,17 @@ def get_stats():
                 'quiz_correct': correct_attempts,
                 'streak': current,
             },
+            'quiz_weak_lessons': [
+                {
+                    'lesson_slug':   r['lesson_slug'],
+                    'lesson_title':  r['lesson_title'],
+                    'module_slug':   r['module_slug'],
+                    'module_title':  r['module_title'],
+                    'accuracy':      r['accuracy'],
+                    'attempt_count': r['attempt_count'],
+                }
+                for r in weak_rows
+            ],
         }
     finally:
         conn.close()
