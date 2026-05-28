@@ -940,3 +940,27 @@ Write a bash script `iam-audit.sh` that checks all of the following and prints a
 5. **Roles unused for 90 days** — use `list-roles` and filter on `RoleLastUsed.LastUsedDate`.
 
 The script should output each finding prefixed with `[PASS]` or `[FAIL]` so it can be parsed downstream. Run it against a real or sandbox AWS account and verify every `[FAIL]` item corresponds to an actual misconfiguration you can manually confirm in the console.
+
+---
+
+### Quick Checks
+
+6. Parse this minimal IAM policy and print `overprivileged` if any statement grants `Action: '*'`, otherwise print `ok`.
+
+```python
+import json; p = json.loads('{"Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}'); print("overprivileged" if any(s["Action"] == "*" for s in p["Statement"]) else "ok")
+```
+
+```expected_output
+overprivileged
+```
+
+7. Extract the AWS account ID (the 12-digit field) from this ARN: `arn:aws:iam::123456789012:user/alice`.
+
+```python
+arn = "arn:aws:iam::123456789012:user/alice"; print(arn.split(":")[4])
+```
+
+```expected_output
+123456789012
+```
