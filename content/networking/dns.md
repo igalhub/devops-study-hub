@@ -653,3 +653,27 @@ Pick a domain you control, or use a public domain for read-only analysis (e.g., 
 3. Retrieve the CAA record. Which CAs are authorized? If there is no CAA record, what does that mean for cert issuance?
 4. Run `dig +dnssec <domain> A @8.8.8.8`. Is there an RRSIG record in the answer? Now run the same command with `+cd` (checking disabled). If the results differ, what does that tell you?
 5. Explain in one paragraph how a compromised DNS record (e.g., an attacker who gains access to your DNS provider) could affect TLS certificate issuance, email delivery, and DNSSEC validation simultaneously.
+
+---
+
+### Quick Checks
+
+1. Extract the TTL from a mock DNS A record — the same field you read in `dig` output.
+
+   ```bash
+   echo "github.com. 60 IN A 140.82.113.4" | awk '{print $2}'
+   ```
+
+   ```expected_output
+   60
+   ```
+
+2. Detect whether an FQDN has a trailing dot (which bypasses `ndots` search-domain expansion).
+
+   ```bash
+   echo "api.stripe.com." | grep -q '\.$' && echo "FQDN (no expansion)" || echo "relative (ndots applies)"
+   ```
+
+   ```expected_output
+   FQDN (no expansion)
+   ```

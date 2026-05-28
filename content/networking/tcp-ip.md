@@ -687,3 +687,27 @@ No special tools required — use `ip` and a calculator or your own mental arith
 4. Explain why `ip route get` is more useful than `ip route show` when debugging connectivity for a specific destination.
 
 **Goal:** build fluency with CIDR arithmetic and routing lookups — skills that come up constantly when working with VPCs, Kubernetes pod networks, and VPN split tunneling.
+
+---
+
+### Quick Checks
+
+1. Classify port 443 as well-known or ephemeral.
+
+   ```bash
+   echo 443 | awk '{print ($1 < 1024) ? "well-known" : "ephemeral"}'
+   ```
+
+   ```expected_output
+   well-known
+   ```
+
+2. Extract the gateway IP from a mock `ip route` default route line.
+
+   ```bash
+   echo "default via 192.168.1.1 dev eth0 proto dhcp" | awk '/^default/{print $3}'
+   ```
+
+   ```expected_output
+   192.168.1.1
+   ```

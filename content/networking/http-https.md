@@ -765,4 +765,26 @@ Write a bash script named `wait-for-healthy.sh` that:
 
 Test it against `https://httpbin.org/status/200` (should succeed immediately) and `https://httpbin.org/status/503` (should time out).
 
-*This is a real pattern used in CI pipelines to wait for a freshly deployed service to pass its health check before running integration tests. Do not use `sleep 30` and hope for the best — that either wastes time or isn't long enough.*
+---
+
+### Quick Checks
+
+1. Decode a Basic Auth credential — the value you would send in the `Authorization` header.
+
+   ```bash
+   echo "YWRtaW46c2VjcmV0" | base64 -d
+   ```
+
+   ```expected_output
+   admin:secret
+   ```
+
+2. Identify the HTTP status class for a given code — useful for writing generic response handlers.
+
+   ```python
+   code = 429; print(f'{code // 100}xx')
+   ```
+
+   ```expected_output
+   4xx
+   ```

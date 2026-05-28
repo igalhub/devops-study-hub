@@ -751,3 +751,27 @@ This exercise is design and CLI-based. You need AWS CLI access and an AWS accoun
 7. Remove the overly permissive rule. Verify access is restricted again.
 
 **Explain:** Why did step 6 work even though the original rules were still present? What AWS mechanism would you use if you needed a rule to explicitly DENY a specific IP even if another rule allows it?
+
+---
+
+### Quick Checks
+
+1. Parse the default policy from an `iptables -L` chain header.
+
+   ```bash
+   echo "Chain INPUT (policy DROP)" | awk '{print $4}' | tr -d ')'
+   ```
+
+   ```expected_output
+   DROP
+   ```
+
+2. Determine which backend a round-robin load balancer sends request #7 to (0-indexed, 3 backends).
+
+   ```bash
+   python3 -c "print(7 % 3)"
+   ```
+
+   ```expected_output
+   1
+   ```
