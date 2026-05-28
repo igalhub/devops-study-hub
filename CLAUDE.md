@@ -30,6 +30,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Content Search** — full-text search across lesson titles and body content
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
+- **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent)
 
 ## Tone & Style
 Rigorous, direct, no fluff. Cover things properly but don't pad. Breadth and rigor equally — cast a wide net, do it well.
