@@ -206,7 +206,8 @@ devops-study-hub/
 │   │   │   ├── RecentDropdown.jsx
 │   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
-│   │   │   └── ThemeToggle.jsx
+│   │   │   ├── ThemeToggle.jsx
+│   │   │   └── __tests__/           # Vitest component tests (12 tests)
 │   │   ├── pages/
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
@@ -222,6 +223,7 @@ devops-study-hub/
 │   │   │   └── readiness.js      # Shared readiness color utility
 │   │   ├── App.jsx
 │   │   ├── main.jsx
+│   │   ├── test-setup.js            # Vitest global setup (@testing-library/jest-dom)
 │   │   └── index.css
 │   └── package.json
 ├── backend/
