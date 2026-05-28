@@ -773,3 +773,27 @@ Your team uses `requests.get()` throughout the codebase. Your security team has 
 6. Suppress the remaining finding with an inline `# nosec` comment (Bandit) and a Semgrep `# nosemgrep` comment, then explain in a code comment why the suppression is justified.
 
 **Goal:** experience the full developer workflow — local hook, CI gate, suppression — and understand when suppression is appropriate versus when you must fix the code.
+
+---
+
+### Quick Checks
+
+7. This code string passes user input to `subprocess` with `shell=True` — a high-severity SAST finding. Print `HIGH` if the pattern is detected, `LOW` otherwise.
+
+```python
+code = "subprocess.call(user_input, shell=True)"; print("HIGH" if "shell=True" in code else "LOW")
+```
+
+```expected_output
+HIGH
+```
+
+8. Detect SQL injection by string concatenation in this code line. Print `injection risk` if the pattern matches, `clean` if not.
+
+```bash
+echo "query = 'SELECT * FROM users WHERE id = ' + user_id" | grep -qE 'SELECT.*\+' && echo "injection risk" || echo "clean"
+```
+
+```expected_output
+injection risk
+```

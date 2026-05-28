@@ -974,3 +974,27 @@ Set up a local Kubernetes cluster (kind or minikube) with ESO installed. You'll 
 4. Install `detect-secrets` and configure a pre-commit hook (as shown in Example 4). Attempt to commit the fake keys again. Confirm the hook blocks the commit.
 
 5. **Write a one-paragraph incident response runbook** covering: (a) how you would verify whether the leaked credential was used (hint: AWS CloudTrail), (b) the rotation steps, (c) why cleaning git history alone is insufficient, and (d) how you would prevent recurrence at the team level.
+
+---
+
+### Quick Checks
+
+6. Detect an AWS access key ID in this environment variable line. Print only the matched key.
+
+```bash
+echo 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE' | grep -oE 'AKIA[0-9A-Z]{16}'
+```
+
+```expected_output
+AKIAIOSFODNN7EXAMPLE
+```
+
+7. Compute the SHA-256 hash of the string `vault-token` (no trailing newline). Print only the hex digest.
+
+```bash
+echo -n "vault-token" | sha256sum | awk '{print $1}'
+```
+
+```expected_output
+1be23b07ef444b13455e71fc8de580aef6cb309128f9e9a91e3cb7ab08d27cfb
+```

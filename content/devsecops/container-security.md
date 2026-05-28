@@ -795,3 +795,27 @@ spec:
 4. Fix the pod spec so it complies with the `restricted` profile (you will need to handle nginx's default root requirement — use `runAsUser: 101`, which is the `nginx` user in the Alpine image).
 5. Change the namespace label from `warn` to `enforce: restricted` and verify the original insecure spec is now rejected at admission.
 6. Apply the fixed spec and confirm it is accepted.
+
+---
+
+### Quick Checks
+
+7. Count how many `USER` instructions appear in this Dockerfile snippet. A secure image should have at least one non-root user switch.
+
+```bash
+printf 'FROM ubuntu:20.04\nRUN apt-get update\nUSER appuser\n' | grep -c '^USER'
+```
+
+```expected_output
+1
+```
+
+8. Check whether this image reference uses a floating tag. Print `unpinned` if it does, `pinned` if it doesn't.
+
+```bash
+echo "nginx:latest" | grep -q ':latest' && echo "unpinned" || echo "pinned"
+```
+
+```expected_output
+unpinned
+```
