@@ -833,3 +833,27 @@ Checks to implement:
 Exit with code 0 if only warnings, code 1 if any errors.
 
 **Hint for the `on` trap:** `yaml.safe_load` will parse the top-level `on:` key in a GitHub Actions file as `True` because `on` is a YAML 1.1 boolean. Check `if True in workflow:` rather than `if "on" in workflow:`.
+
+---
+
+### Quick Checks
+
+1. Serialize a dict to a JSON string.
+
+   ```python
+   import json; print(json.dumps({'name': 'devops', 'version': 3}))
+   ```
+
+   ```expected_output
+   {"name": "devops", "version": 3}
+   ```
+
+2. Detect Python types after JSON parsing.
+
+   ```python
+   import json; d = json.loads('{"enabled": true, "count": 5}'); print(type(d['enabled']).__name__, type(d['count']).__name__)
+   ```
+
+   ```expected_output
+   bool int
+   ```

@@ -832,3 +832,27 @@ You have a set of plaintext SSM parameters under `/myapp/staging/` and need to c
 aws ssm get-parameters-by-path --path /myapp/prod/ --with-decryption \
   --query 'Parameters[*].{Name:Name,Type:Type}' --output table
 ```
+
+---
+
+### Quick Checks
+
+1. Filter a list of instance dicts by state — the same pattern boto3 responses require.
+
+   ```python
+   instances = [{'id': 'i-1', 'state': 'running'}, {'id': 'i-2', 'state': 'stopped'}]; print([i['id'] for i in instances if i['state'] == 'running'])
+   ```
+
+   ```expected_output
+   ['i-1']
+   ```
+
+2. Build a flat dict from a list of AWS-style tag records.
+
+   ```python
+   tags = [{'Key': 'Env', 'Value': 'prod'}, {'Key': 'Team', 'Value': 'ops'}]; print({t['Key']: t['Value'] for t in tags})
+   ```
+
+   ```expected_output
+   {'Env': 'prod', 'Team': 'ops'}
+   ```

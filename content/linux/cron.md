@@ -597,3 +597,27 @@ Build a complete log archiving solution using cron. Requirements:
 2. The file at `/etc/cron.d/myapp-archive` — including all necessary environment variables and correct permissions (`chmod 644`, owned by `root:root`).
 3. The logrotate config at `/etc/logrotate.d/myapp-archive`.
 4. The exact command to verify the job ran after its first scheduled execution, without waiting — i.e., how do you confirm the syslog shows cron launched it AND the log file shows it completed successfully?
+
+---
+
+### Quick Checks
+
+1. Count the number of fields in a cron expression.
+
+   ```bash
+   echo "30 */2 * * 1-5" | awk '{print NF}'
+   ```
+
+   ```expected_output
+   5
+   ```
+
+2. Extract the minute field from a cron expression.
+
+   ```bash
+   echo "*/15 6-22 * * 1-5" | awk '{print $1}'
+   ```
+
+   ```expected_output
+   */15
+   ```

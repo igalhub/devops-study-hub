@@ -614,4 +614,26 @@ On any Linux system you have access to (your laptop, a VM, a container):
 3. Pick any binary on the system — for example `/usr/bin/git`, `/usr/bin/python3`, or `/usr/sbin/sshd`. Use the appropriate low-level tool to find which package owns it, then list every other file that same package installed.
 4. Identify any packages that have available updates but are currently held back. On apt: `apt list --upgradable`. On dnf: `dnf check-update`. Cross-reference with `apt-mark showhold` or `dnf versionlock list` to see if the held-back status is intentional.
 
-**Goal:** Be able to walk into any Linux system and produce a clear picture of what's installed, why it's there, and what state it's in — the foundation of both incident response and compliance auditing.
+---
+
+### Quick Checks
+
+1. Confirm `bash` is installed using the low-level package tool.
+
+   ```bash
+   dpkg -l bash 2>/dev/null | awk '/^ii/{print $2}'
+   ```
+
+   ```expected_output
+   bash
+   ```
+
+2. Confirm `coreutils` is installed using the low-level package tool.
+
+   ```bash
+   dpkg -l coreutils 2>/dev/null | awk '/^ii/{print $2}'
+   ```
+
+   ```expected_output
+   coreutils
+   ```

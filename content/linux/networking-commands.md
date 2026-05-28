@@ -726,3 +726,27 @@ This exercise requires `tcpdump` and root access (or a VM you control).
 5. Now kill the HTTP server while the capture is still running. Make another `curl` request. Find the RST packet in the output and explain: what does it tell you about why the connection failed, and how does this differ from what you'd see if a firewall were dropping the packets instead?
 
 **Extension:** repeat the capture but use `tcpdump -w /tmp/handshake.pcap`, then replay it with `tcpdump -r /tmp/handshake.pcap` and filter for only the SYN packets using a BPF expression.
+
+---
+
+### Quick Checks
+
+1. Extract the CIDR prefix length from a network address.
+
+   ```bash
+   echo "10.0.0.0/16" | awk -F/ '{print $2}'
+   ```
+
+   ```expected_output
+   16
+   ```
+
+2. Count the number of octets in an IP address.
+
+   ```bash
+   echo "10.20.30.40" | tr '.' '\n' | wc -l | awk '{print $1}'
+   ```
+
+   ```expected_output
+   4
+   ```
