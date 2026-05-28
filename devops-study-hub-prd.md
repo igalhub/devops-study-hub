@@ -225,6 +225,7 @@ devops-study-hub/
 ├── backend/
 │   ├── main.py              # FastAPI app entry point
 │   ├── db.py                # SQLite schema + connection helpers
+│   ├── srs.py               # Shared SM-2 spaced repetition logic
 │   ├── seed.py              # Seeds modules & lessons from content/
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
 │   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
@@ -287,8 +288,10 @@ lessons           id, module_id, slug, title, duration_min, difficulty, order_in
 progress          id, lesson_id, status (not_started/in_progress/complete), completed_at
 quiz_questions    id, lesson_id, question, options (JSON), correct_index, explanation
 interview_questions  id, module_id, question
+interview_attempts   id, question_id, module_id, score, is_correct, attempted_at
+interview_srs_schedule  question_id (PK), interval_days, ease, next_review, reviews
 quiz_attempts     id, lesson_id, question_id, answer, is_correct, attempted_at
-xp_log            id, source (lesson/quiz/streak), points, earned_at
+xp_log            id, source (lesson/quiz/interview/streak), points, earned_at
 streaks           id, date, completed (bool)
 srs_schedule      question_id (PK), interval_days, ease, next_review, reviews
 ```
@@ -332,6 +335,9 @@ exercises: 3
 | Complete a lesson | 10 XP |
 | Quiz correct (first try) | 5 XP |
 | Quiz correct (retry) | 2 XP |
+| Interview answer — Strong | 5 XP |
+| Interview answer — Adequate | 2 XP |
+| Interview answer — Weak | 0 XP |
 | Complete a full module | 50 XP bonus |
 | Daily streak bonus | +20% on all XP earned that day |
 
@@ -353,7 +359,9 @@ exercises: 3
 - Batch content expansion pipeline (seed_curriculum.py)
 
 ### Phase 4 — Job Readiness ✅
-- Interview Prep Mode with AI-generated questions and feedback
+- Interview Prep Mode with AI-generated questions and AI feedback (score: Weak/Adequate/Strong)
+- Interview SRS review queue (SM-2 algorithm; amber badge in sidebar when reviews due)
+- XP awards for interview answers (Strong=5, Adequate=2)
 
 ### Phase 5 — Polish & Navigation ✅
 - Lesson notes (per-lesson textarea, auto-saved to backend)
