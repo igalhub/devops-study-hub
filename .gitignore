@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 *.py[cod]
+hub.db
 backend/hub.db
 
 # Secrets — never commit
