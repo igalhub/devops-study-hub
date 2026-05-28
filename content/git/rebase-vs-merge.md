@@ -527,3 +527,44 @@ git commit --allow-empty -m "chore: main advanced again"
 3. Switch back to `main` and retry `git merge-linear feature/linear-test`. It should now succeed as a fast-forward.
 4. Verify with `git log --oneline --graph` that there is no merge commit and the history is perfectly linear.
 5. Answer: in a CI/CD context, what would you configure on the Git hosting platform to enforce this policy automatically, and why might a team choose it?
+
+---
+
+### Quick Checks
+
+1. Demonstrate a fast-forward merge on a linear branch history.
+
+   ```bash
+   d=$(mktemp -d)
+   cd "$d"
+   git init --initial-branch=main -q
+   git commit --allow-empty -q -m "base"
+   git checkout -b feature -q
+   git commit --allow-empty -q -m "feat"
+   git checkout main -q
+   git merge --ff-only feature 2>&1 | grep -o 'Fast-forward'
+   ```
+
+   ```expected_output
+   Fast-forward
+   ```
+
+2. Count commits on a feature branch after rebasing onto an advanced main.
+
+   ```bash
+   d=$(mktemp -d)
+   cd "$d"
+   git init --initial-branch=main -q
+   git commit --allow-empty -q -m "base"
+   git checkout -b feature -q
+   git commit --allow-empty -q -m "feat"
+   git checkout main -q
+   git commit --allow-empty -q -m "main-advance"
+   git checkout feature -q
+   git rebase main -q 2>/dev/null
+   git rev-list --count HEAD
+   ```
+
+   ```expected_output
+   3
+   ```
