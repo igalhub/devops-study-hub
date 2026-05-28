@@ -678,5 +678,3 @@ echo "fake-pod	registry.example.com/old-image:v0.9" >> baseline-production.txt
 25
 35
 ```
-3. Verify by adding `echo "total inside loop: $total"` as the last line inside the loop body — the inside value should increment, and the value after the loop should match.
-4. As a bonus: rewrite the entire thing as a single pipeline without a loop, using `grep -c` or `awk`, to show that avoiding the subshell issue is sometimes simply a matter of choosing the right tool.
