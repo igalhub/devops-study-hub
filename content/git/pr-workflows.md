@@ -681,3 +681,31 @@ gh pr view 289 --json mergeable,reviewDecision
 4. Use `gh pr view <number> --json statusCheckRollup,mergeable,reviewDecision` after each fix to observe the state change.
 
 **What to verify:** you can explain from memory what each of the three JSON fields means, what value it had when the PR was broken, and what value it has when the PR is ready to merge.
+
+---
+
+### Quick Checks
+
+1. Validate a PR branch name against the team's naming convention.
+
+   ```bash
+   echo "johns-thing" | grep -qE '^(feat|feature|fix|bugfix|hotfix|chore|ops|ci|release)/.+' && echo valid || echo invalid
+   ```
+
+   ```expected_output
+   invalid
+   ```
+
+2. Initialize a repo, make one commit, and verify the commit count matches.
+
+   ```bash
+   d=$(mktemp -d)
+   cd "$d"
+   git init --initial-branch=main -q
+   git commit --allow-empty -q -m "feat: add feature"
+   git rev-list --count HEAD
+   ```
+
+   ```expected_output
+   1
+   ```

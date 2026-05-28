@@ -617,3 +617,27 @@ eslint .
 5. Record the wall-clock time for each version and explain where the speedup comes from.
 
 **What to confirm:** the rewritten hook produces measurably faster output and still correctly blocks commits when either linter fails.
+
+---
+
+### Quick Checks
+
+1. Validate a commit message against the conventional commit format — the same regex a `commit-msg` hook would use.
+
+   ```bash
+   echo "feat: add login button" | grep -qE '^(feat|fix|docs|chore|refactor|test|ci): .+' && echo valid || echo invalid
+   ```
+
+   ```expected_output
+   valid
+   ```
+
+2. Count how many `.py` files are in a staged-file list — the same check a pre-commit hook uses to decide whether to run a Python linter.
+
+   ```bash
+   printf 'src/app.py\nREADME.md\ntests/test_app.py\nstyle.css\n' | grep -c '\.py$'
+   ```
+
+   ```expected_output
+   2
+   ```

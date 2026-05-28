@@ -718,3 +718,30 @@ Use `if:` conditionals on jobs, not separate workflow files. Verify by checking 
 Create a repo with a `main` branch containing a file `config.py` with a `TIMEOUT = 30` line. Create a feature branch `feat/increase-timeout` and change the value to `TIMEOUT = 60`. Without merging the feature branch, go back to `main` and change `TIMEOUT = 45` in a separate commit. Now attempt to merge `feat/increase-timeout` into `main`.
 
 Resolve the conflict deliberately — choose `60` as the final value and explain in the commit message why. Then reflect: in a trunk-based workflow, how would you have avoided this conflict? What is the maximum branch age that would have made this a non-issue?
+
+---
+
+### Quick Checks
+
+1. Initialize a repo with `main` as the default branch and confirm the starting branch name.
+
+   ```bash
+   d=$(mktemp -d)
+   cd "$d"
+   git init --initial-branch=main -q
+   git symbolic-ref --short HEAD
+   ```
+
+   ```expected_output
+   main
+   ```
+
+2. Validate a Gitflow-style branch name against the team's naming convention.
+
+   ```bash
+   echo "feat/PROJ-42-user-auth" | grep -qE '^(feat|feature|fix|hotfix|release|chore|ci)/.+' && echo valid || echo invalid
+   ```
+
+   ```expected_output
+   valid
+   ```

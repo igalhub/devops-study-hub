@@ -19,6 +19,10 @@ _SAFE_ENV = {
     'HOME': '/tmp',
     'TERM': 'dumb',
     'PYTHONDONTWRITEBYTECODE': '1',
+    'GIT_AUTHOR_NAME': 'sandbox',
+    'GIT_AUTHOR_EMAIL': 'sandbox@devops-study-hub',
+    'GIT_COMMITTER_NAME': 'sandbox',
+    'GIT_COMMITTER_EMAIL': 'sandbox@devops-study-hub',
 }
 
 
