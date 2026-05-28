@@ -772,3 +772,27 @@ python3 audit_cidrs.py 192.168.10.0/24 10.244.0.0/16 10.96.0.0/12
 # Max pod subnets (/24 per node from pod CIDR): 256
 # Sufficient for 20 planned nodes: yes
 ```
+
+---
+
+### Quick Checks
+
+1. Calculate the number of usable host addresses in a `/20` subnet.
+
+   ```python
+   print(2 ** (32 - 20) - 2)
+   ```
+
+   ```expected_output
+   4094
+   ```
+
+2. Check whether two CIDRs overlap — the first step in validating a VPC or Kubernetes network plan.
+
+   ```python
+   import ipaddress; a=ipaddress.ip_network('10.244.0.0/16'); b=ipaddress.ip_network('10.96.0.0/12'); print('overlap' if a.overlaps(b) else 'no overlap')
+   ```
+
+   ```expected_output
+   no overlap
+   ```
