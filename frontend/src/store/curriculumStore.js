@@ -125,6 +125,10 @@ export function fetchReadiness() {
   return apiFetch('/stats/readiness')
 }
 
+export function fetchProgressExport() {
+  return apiFetch('/export/progress')
+}
+
 const BOOKMARKS_KEY = 'devops_bookmarks'
 
 export function addBookmark({ moduleSlug, moduleTitle, lessonSlug, lessonTitle }) {

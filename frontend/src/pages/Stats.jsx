@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchStats } from '../store/curriculumStore'
+import { fetchStats, fetchProgressExport } from '../store/curriculumStore'
 
 function XpBar({ xp, max, day }) {
   const pct = max > 0 ? Math.round((xp / max) * 100) : 0
@@ -17,10 +17,37 @@ function XpBar({ xp, max, day }) {
 export default function Stats() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
+  const exportingRef = useRef(false)
 
   useEffect(() => {
     fetchStats().then(setData).catch(() => {}).finally(() => setLoading(false))
   }, [])
+
+  async function handleExport() {
+    if (exportingRef.current) return
+    exportingRef.current = true
+    setExporting(true)
+    setExportError(null)
+    try {
+      const payload = await fetchProgressExport()
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `devops-progress-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setExportError('Export failed. Please try again.')
+    } finally {
+      exportingRef.current = false
+      setExporting(false)
+    }
+  }
 
   if (loading) return <div className="p-6 text-sm text-gray-400 dark:text-gray-500">Loading…</div>
   if (!data) return <div className="p-6 text-sm text-red-500">Failed to load stats.</div>
@@ -41,7 +68,21 @@ export default function Stats() {
 
   return (
     <div className="p-6 max-w-2xl space-y-8">
-      <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Stats</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Stats</h1>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {exporting ? 'Exporting…' : 'Export progress'}
+          </button>
+          {exportError && (
+            <span className="text-[11px] text-red-500 dark:text-red-400">{exportError}</span>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {summaryCards.map(({ label, value }) => (
