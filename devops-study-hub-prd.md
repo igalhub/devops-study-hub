@@ -218,6 +218,8 @@ devops-study-hub/
 │   │   ├── store/
 │   │   │   ├── curriculumStore.js
 │   │   │   └── themeStore.js
+│   │   ├── utils/
+│   │   │   └── readiness.js      # Shared readiness color utility
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
@@ -373,3 +375,4 @@ exercises: 3
 - Stats page (XP history, streak calendar, completion breakdown, quiz weak areas)
 - Sidebar collapse, TOC (auto-generated from `##` headings), reading mode
 - Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)
+- Job readiness score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
