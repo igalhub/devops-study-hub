@@ -32,8 +32,7 @@ def get_stats():
                        COUNT(a.id) AS total,
                        SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct
                 FROM quiz_attempts a
-                JOIN quiz_questions q ON CAST(a.question_id AS INTEGER) = q.id
-                JOIN lessons l ON q.lesson_id = l.id
+                JOIN lessons l ON a.lesson_id = l.id
                 JOIN modules m ON l.module_id = m.id
                 GROUP BY m.id
             )
