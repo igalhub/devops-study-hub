@@ -157,3 +157,73 @@ def test_progress_complete_creates_xp():
     )
     conn.commit()
     conn.close()
+
+
+def test_exercises_shape():
+    r = client.get('/lessons/awk-sed')
+    assert r.status_code == 200
+    exercises = r.json()['exercises']
+    assert isinstance(exercises, list)
+    assert len(exercises) > 0
+    for ex in exercises:
+        assert 'text' in ex
+        assert 'expected_output' in ex
+        assert isinstance(ex['text'], str) and ex['text']
+        assert ex['expected_output'] is None or isinstance(ex['expected_output'], str)
+    assert any(ex['expected_output'] is not None for ex in exercises)
+
+
+def test_sandbox_check_pass_awards_xp():
+    r = client.post('/sandbox/check', json={
+        'code': 'echo "hello"',
+        'language': 'bash',
+        'expected_output': 'hello',
+        'slug': 'test-lesson',
+        'index': 99,
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['passed'] is True
+    assert data['xp_earned'] == 5
+
+    conn = db_conn()
+    conn.execute("DELETE FROM xp_log WHERE source = 'exercise_check:test-lesson:99'")
+    conn.commit()
+    conn.close()
+
+
+def test_sandbox_check_idempotent_xp():
+    source = 'exercise_check:test-lesson:98'
+    conn = db_conn()
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.commit()
+    conn.close()
+
+    payload = {'code': 'echo "hi"', 'language': 'bash', 'expected_output': 'hi', 'slug': 'test-lesson', 'index': 98}
+    r1 = client.post('/sandbox/check', json=payload)
+    assert r1.json()['xp_earned'] == 5
+
+    r2 = client.post('/sandbox/check', json=payload)
+    assert r2.json()['xp_earned'] == 0
+    assert r2.json()['passed'] is True
+
+    conn = db_conn()
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.commit()
+    conn.close()
+
+
+def test_sandbox_check_fail():
+    r = client.post('/sandbox/check', json={
+        'code': 'echo "wrong"',
+        'language': 'bash',
+        'expected_output': 'right',
+        'slug': 'test-lesson',
+        'index': 97,
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['passed'] is False
+    assert data['xp_earned'] == 0
+    assert data['expected'] == 'right'
+    assert data['actual'] == 'wrong'

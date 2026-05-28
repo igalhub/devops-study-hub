@@ -102,6 +102,14 @@ export function searchContent(q) {
   return apiFetch(`/search?q=${encodeURIComponent(q)}`)
 }
 
+export function checkExercise(slug, index, code, language, expectedOutput) {
+  return apiFetch('/sandbox/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, language, expected_output: expectedOutput, slug, index }),
+  })
+}
+
 const RECENT_KEY = 'devops_recent'
 const MAX_RECENT = 10
 
