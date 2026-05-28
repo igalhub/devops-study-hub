@@ -1,6 +1,8 @@
+import { readinessColor } from '../utils/readiness'
+
 const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs', 'Observability']
 
-function ModuleCard({ mod, progress }) {
+function ModuleCard({ mod, progress, readiness }) {
   const lessons = mod.lessons || []
   const done = lessons.filter(l => progress[String(l.id)] === 'complete').length
   const pct = lessons.length ? Math.round((done / lessons.length) * 100) : 0
@@ -20,12 +22,22 @@ function ModuleCard({ mod, progress }) {
       <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
         <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{pct}%</div>
+      <div className="mt-1 flex items-center justify-between">
+        <div className="text-xs text-gray-500 dark:text-gray-400">{pct}%</div>
+        {readiness && (
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">ready</span>
+            <span className={`text-xs font-semibold ${readinessColor(readiness.readiness)}`}>
+              {readiness.readiness}%
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-export default function Roadmap({ modules, progress }) {
+export default function Roadmap({ modules, progress, readiness = {} }) {
   const grouped = GROUP_ORDER.map(group => ({
     group,
     modules: modules.filter(m => m.group === group),
@@ -39,7 +51,7 @@ export default function Roadmap({ modules, progress }) {
           <h2 className="text-xs font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500 mb-3">{group}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {mods.map(mod => (
-              <ModuleCard key={mod.slug} mod={mod} progress={progress} />
+              <ModuleCard key={mod.slug} mod={mod} progress={progress} readiness={readiness[mod.slug]} />
             ))}
           </div>
         </div>

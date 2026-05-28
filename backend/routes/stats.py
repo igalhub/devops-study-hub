@@ -121,3 +121,75 @@ def get_stats():
         }
     finally:
         conn.close()
+
+
+@router.get('/stats/readiness')
+def get_readiness():
+    conn = get_conn()
+    try:
+        rows = conn.execute("""
+            WITH completion AS (
+                SELECT
+                    m.id   AS module_id,
+                    m.slug AS module_slug,
+                    m.title AS module_title,
+                    COUNT(l.id) AS total_lessons,
+                    SUM(CASE WHEN p.status = 'complete' THEN 1 ELSE 0 END) AS completed_lessons
+                FROM modules m
+                JOIN lessons l ON l.module_id = m.id
+                LEFT JOIN progress p ON p.lesson_id = l.id
+                GROUP BY m.id
+            ),
+            quiz_acc AS (
+                SELECT
+                    m.id        AS module_id,
+                    COUNT(a.id) AS total_attempts,
+                    SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_attempts
+                FROM quiz_attempts a
+                JOIN lessons l ON a.lesson_id = l.id
+                JOIN modules m ON l.module_id = m.id
+                GROUP BY m.id
+            ),
+            interview_cov AS (
+                SELECT
+                    iq.module_id,
+                    COUNT(DISTINCT iq.id)          AS total_questions,
+                    COUNT(DISTINCT ia.question_id) AS practiced_questions
+                FROM interview_questions iq
+                LEFT JOIN interview_attempts ia ON ia.question_id = iq.id
+                GROUP BY iq.module_id
+            )
+            SELECT
+                c.module_slug,
+                c.module_title,
+                CAST(ROUND(100.0 * c.completed_lessons / c.total_lessons) AS INTEGER) AS completion_pct,
+                CASE WHEN COALESCE(q.total_attempts, 0) > 0
+                     THEN CAST(ROUND(100.0 * q.correct_attempts / q.total_attempts) AS INTEGER)
+                     ELSE 0 END AS quiz_pct,
+                CASE WHEN COALESCE(i.total_questions, 0) > 0
+                     THEN CAST(ROUND(100.0 * i.practiced_questions / i.total_questions) AS INTEGER)
+                     ELSE 0 END AS interview_pct
+            FROM completion c
+            LEFT JOIN quiz_acc q      ON q.module_id = c.module_id
+            LEFT JOIN interview_cov i ON i.module_id = c.module_id
+        """).fetchall()
+
+        results = []
+        for r in rows:
+            completion_pct = r['completion_pct']
+            quiz_pct       = r['quiz_pct']
+            interview_pct  = r['interview_pct']
+            if completion_pct == 0 and quiz_pct == 0 and interview_pct == 0:
+                continue
+            score = round(completion_pct * 0.4 + quiz_pct * 0.4 + interview_pct * 0.2)
+            results.append({
+                'module_slug':    r['module_slug'],
+                'module_title':   r['module_title'],
+                'readiness':      score,
+                'completion_pct': completion_pct,
+                'quiz_pct':       quiz_pct,
+                'interview_pct':  interview_pct,
+            })
+        return results
+    finally:
+        conn.close()

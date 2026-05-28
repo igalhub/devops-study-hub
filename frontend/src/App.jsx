@@ -15,11 +15,11 @@ import InterviewPrep from './pages/InterviewPrep'
 import Review from './pages/Review'
 import Stats from './pages/Stats'
 import { useTheme } from './store/themeStore'
-import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue, fetchInterviewReviewQueue } from './store/curriculumStore'
+import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue, fetchInterviewReviewQueue, fetchReadiness } from './store/curriculumStore'
 
 const LessonViewer = lazy(() => import('./pages/LessonViewer'))
 
-function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue, interviewDue, interviewQueue, onXpEarned, onInterviewDueChange }) {
+function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue, interviewDue, interviewQueue, readiness, onXpEarned, onInterviewDueChange }) {
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
@@ -100,9 +100,9 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
             <main className="flex-1 overflow-y-auto">
               <Routes>
                 <Route path="/" element={<Navigate to="/roadmap" replace />} />
-                <Route path="/roadmap" element={<Roadmap modules={modules} progress={progress} />} />
+                <Route path="/roadmap" element={<Roadmap modules={modules} progress={progress} readiness={readiness} />} />
                 <Route path="/module/:moduleSlug" element={
-                  <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} />
+                  <ModuleView modules={modules} progress={progress} onProgressUpdate={loadData} readiness={readiness} />
                 } />
                 <Route path="/module/:moduleSlug/quiz" element={
                   <ModuleQuiz modules={modules} />
@@ -159,6 +159,7 @@ export default function App() {
   const [reviewDue, setReviewDue] = useState(0)
   const [interviewDue, setInterviewDue] = useState(0)
   const [interviewQueue, setInterviewQueue] = useState(null)
+  const [readiness, setReadiness] = useState({})
 
   const loadData = async () => {
     try {
@@ -177,6 +178,11 @@ export default function App() {
     }
     // Fetched separately so a failure here does not blank the whole app
     fetchInterviewReviewQueue().then(q => { setInterviewDue(q.length); setInterviewQueue(q) }).catch(() => { setInterviewQueue([]) })
+    fetchReadiness().then(list => {
+      const dict = {}
+      list.forEach(r => { dict[r.module_slug] = r })
+      setReadiness(dict)
+    }).catch(() => {})
   }
 
   const handleXpEarned = (total) => setXp(total)
@@ -196,6 +202,7 @@ export default function App() {
         reviewDue={reviewDue}
         interviewDue={interviewDue}
         interviewQueue={interviewQueue}
+        readiness={readiness}
         onXpEarned={handleXpEarned}
         onInterviewDueChange={handleInterviewDueChange}
       />

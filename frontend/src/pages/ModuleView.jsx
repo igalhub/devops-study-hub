@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { markLessonComplete, resetLessonProgress } from '../store/curriculumStore'
+import { readinessColor } from '../utils/readiness'
 
-export default function ModuleView({ modules, progress, onProgressUpdate }) {
+export default function ModuleView({ modules, progress, onProgressUpdate, readiness = {} }) {
   const { moduleSlug } = useParams()
   const navigate = useNavigate()
   const [completedBanner, setCompletedBanner] = useState(false)
   useEffect(() => { setCompletedBanner(false) }, [moduleSlug])
   const mod = modules.find(m => m.slug === moduleSlug)
+  const moduleReadiness = readiness[moduleSlug]
 
   if (!mod) return (
     <div className="p-6 text-gray-500 dark:text-gray-400">Module not found.</div>
@@ -40,6 +42,17 @@ export default function ModuleView({ modules, progress, onProgressUpdate }) {
         <div>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{mod.title}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{lessons.length} lessons</p>
+          {moduleReadiness && (
+            <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 dark:text-gray-500">
+              <span>Completion <span className="font-medium text-gray-600 dark:text-gray-300">{moduleReadiness.completion_pct}%</span></span>
+              <span>·</span>
+              <span>Quiz <span className="font-medium text-gray-600 dark:text-gray-300">{moduleReadiness.quiz_pct}%</span></span>
+              <span>·</span>
+              <span>Interview <span className="font-medium text-gray-600 dark:text-gray-300">{moduleReadiness.interview_pct}%</span></span>
+              <span>·</span>
+              <span>Job readiness <span className={`font-semibold ${readinessColor(moduleReadiness.readiness)}`}>{moduleReadiness.readiness}%</span></span>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <button
