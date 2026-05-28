@@ -70,6 +70,18 @@ export function evaluateAnswer(moduleSlug, question, answer) {
   })
 }
 
+export function evaluateAnswerWithSrs(moduleSlug, questionId, question, answer) {
+  return apiFetch('/interview/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ module_slug: moduleSlug, question_id: questionId, question, answer }),
+  })
+}
+
+export function fetchInterviewReviewQueue() {
+  return apiFetch('/interview/review/queue')
+}
+
 export function fetchNote(lessonSlug) {
   return apiFetch(`/notes/${lessonSlug}`)
 }

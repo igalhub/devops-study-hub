@@ -10,7 +10,7 @@ function Badge({ status, pct }) {
   return null
 }
 
-export default function Sidebar({ modules, progress, reviewDue = 0 }) {
+export default function Sidebar({ modules, progress, reviewDue = 0, interviewDue = 0 }) {
   const moduleMatch = useMatch('/module/:moduleSlug')
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const moduleSlug = (moduleMatch || lessonMatch)?.params?.moduleSlug
@@ -114,7 +114,12 @@ export default function Sidebar({ modules, progress, reviewDue = 0 }) {
                 : 'text-gray-700 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
-            Interview Prep
+            <span className="truncate">Interview Prep</span>
+            {interviewDue > 0 && (
+              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-medium">
+                {interviewDue}
+              </span>
+            )}
           </Link>
         </div>
         <div className="mb-1 border-t border-gray-200 dark:border-gray-700 pt-2">
