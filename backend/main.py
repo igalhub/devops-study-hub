@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db import init_db
@@ -17,7 +18,12 @@ from routes.search import router as search_router
 from routes.stats import router as stats_router
 from routes.export import router as export_router
 
-app = FastAPI(title='DevOps Study Hub API')
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+app = FastAPI(title='DevOps Study Hub API', lifespan=lifespan)
 
 _cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
 app.add_middleware(
@@ -26,11 +32,6 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
-
-
-@app.on_event('startup')
-def startup():
-    init_db()
 
 
 app.include_router(modules_router)
