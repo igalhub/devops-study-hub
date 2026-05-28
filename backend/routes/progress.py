@@ -1,7 +1,7 @@
 from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from db import get_conn
 
 router = APIRouter()
@@ -38,7 +38,7 @@ def update_progress(lesson_id: int, body: ProgressUpdate):
         ).fetchone()
         already_complete = existing and existing['status'] == 'complete'
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         conn.execute(
             """INSERT INTO progress (lesson_id, status, completed_at)
                VALUES (?, ?, ?)
