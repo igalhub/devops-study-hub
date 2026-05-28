@@ -660,5 +660,23 @@ echo "fake-pod	registry.example.com/old-image:v0.9" >> baseline-production.txt
    echo "Apples counted: $total"
    ```
 2. Rewrite the loop to use process substitution (`< <(...)`) so `total` is correctly incremented in the parent shell.
+
+---
+
+### Quick Checks
+
+3. Count the number of unique words in the string `"one two three two one"` using a pipeline. Print only the integer count. Hint: `echo "..." | tr ' ' '\n' | sort -u | wc -l | awk '{print $1}'`
+
+```expected_output
+3
+```
+
+4. Extract the second column from each row of this CSV using `awk -F,`. Pipe from: `printf 'alice,30,engineer\nbob,25,designer\ncarol,35,manager\n'`
+
+```expected_output
+30
+25
+35
+```
 3. Verify by adding `echo "total inside loop: $total"` as the last line inside the loop body — the inside value should increment, and the value after the loop should match.
 4. As a bonus: rewrite the entire thing as a single pipeline without a loop, using `grep -c` or `awk`, to show that avoiding the subshell issue is sometimes simply a matter of choosing the right tool.

@@ -765,4 +765,18 @@ awk 'BEGIN {
 
 **Hint:** Compute bucket start with `bucket = int($1 / 30) * 30`. Use separate arrays for count, sum, and max keyed by bucket. Iterate over buckets in sorted order in the `END` block — collect keys into an array and use `asort()` (GNU awk) or pipe the output to `sort -n`.
 
-**Verify:** The count column across all buckets should sum to 200 (total lines in the input).
+---
+
+### Quick Checks
+
+5. Using `awk`, sum the values piped from `printf '10\n20\n30\n40\n'` and print the total. Write a one-liner: `printf '10\n20\n30\n40\n' | awk ...`
+
+```expected_output
+100
+```
+
+6. Using `sed`, replace every space in the string `"the quick brown fox"` with a hyphen and print the result. Write a one-liner: `echo "the quick brown fox" | sed ...`
+
+```expected_output
+the-quick-brown-fox
+```

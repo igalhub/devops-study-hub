@@ -247,7 +247,9 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                     <span className="shrink-0 text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
                       {i + 1}.
                     </span>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ex}</p>
+                    <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed prose prose-sm prose-gray dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{ex.text}</ReactMarkdown>
+                    </div>
                   </div>
                   <button
                     onClick={() => toggleExercise(i)}
@@ -264,7 +266,10 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                   <CodePlayground
                     key={i}
                     initialLanguage={exerciseLang}
-                    initialCode={makeStarter(ex, exerciseLang)}
+                    initialCode={makeStarter(ex.text, exerciseLang)}
+                    expectedOutput={ex.expected_output ?? null}
+                    exerciseSlug={lessonSlug}
+                    exerciseIndex={i}
                   />
                 )}
               </div>

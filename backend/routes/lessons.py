@@ -19,23 +19,59 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
     return {}, body
 
 
-def _parse_exercises(body: str) -> list[str]:
+def _parse_exercises(body: str) -> list[dict]:
     if '## Exercises' not in body:
         return []
     section = body.split('## Exercises', 1)[1]
     section = re.split(r'\n## ', section)[0]
+
     items = []
-    current = None
+    current_text = None
+    current_expected = None
+    in_fence = False
+    fence_tag = ''
+    fence_lines: list[str] = []
+
     for line in section.split('\n'):
-        m = re.match(r'^\d+\.\s+(.+)$', line.strip())
+        stripped = line.strip()
+
+        if stripped.startswith('```'):
+            if not in_fence:
+                fence_tag = stripped[3:].strip()
+                in_fence = True
+                fence_lines = []
+            else:
+                if fence_tag == 'expected_output':
+                    current_expected = '\n'.join(fence_lines).strip()
+                elif current_text is not None and fence_lines:
+                    block = f'\n\n```{fence_tag}\n' + '\n'.join(fence_lines) + '\n```'
+                    current_text += block
+                in_fence = False
+                fence_tag = ''
+                fence_lines = []
+            continue
+
+        if in_fence:
+            fence_lines.append(line)
+            continue
+
+        if stripped.startswith('#') or stripped == '---':
+            continue
+
+        m = re.match(r'^\d+\.\s+(.+)$', stripped)
         if m:
-            if current is not None:
-                items.append(current.strip())
-            current = m.group(1)
-        elif current is not None and line.strip():
-            current += ' ' + line.strip()
-    if current is not None:
-        items.append(current.strip())
+            if current_text is not None:
+                items.append({'text': current_text.strip(), 'expected_output': current_expected})
+            current_text = m.group(1)
+            current_expected = None
+            continue
+
+        if current_text is not None and stripped:
+            current_text += ' ' + stripped
+
+    if current_text is not None:
+        items.append({'text': current_text.strip(), 'expected_output': current_expected})
+
     return items
 
 

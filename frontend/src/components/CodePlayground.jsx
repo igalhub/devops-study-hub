@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
+import { checkExercise } from '../store/curriculumStore'
 
 const API = 'http://localhost:8000'
 
@@ -21,17 +22,20 @@ function useDarkMode() {
   return dark
 }
 
-export default function CodePlayground({ initialCode, initialLanguage }) {
+export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex }) {
   const dark = useDarkMode()
   const [language, setLanguage] = useState(initialLanguage ?? 'bash')
   const [code, setCode] = useState(initialCode ?? STARTER[initialLanguage ?? 'bash'])
   const [output, setOutput] = useState(null)
   const [running, setRunning] = useState(false)
+  const [checkResult, setCheckResult] = useState(null)
+  const [checking, setChecking] = useState(false)
 
   const switchLanguage = (lang) => {
     setLanguage(lang)
     setCode(STARTER[lang])
     setOutput(null)
+    setCheckResult(null)
   }
 
   const run = async () => {
@@ -51,9 +55,25 @@ export default function CodePlayground({ initialCode, initialLanguage }) {
     }
   }
 
+  const check = async () => {
+    if (checking || !expectedOutput) return
+    setChecking(true)
+    setCheckResult(null)
+    try {
+      const result = await checkExercise(exerciseSlug, exerciseIndex, code, language, expectedOutput)
+      setCheckResult(result)
+    } catch (e) {
+      setCheckResult({ passed: false, error: e.message })
+    } finally {
+      setChecking(false)
+    }
+  }
+
   const handleKey = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') run()
   }
+
+  const hasCheck = Boolean(expectedOutput)
 
   return (
     <div
@@ -77,15 +97,27 @@ export default function CodePlayground({ initialCode, initialLanguage }) {
             </button>
           ))}
         </div>
-        <button
-          onClick={run}
-          disabled={running}
-          className="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium rounded-full transition-colors flex items-center gap-1.5"
-        >
-          <span>{running ? '…' : '▶'}</span>
-          <span>{running ? (language === 'yaml' ? 'Validating' : 'Running') : (language === 'yaml' ? 'Validate' : 'Run')}</span>
-          {!running && <span className="text-emerald-200 text-[10px]">Ctrl+Enter</span>}
-        </button>
+        <div className="flex items-center gap-2">
+          {hasCheck && (
+            <button
+              onClick={check}
+              disabled={checking}
+              className="text-xs px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium rounded-full transition-colors flex items-center gap-1.5"
+            >
+              <span>{checking ? '…' : '✓'}</span>
+              <span>{checking ? 'Checking' : 'Check'}</span>
+            </button>
+          )}
+          <button
+            onClick={run}
+            disabled={running}
+            className="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium rounded-full transition-colors flex items-center gap-1.5"
+          >
+            <span>{running ? '…' : '▶'}</span>
+            <span>{running ? (language === 'yaml' ? 'Validating' : 'Running') : (language === 'yaml' ? 'Validate' : 'Run')}</span>
+            {!running && <span className="text-emerald-200 text-[10px]">Ctrl+Enter</span>}
+          </button>
+        </div>
       </div>
 
       {/* Editor */}
@@ -107,7 +139,7 @@ export default function CodePlayground({ initialCode, initialLanguage }) {
         }}
       />
 
-      {/* Output */}
+      {/* Run output */}
       {output !== null && (
         <div className="border-t border-gray-200 dark:border-gray-700">
           <div className="px-3 py-1.5 bg-gray-800 flex items-center gap-2 border-b border-gray-700">
@@ -126,6 +158,45 @@ export default function CodePlayground({ initialCode, initialLanguage }) {
               <span className="text-gray-500">(no output)</span>
             )}
           </pre>
+        </div>
+      )}
+
+      {/* Check result */}
+      {checkResult !== null && (
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          {checkResult.error ? (
+            <div className="px-4 py-3 bg-red-950 text-red-300 text-sm">
+              Check failed: {checkResult.error}
+            </div>
+          ) : checkResult.passed ? (
+            <div className="px-4 py-3 bg-emerald-950 border-b border-emerald-800 flex items-center gap-3">
+              <span className="text-emerald-400 font-medium text-sm">✅ Correct!</span>
+              {checkResult.xp_earned > 0 && (
+                <span className="text-xs text-emerald-300 bg-emerald-900 px-2 py-0.5 rounded-full">
+                  +{checkResult.xp_earned} XP
+                </span>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="px-4 py-3 bg-red-950 border-b border-red-800">
+                <span className="text-red-400 font-medium text-sm">❌ Not quite — here's the diff:</span>
+                {checkResult.stderr && (
+                  <pre className="mt-2 text-xs text-red-300 font-mono whitespace-pre-wrap">{checkResult.stderr}</pre>
+                )}
+              </div>
+              <div className="grid grid-cols-2 divide-x divide-gray-700 bg-gray-900">
+                <div className="px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Expected</div>
+                  <pre className="text-sm font-mono text-emerald-300 whitespace-pre-wrap">{checkResult.expected}</pre>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Got</div>
+                  <pre className="text-sm font-mono text-red-300 whitespace-pre-wrap">{checkResult.actual !== '' ? checkResult.actual : <span className="text-gray-500">(no output)</span>}</pre>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
