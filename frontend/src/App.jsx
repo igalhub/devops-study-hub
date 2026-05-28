@@ -15,11 +15,11 @@ import InterviewPrep from './pages/InterviewPrep'
 import Review from './pages/Review'
 import Stats from './pages/Stats'
 import { useTheme } from './store/themeStore'
-import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue } from './store/curriculumStore'
+import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue, fetchInterviewReviewQueue } from './store/curriculumStore'
 
 const LessonViewer = lazy(() => import('./pages/LessonViewer'))
 
-function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue, onXpEarned }) {
+function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue, interviewDue, interviewQueue, onXpEarned, onInterviewDueChange }) {
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
@@ -53,7 +53,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
       {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
       <div className="flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900">
         <div className={`shrink-0 overflow-hidden transition-[width] duration-200 ${sidebarOpen ? 'w-[220px]' : 'w-0'}`}>
-          <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} />
+          <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} interviewDue={interviewDue} />
         </div>
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -107,8 +107,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/module/:moduleSlug/quiz" element={
                   <ModuleQuiz modules={modules} />
                 } />
-                <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} />} />
-                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} />} />
+                <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
+                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
@@ -157,6 +157,8 @@ export default function App() {
   const [xp, setXp] = useState(0)
   const [streak, setStreak] = useState({ current: 0, longest: 0, today_done: false })
   const [reviewDue, setReviewDue] = useState(0)
+  const [interviewDue, setInterviewDue] = useState(0)
+  const [interviewQueue, setInterviewQueue] = useState(null)
 
   const loadData = async () => {
     try {
@@ -173,9 +175,12 @@ export default function App() {
     } finally {
       setLoading(false)
     }
+    // Fetched separately so a failure here does not blank the whole app
+    fetchInterviewReviewQueue().then(q => { setInterviewDue(q.length); setInterviewQueue(q) }).catch(() => { setInterviewQueue([]) })
   }
 
   const handleXpEarned = (total) => setXp(total)
+  const handleInterviewDueChange = (count) => setInterviewDue(count)
 
   useEffect(() => { loadData() }, [])
 
@@ -189,7 +194,10 @@ export default function App() {
         xp={xp}
         streak={streak}
         reviewDue={reviewDue}
+        interviewDue={interviewDue}
+        interviewQueue={interviewQueue}
         onXpEarned={handleXpEarned}
+        onInterviewDueChange={handleInterviewDueChange}
       />
     </BrowserRouter>
   )

@@ -86,6 +86,23 @@ def init_db():
             reviews INTEGER NOT NULL DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS interview_attempts (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id  INTEGER NOT NULL REFERENCES interview_questions(id),
+            module_id    INTEGER NOT NULL REFERENCES modules(id),
+            score        TEXT    NOT NULL CHECK(score IN ('Weak', 'Adequate', 'Strong')),
+            is_correct   INTEGER NOT NULL,
+            attempted_at TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS interview_srs_schedule (
+            question_id   INTEGER PRIMARY KEY REFERENCES interview_questions(id),
+            interval_days INTEGER NOT NULL DEFAULT 1,
+            ease          REAL    NOT NULL DEFAULT 2.5,
+            next_review   TEXT    NOT NULL,
+            reviews       INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS lesson_notes (
             lesson_id INTEGER PRIMARY KEY REFERENCES lessons(id),
             content TEXT NOT NULL DEFAULT '',

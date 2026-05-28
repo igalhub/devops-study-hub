@@ -1,9 +1,13 @@
 import json
+import logging
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from anthropic import Anthropic
 from db import get_conn
+from srs import update_srs
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 client = Anthropic()
@@ -88,10 +92,15 @@ def get_interview_questions(module_slug: str):
     return _fetch_questions(mod["id"])
 
 
+def _update_interview_srs(conn, question_id: int, is_correct: bool) -> None:
+    update_srs(conn, 'interview_srs_schedule', question_id, is_correct)
+
+
 class EvaluateRequest(BaseModel):
     question: str
     answer: str
     module_slug: str
+    question_id: int | None = None
 
 
 @router.post("/interview/evaluate")
@@ -133,4 +142,71 @@ def evaluate_answer(req: EvaluateRequest):
     if result['score'] not in ('Weak', 'Adequate', 'Strong'):
         raise HTTPException(status_code=502, detail=f"Claude returned invalid score: {result['score']!r}")
 
-    return result
+    xp_earned = 0
+    xp_total = 0
+    if req.question_id is not None:
+        conn = get_conn()
+        try:
+            q_row = conn.execute(
+                "SELECT iq.id, iq.module_id FROM interview_questions iq "
+                "JOIN modules m ON iq.module_id = m.id "
+                "WHERE iq.id = ? AND m.slug = ?",
+                (req.question_id, req.module_slug)
+            ).fetchone()
+            if q_row:
+                score = result['score']
+                is_correct = score != 'Weak'
+                conn.execute(
+                    "INSERT INTO interview_attempts (question_id, module_id, score, is_correct) VALUES (?, ?, ?, ?)",
+                    (req.question_id, q_row['module_id'], score, int(is_correct))
+                )
+                _update_interview_srs(conn, req.question_id, is_correct)
+                xp_points = 5 if score == 'Strong' else 2 if score == 'Adequate' else 0
+                if xp_points > 0:
+                    conn.execute(
+                        "INSERT INTO xp_log (source, points) VALUES ('interview', ?)",
+                        (xp_points,)
+                    )
+                conn.commit()
+                xp_earned = xp_points
+            else:
+                logger.warning(
+                    "question_id=%s not found for module_slug=%s, skipping persistence",
+                    req.question_id, req.module_slug
+                )
+            xp_total = conn.execute(
+                "SELECT COALESCE(SUM(points), 0) as t FROM xp_log"
+            ).fetchone()['t']
+        except Exception:
+            logger.exception(
+                "Failed to persist interview attempt for question_id=%s", req.question_id
+            )
+            conn.rollback()
+            xp_earned = 0
+            xp_total = 0
+        finally:
+            conn.close()
+
+    return {**result, 'xp_earned': xp_earned, 'xp_total': xp_total}
+
+
+@router.get("/interview/review/queue")
+def get_interview_review_queue():
+    conn = get_conn()
+    try:
+        rows = conn.execute("""
+            SELECT iq.id, iq.question, m.title AS module_title, m.slug AS module_slug
+            FROM interview_srs_schedule s
+            JOIN interview_questions iq ON s.question_id = iq.id
+            JOIN modules m ON iq.module_id = m.id
+            WHERE s.next_review <= date('now')
+            ORDER BY s.next_review
+            LIMIT 20
+        """).fetchall()
+        return [
+            {'id': r['id'], 'question': r['question'],
+             'module_title': r['module_title'], 'module_slug': r['module_slug']}
+            for r in rows
+        ]
+    finally:
+        conn.close()
