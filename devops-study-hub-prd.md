@@ -233,6 +233,8 @@ devops-study-hub/
 │   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
+│   ├── tests/
+│   │   └── test_api.py      # 18 integration tests (infra + per-feature)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
@@ -271,10 +273,13 @@ devops-study-hub/
 │   └── opsgenie/            # 3 lessons
 ├── .claude/
 │   ├── commands/              # Project slash commands (gitignored)
+│   │   ├── cleanup.md
 │   │   ├── dev-check.md
 │   │   ├── expand-content.md  # Guided safe content expansion workflow
+│   │   ├── rollback.md
 │   │   ├── seed-reset.md
-│   │   └── test.md
+│   │   ├── test.md
+│   │   └── verifier-stats.md
 │   ├── verify-data.sh         # Data integrity checks (run via /verify-data)
 │   └── docs-manifest.sh       # Ground-truth outputs for /update-docs
 ├── devops-study-hub-prd.md
@@ -341,6 +346,7 @@ exercises: 3
 | Interview answer — Strong | 5 XP |
 | Interview answer — Adequate | 2 XP |
 | Interview answer — Weak | 0 XP |
+| Exercise check (correct, first time) | 5 XP |
 | Complete a full module | 50 XP bonus |
 | Daily streak bonus | +20% on all XP earned that day |
 
@@ -378,3 +384,4 @@ exercises: 3
 - Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)
 - Job readiness score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
 - Progress export — download full JSON backup (progress, XP log, quiz attempts, notes, interview history, SRS state) from Stats page
+- Lab exercise validation — `expected_output` fenced block in lesson markdown; amber Check button in CodePlayground; stdout match + exit 0 required; 5 XP awarded once per exercise (idempotent via xp_log source key); pilot: 4 exercises in bash/awk-sed and bash/pipes-redirects
