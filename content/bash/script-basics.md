@@ -890,3 +890,19 @@ The script must:
 5. Use only `bash`, `awk`, `sort`, and `uniq` — no Python, no Perl.
 
 Test with a sample log file you generate using a loop that writes fake log lines. Confirm the counts match what you wrote.
+
+---
+
+### Quick Checks
+
+5. Assign `NAME="nginx"` and print the value with `_backup` appended using brace syntax. Write it as a one-liner with a semicolon.
+
+```expected_output
+nginx_backup
+```
+
+6. Print the result of 2 raised to the power of 10 using bash arithmetic expansion.
+
+```expected_output
+1024
+```
