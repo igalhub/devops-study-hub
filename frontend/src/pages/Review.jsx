@@ -11,6 +11,7 @@ export default function Review({ onXpEarned, onComplete }) {
   const [selected, setSelected] = useState(null)
   const [score, setScore] = useState(0)
   const [xpEarned, setXpEarned] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     fetchReviewQueue()
@@ -32,6 +33,7 @@ export default function Review({ onXpEarned, onComplete }) {
     if (selected !== null) return
     setSelected(idx)
     setRevealed(true)
+    setSubmitting(true)
 
     const card = queue[index]
     const correct = idx === card.correct_index
@@ -44,6 +46,7 @@ export default function Review({ onXpEarned, onComplete }) {
         onXpEarned?.(result.xp_total)
       }
     } catch { /* silent */ }
+    setSubmitting(false)
   }
 
   const next = () => {
@@ -182,7 +185,8 @@ export default function Review({ onXpEarned, onComplete }) {
           </div>
           <button
             onClick={next}
-            className="self-end px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+            disabled={submitting}
+            className="self-end px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             {index + 1 >= queue.length ? 'Finish' : 'Next →'}
           </button>
