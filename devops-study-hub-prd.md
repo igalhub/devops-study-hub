@@ -362,6 +362,6 @@ exercises: 3
 - Recently visited dropdown (last 5 lessons, persisted in localStorage)
 - Keyboard lesson navigation (`[` / `]` keys)
 - Module completion banner (fires once on last-lesson completion, includes XP)
-- Stats page (XP history, streak calendar, completion breakdown)
+- Stats page (XP history, streak calendar, completion breakdown, quiz weak areas)
 - Sidebar collapse, TOC (auto-generated from `##` headings), reading mode
 - Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)

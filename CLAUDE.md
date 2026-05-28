@@ -19,7 +19,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Daily Operations** — session management, streaks, goals
 - **Code Builds** — in-app code execution for exercises
 - **Notes** — per-lesson notes, auto-saved to backend
-- **Stats** — XP timeline, streak calendar, per-module completion breakdown
+- **Stats** — XP timeline, streak calendar, per-module completion breakdown, quiz weak areas
 
 ## Killer Features
 - **AI Tutor** — answers questions in context of the current lesson
