@@ -669,3 +669,27 @@ For each failure, run `ssh -v user@host` before fixing it and identify the exact
 7. **Bonus:** add a `LocalForward 9090 localhost:8080` directive under the host in `~/.ssh/config`, then use `ssh -fN remote-host` and confirm the same tunnel opens without `-L` on the command line.
 
 **What to understand:** port forwarding is how you safely expose private services for local tooling — database GUIs, internal dashboards, admin panels — without opening firewall rules. The pattern is identical whether the target is a local port on the jump host or a hostname in a private VPC.
+
+---
+
+### Quick Checks
+
+1. Generate a temporary Ed25519 key pair and print the key type from the public key.
+
+   ```bash
+   ssh-keygen -t ed25519 -f /tmp/sshtest -N "" -q 2>/dev/null; awk '{print $1}' /tmp/sshtest.pub; rm -f /tmp/sshtest /tmp/sshtest.pub
+   ```
+
+   ```expected_output
+   ssh-ed25519
+   ```
+
+2. Parse a `HostName` value from a formatted SSH config block.
+
+   ```bash
+   printf 'Host myserver\n  HostName 10.0.0.1\n  User devops\n' | awk '/HostName/{print $2}'
+   ```
+
+   ```expected_output
+   10.0.0.1
+   ```

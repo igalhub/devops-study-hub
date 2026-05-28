@@ -905,3 +905,27 @@ Write a script that:
 **Constraints:** use `subprocess.run()` with `capture_output=True` and `timeout=30`. Catch both `CalledProcessError` and `TimeoutExpired` separately — they should produce different status labels in your summary. Do not use `check=True`; handle the return code manually. Run all pulls sequentially (no threading required).
 
 **Extension:** modify the script to run all pulls in parallel using `subprocess.Popen`, collecting all process handles first and then waiting on each one.
+
+---
+
+### Quick Checks
+
+1. Run a command with `subprocess.run` and capture its output.
+
+   ```python
+   import subprocess; r = subprocess.run(['echo', 'hello'], capture_output=True, text=True); print(r.stdout.strip())
+   ```
+
+   ```expected_output
+   hello
+   ```
+
+2. Capture the exit code of a failing command.
+
+   ```python
+   import subprocess; r = subprocess.run(['bash', '-c', 'exit 42'], capture_output=True); print(r.returncode)
+   ```
+
+   ```expected_output
+   42
+   ```

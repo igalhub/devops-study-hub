@@ -435,3 +435,27 @@ ls -la /tmp/ | head -20
 3. Write a bash script called `audit-permissions.sh` that: scans `/var/www` and `/etc` for files that are world-writable, reports them with their permissions and owner, and exits with code 1 if any are found (suitable for use as a CI gate). Test by creating a world-writable file and confirming the script catches it.
 
 4. Find all SUID and SGID binaries on your system with `find / -perm -4000 -o -perm -2000`. For each binary, explain in one sentence WHY it needs the elevated bit (use `man <binary>` or research). Identify any that look suspicious or unnecessary.
+
+---
+
+### Quick Checks
+
+1. Print the permission bits of `/etc/passwd`.
+
+   ```bash
+   ls -l /etc/passwd | awk '{print $1}'
+   ```
+
+   ```expected_output
+   -rw-r--r--
+   ```
+
+2. Print the permission bits of `/tmp` (sticky bit expected).
+
+   ```bash
+   ls -ld /tmp | awk '{print $1}'
+   ```
+
+   ```expected_output
+   drwxrwxrwt
+   ```

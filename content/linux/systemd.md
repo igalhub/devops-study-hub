@@ -734,3 +734,27 @@ systemctl start broken.service || true
 3. Without restarting sshd yet, use `systemctl show sshd.service` to confirm your changes are reflected in the merged configuration. What command shows you only the `Restart` and `RestartSec` properties?
 4. Apply the changes by reloading and restarting sshd. Verify the service is still reachable via SSH.
 5. Now undo your changes cleanly: delete the drop-in file, reload the daemon, and confirm `systemctl cat sshd.service` no longer shows your override. What is the path of the file you need to remove?
+
+---
+
+### Quick Checks
+
+1. Extract the `Restart` value from a unit file snippet.
+
+   ```bash
+   printf '[Service]\nExecStart=/bin/true\nRestart=on-failure\n' | awk -F= '/^Restart=/{print $2}'
+   ```
+
+   ```expected_output
+   on-failure
+   ```
+
+2. Extract the `WantedBy` value from a unit file snippet.
+
+   ```bash
+   printf '[Install]\nWantedBy=multi-user.target\n' | awk -F= '/^WantedBy=/{print $2}'
+   ```
+
+   ```expected_output
+   multi-user.target
+   ```

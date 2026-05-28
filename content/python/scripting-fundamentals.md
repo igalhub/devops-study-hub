@@ -822,3 +822,27 @@ steps = [
 - `python3 deploy.py --env dev --dry-run` prints all steps prefixed with `[DRY RUN]` and exits 0
 - `python3 deploy.py --env prod` prompts for confirmation and aborts on `"no"`
 - `python3 deploy.py --env staging` runs steps and may randomly exit 1 (run a few times to confirm)
+
+---
+
+### Quick Checks
+
+1. Sum the values of a dictionary.
+
+   ```python
+   data = {'a': 1, 'b': 2}; print(sum(data.values()))
+   ```
+
+   ```expected_output
+   3
+   ```
+
+2. Deduplicate a list and sort it.
+
+   ```python
+   items = [3, 1, 4, 1, 5]; print(sorted(set(items)))
+   ```
+
+   ```expected_output
+   [1, 3, 4, 5]
+   ```

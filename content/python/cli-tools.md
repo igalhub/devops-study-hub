@@ -842,3 +842,27 @@ python jsonfilter.py --field level --value ERROR test.jsonl --output errors.json
 ```
 
 **Requirements:** Use `argparse.FileType` for both input and output. Ensure log/error messages go to stderr so the stdout output stays clean for piping. Non-matching lines must be silently skipped — do not print warnings for them. Malformed JSON lines should print a warning to stderr and be skipped without aborting.
+
+---
+
+### Quick Checks
+
+1. Split a shell command string into a list of arguments.
+
+   ```python
+   import shlex; print(shlex.split('grep -r "error log" /var/log'))
+   ```
+
+   ```expected_output
+   ['grep', '-r', 'error log', '/var/log']
+   ```
+
+2. Parse a flag with a default using `argparse`.
+
+   ```python
+   import argparse; p = argparse.ArgumentParser(); p.add_argument('--count', type=int, default=5); args = p.parse_args([]); print(args.count)
+   ```
+
+   ```expected_output
+   5
+   ```
