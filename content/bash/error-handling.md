@@ -728,3 +728,19 @@ Run the script four times, setting `FAIL_AT_STAGE` to 1, 2, 3, and 4 in turn, an
 - The temp directory is always removed (check with `ls /tmp/deploy_*` before and after)
 - The exit code is non-zero for all four runs
 - A fifth run with `FAIL_AT_STAGE` unset completes successfully with exit code 0
+
+---
+
+### Quick Checks
+
+5. Run `bash -c 'exit 42'` and immediately print its exit code using `echo $?`. Write both commands semicolon-separated on one line.
+
+```expected_output
+42
+```
+
+6. Use `grep -q` to search for `"needle"` in `"haystack"` via a here-string (`<<<`). Use `||` so that if grep finds no match, `"not found"` is printed instead. Write a one-liner.
+
+```expected_output
+not found
+```

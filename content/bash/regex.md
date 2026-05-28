@@ -710,3 +710,19 @@ grep -oE "[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z]{2,}" contacts.txt
 For each: name the specific rule or concept it violates, then write the corrected command.
 
 **Concepts tested:** literal dot escaping, whole-word matching (`-w` or `\b`), unquoted `=~` RHS, character class completeness.
+
+---
+
+### Quick Checks
+
+5. Using `sed -E` and capture groups, transform `"Smith, John"` into `"John Smith"` (swap last name, first name order). Write a one-liner piping `echo` into `sed`.
+
+```expected_output
+John Smith
+```
+
+6. Extract just the IPv4 address from the string `"Connected to 10.0.1.42 successfully"` using `grep -oE` and an ERE pattern. Write a one-liner.
+
+```expected_output
+10.0.1.42
+```
