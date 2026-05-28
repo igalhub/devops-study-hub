@@ -26,7 +26,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Code Sandbox** — write and run Bash/Python exercises inline
 - **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson
 - **Roadmap View** — visual skill tree showing what to learn next
-- **Interview Prep Mode** — common DevOps interview questions with AI feedback
+- **Interview Prep Mode** — AI-generated interview questions with feedback, SRS review queue, and XP awards
 - **Content Search** — full-text search across lesson titles and body content
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
