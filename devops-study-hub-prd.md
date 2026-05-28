@@ -243,7 +243,8 @@ devops-study-hub/
 │       ├── quiz.py          # Quiz fetch, attempt recording, SRS queue
 │       ├── sandbox.py       # Code execution (subprocess)
 │       ├── search.py        # Full-text content search
-│       └── stats.py         # Aggregate stats endpoint
+│       ├── stats.py         # Aggregate stats endpoint
+│       └── export.py        # Progress export (JSON backup)
 ├── content/                 # 91 .md lesson files
 │   ├── linux/               # 6 lessons
 │   ├── python/              # 5 lessons
@@ -376,3 +377,4 @@ exercises: 3
 - Sidebar collapse, TOC (auto-generated from `##` headings), reading mode
 - Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)
 - Job readiness score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
+- Progress export — download full JSON backup (progress, XP log, quiz attempts, notes, interview history, SRS state) from Stats page
