@@ -11,18 +11,16 @@ Options:
     --module <slug>   Limit to one module (e.g. bash, docker)
 """
 import json
-import os
 import re
 import sys
 import time
 from pathlib import Path
 
-from anthropic import Anthropic
+from ai_client import generate
 from db import get_conn, init_db
 
 PROJECT_ROOT = Path(__file__).parent.parent
 CONTENT_DIR = PROJECT_ROOT / "content"
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
 HINTS_PROMPT = """\
 You are writing exercise hints for a DevOps study platform.
@@ -116,18 +114,13 @@ def _find_exercises_needing_hints(filepath: Path) -> list[dict]:
     return results
 
 
-def _generate_hints(client: Anthropic, module_title: str, exercise_text: str, expected_output: str) -> list[str]:
+def _generate_hints(module_title: str, exercise_text: str, expected_output: str) -> list[str]:
     prompt = HINTS_PROMPT.format(
         module_title=module_title,
         exercise_text=exercise_text.strip()[:500],
         expected_output=expected_output.strip()[:200],
     )
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=256,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=256)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text
         if text.endswith("```"):
@@ -162,7 +155,6 @@ def main() -> None:
         print("No modules found.")
         return
 
-    client = None if dry_run else Anthropic()
     prefix = "DRY RUN — " if dry_run else ""
     print(f"{prefix}{len(modules)} module(s)\n")
 
@@ -194,7 +186,7 @@ def main() -> None:
             for ex in exercises:
                 for attempt in range(3):
                     try:
-                        hints = _generate_hints(client, mod["title"], ex["exercise_text"], ex["expected_output"])
+                        hints = _generate_hints(mod["title"], ex["exercise_text"], ex["expected_output"])
                         insertions.append({"close_line_idx": ex["close_line_idx"], "hints": hints})
                         mod_added += 1
                         break

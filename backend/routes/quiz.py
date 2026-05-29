@@ -1,16 +1,14 @@
 import json
-import os
 import random
 from datetime import date
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from anthropic import Anthropic
+from ai_client import generate
 from db import get_conn
 from srs import update_srs
 
 router = APIRouter()
-client = Anthropic()
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
@@ -26,7 +24,6 @@ def _get_lesson_row(slug: str):
 
 
 def _generate_and_store(lesson_id: int, title: str, content: str) -> None:
-    model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6')
     prompt = (
         f"Generate exactly 5 multiple-choice questions for a DevOps lesson.\n\n"
         f"Lesson: {title}\n\nContent:\n{content}\n\n"
@@ -34,12 +31,7 @@ def _generate_and_store(lesson_id: int, title: str, content: str) -> None:
         '{"question":"...","options":["A","B","C","D"],"correct_index":0,"explanation":"1-2 sentences why correct"}\n\n'
         "Rules: test understanding not memorisation; all 4 options must be plausible; correct_index is 0-3."
     )
-    response = client.messages.create(
-        model=model,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=2048)
     if text.startswith("```"):
         parts = text.split("```")
         text = parts[1].lstrip("json").strip() if len(parts) > 1 else text

@@ -23,17 +23,15 @@ Idempotent: skips steps that are already complete.
 Auto-commits expanded content files at the end (hub.db is gitignored — quiz changes are not committed).
 """
 import json
-import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-from anthropic import Anthropic
+from ai_client import generate
 from db import get_conn, init_db
 
 PROJECT_ROOT = Path(__file__).parent.parent
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
 REQUIRED_SECTIONS = ["## Overview", "## Concepts", "## Examples", "## Exercises"]
 MIN_LINES_DEFAULT = 200
@@ -175,14 +173,9 @@ def _is_thin(content: str, min_lines: int) -> tuple[bool, str]:
     return False, ""
 
 
-def _expand_content(title: str, module_slug: str, raw_content: str, client: Anthropic) -> str:
+def _expand_content(title: str, module_slug: str, raw_content: str) -> str:
     prompt = EXPANSION_PROMPT.format(title=title, module=module_slug, content=raw_content)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=16384,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=16384)
     # Strip accidental outer markdown fence wrapper (don't split on inner code blocks)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text  # drop opening ```markdown line
@@ -191,14 +184,9 @@ def _expand_content(title: str, module_slug: str, raw_content: str, client: Anth
     return text.strip()
 
 
-def _generate_questions(title: str, content: str, client: Anthropic) -> list[dict]:
+def _generate_questions(title: str, content: str) -> list[dict]:
     prompt = QUIZ_PROMPT.format(title=title, content=content)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=2048)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text  # drop opening ```json line
         if text.endswith("```"):
@@ -344,7 +332,6 @@ def main() -> None:
             print(f"  {lesson['slug']}: content {content_status} | {quiz_status}")
         return
 
-    client = Anthropic()
     expanded_files: list[str] = []
     content_ok = content_expanded = content_failed = 0
     quiz_ok = quiz_generated = quiz_failed = 0
@@ -370,7 +357,7 @@ def main() -> None:
                 original_lines = sum(1 for l in content_body.splitlines() if l.strip())
                 for attempt in range(3):
                     try:
-                        expanded = _expand_content(lesson["title"], lesson["module_slug"], raw, client)
+                        expanded = _expand_content(lesson["title"], lesson["module_slug"], raw)
                         new_body = _strip_frontmatter(expanded)
                         fm_intact = new_body != expanded.strip()
                         blocks_closed = new_body.count("```") % 2 == 0
@@ -423,7 +410,7 @@ def main() -> None:
             else:
                 for attempt in range(3):
                     try:
-                        questions = _generate_questions(lesson["title"], content_body, client)
+                        questions = _generate_questions(lesson["title"], content_body)
                         if len(questions) != 5:
                             raise ValueError(f"expected 5 questions, got {len(questions)}")
                         _store_questions(lesson["id"], questions, replace=force_quiz)
