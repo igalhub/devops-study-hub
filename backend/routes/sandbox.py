@@ -49,10 +49,15 @@ def _run_subprocess(code: str, language: str) -> dict:
                 'import yaml, sys\n'
                 'try:\n'
                 '    data = yaml.safe_load(sys.stdin.read())\n'
-                '    n = len(data) if isinstance(data, (dict, list)) else 1\n'
-                '    print(f"\\u2713 Valid YAML \\u2014 {type(data).__name__} ({n} item(s))")\n'
                 'except yaml.YAMLError as e:\n'
                 '    sys.exit(str(e))\n'
+                'if data is None:\n'
+                '    print("\\u26a0 Nothing to validate — your YAML is empty.")\n'
+                '    print("Add your manifest below the --- line. A Kubernetes manifest")\n'
+                '    print("should start with apiVersion:, kind:, metadata:, and spec:.")\n'
+                '    sys.exit(1)\n'
+                'n = len(data) if isinstance(data, (dict, list)) else 1\n'
+                'print(f"\\u2713 Valid YAML \\u2014 {type(data).__name__} ({n} item(s))")\n'
             )
             result = subprocess.run(
                 [sys.executable, '-c', validate],
