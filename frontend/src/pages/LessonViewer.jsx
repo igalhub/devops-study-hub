@@ -148,6 +148,12 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
 
   const toggleExercise = (idx) => setActiveExercise(prev => prev === idx ? null : idx)
 
+  useEffect(() => {
+    if (activeExercise === null) return
+    const card = document.querySelector(`[data-exercise-index="${activeExercise}"]`)
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [activeExercise])
+
   if (loading) return <div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>
   if (error || !lesson) {
     const notFound = !error || error.includes('404')
@@ -268,7 +274,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Exercises</h2>
           <div className="space-y-3">
             {lesson.exercises.map((ex, i) => (
-              <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div key={i} data-exercise-index={i} className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="flex items-start justify-between gap-4 px-4 py-3 bg-white dark:bg-gray-800">
                   <div className="flex gap-3 min-w-0">
                     <span className="shrink-0 text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
