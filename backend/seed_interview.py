@@ -18,16 +18,14 @@ What it does per module:
 Idempotent: skips modules that already have questions unless --force.
 """
 import json
-import os
 import sys
 import time
 from pathlib import Path
 
-from anthropic import Anthropic
+from ai_client import generate
 from db import get_conn, init_db
 
 PROJECT_ROOT = Path(__file__).parent.parent
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 QUESTIONS_PER_MODULE = 8
 
 
@@ -123,18 +121,12 @@ def _build_content(md_paths_str: str | None) -> str:
 
 
 def _generate_questions(module_title: str, content: str) -> list[str]:
-    client = Anthropic()
     prompt = INTERVIEW_PROMPT.format(
         module_title=module_title,
         content=content,
         count=QUESTIONS_PER_MODULE,
     )
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=2048)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text
         if text.endswith("```"):
@@ -161,14 +153,8 @@ def _store_questions(module_id: int, questions: list[str], replace: bool) -> Non
 
 
 def _generate_hints(question: str, module_title: str) -> list[str]:
-    client = Anthropic()
     prompt = HINTS_PROMPT.format(module_title=module_title, question=question)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=256,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=256)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text
         if text.endswith("```"):

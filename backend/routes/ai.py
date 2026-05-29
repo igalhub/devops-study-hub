@@ -1,14 +1,12 @@
 import json
-import os
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from anthropic import AsyncAnthropic
+from ai_client import stream_text
 from db import get_conn
 
 router = APIRouter()
-client = AsyncAnthropic()
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
@@ -62,18 +60,13 @@ async def chat(request: ChatRequest):
         "Stay focused on DevOps topics. Keep responses short unless the student needs depth."
     )
 
-    model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6')
-
     async def stream_response():
         try:
-            async with client.messages.stream(
-                model=model,
-                max_tokens=1024,
-                system=system,
-                messages=[{'role': m.role, 'content': m.content} for m in request.messages],
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield f"data: {json.dumps({'text': text})}\n\n"
+            async for chunk in stream_text(
+                system,
+                [{'role': m.role, 'content': m.content} for m in request.messages],
+            ):
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'text': f'Error: {e}'})}\n\n"
         yield "data: [DONE]\n\n"

@@ -1,15 +1,13 @@
 import json
 import logging
-import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from anthropic import Anthropic, APITimeoutError
+from ai_client import generate, AITimeoutError
 from db import get_conn
 from routes.sandbox import _run_subprocess
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-client = Anthropic()
 
 XP_SANDBOX_PASS = 10
 XP_AI_ADEQUATE = 8
@@ -235,7 +233,6 @@ class AiGradeRequest(BaseModel):
 def grade_ai_step(slug: str, step_id: int, req: AiGradeRequest):
     project, step = _get_project_and_step(slug, step_id, "ai")
 
-    model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
     prompt = (
         f"You are evaluating a DevOps project task response.\n\n"
         f"Task: {step['title']}\n"
@@ -245,15 +242,9 @@ def grade_ai_step(slug: str, step_id: int, req: AiGradeRequest):
         '{"score":"Weak|Adequate|Strong","feedback":"2-3 sentences on correctness, completeness, and best-practice gaps","model_answer":"A strong example response"}'
     )
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=45.0,
-        )
-    except APITimeoutError:
+        text = generate(prompt, max_tokens=1500, timeout=45.0)
+    except AITimeoutError:
         raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
-    text = response.content[0].text.strip()
     if text.startswith("```"):
         parts = text.split("```")
         text = parts[1].lstrip("json").strip() if len(parts) > 1 else text

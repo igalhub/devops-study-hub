@@ -1,16 +1,14 @@
 import json
 import logging
-import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from anthropic import Anthropic, APITimeoutError
+from ai_client import generate, AITimeoutError
 from db import get_conn
 from srs import update_srs
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-client = Anthropic()
 
 
 def _get_module_row(slug: str):
@@ -35,7 +33,6 @@ def _fetch_questions(module_id: int) -> list[dict]:
 
 
 def _generate_and_store(module_id: int, title: str) -> None:
-    model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6')
     prompt = (
         f"Generate exactly 5 DevOps job interview questions on the topic: {title}.\n\n"
         "Requirements:\n"
@@ -45,13 +42,7 @@ def _generate_and_store(module_id: int, title: str) -> None:
         "Return ONLY a JSON array of 5 strings — no other text, no markdown fences.\n"
         'Example: ["How would you debug a container that keeps crashing in production?", ...]'
     )
-    response = client.messages.create(
-        model=model,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-        timeout=60.0,
-    )
-    text = response.content[0].text.strip()
+    text = generate(prompt, max_tokens=1024, timeout=60.0)
     if text.startswith("```"):
         parts = text.split("```")
         text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
@@ -111,7 +102,6 @@ def evaluate_answer(req: EvaluateRequest):
         raise HTTPException(status_code=404, detail="Module not found")
     module_title = mod["title"]
 
-    model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6')
     prompt = (
         f"You are evaluating a DevOps job interview answer.\n\n"
         f"Topic: {module_title}\n"
@@ -121,15 +111,9 @@ def evaluate_answer(req: EvaluateRequest):
         '{"score":"Weak|Adequate|Strong","feedback":"2-3 sentences on what was good and what was missing","model_answer":"A strong answer in 3-5 sentences"}'
     )
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=45.0,
-        )
-    except APITimeoutError:
+        text = generate(prompt, max_tokens=1024, timeout=45.0)
+    except AITimeoutError:
         raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
-    text = response.content[0].text.strip()
     if text.startswith("```"):
         parts = text.split("```")
         text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
