@@ -16,6 +16,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0, interviewDue
   const moduleSlug = (moduleMatch || lessonMatch)?.params?.moduleSlug
   const { pathname } = useLocation()
   const interviewActive = pathname.startsWith('/interview')
+  const projectsActive = pathname.startsWith('/projects')
   const reviewActive = pathname === '/review'
   const statsActive = pathname === '/stats'
   const roadmapActive = pathname === '/roadmap'
@@ -106,6 +107,16 @@ export default function Sidebar({ modules, progress, reviewDue = 0, interviewDue
           <div className="px-4 py-1 text-[10px] font-semibold tracking-widest uppercase text-gray-500 dark:text-gray-500">
             Practice
           </div>
+          <Link
+            to="/projects"
+            className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+              projectsActive
+                ? 'bg-stone-50 dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 font-medium border border-stone-300 dark:border-gray-600'
+                : 'text-gray-700 dark:text-gray-400 hover:bg-stone-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <span className="truncate">Projects</span>
+          </Link>
           <Link
             to="/interview"
             className={`flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-sm transition-colors ${

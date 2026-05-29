@@ -27,3 +27,4 @@ frontend/.env
 
 # Playwright MCP output
 .playwright-mcp/
+*.png

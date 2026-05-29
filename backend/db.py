@@ -108,6 +108,37 @@ def init_db():
             content TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            slug TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            modules TEXT NOT NULL,
+            difficulty TEXT NOT NULL DEFAULT 'intermediate'
+        );
+
+        CREATE TABLE IF NOT EXISTS project_steps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL REFERENCES projects(id),
+            order_index INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('sandbox', 'ai')),
+            prompt TEXT NOT NULL,
+            language TEXT,
+            expected_output TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS project_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL REFERENCES projects(id),
+            step_id INTEGER NOT NULL REFERENCES project_steps(id),
+            status TEXT NOT NULL DEFAULT 'not_started',
+            score TEXT,
+            answer TEXT,
+            completed_at TEXT,
+            UNIQUE(project_id, step_id)
+        );
     """)
       conn.commit()
     finally:

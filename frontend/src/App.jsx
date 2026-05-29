@@ -12,6 +12,8 @@ import Roadmap from './pages/Roadmap'
 import ModuleView from './pages/ModuleView'
 import ModuleQuiz from './pages/ModuleQuiz'
 import InterviewPrep from './pages/InterviewPrep'
+import Projects from './pages/Projects'
+import ProjectDetail from './pages/ProjectDetail'
 import Review from './pages/Review'
 import Stats from './pages/Stats'
 import { useTheme } from './store/themeStore'
@@ -107,6 +109,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/module/:moduleSlug/quiz" element={
                   <ModuleQuiz modules={modules} />
                 } />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:projectSlug" element={<ProjectDetail onXpEarned={onXpEarned} />} />
                 <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
