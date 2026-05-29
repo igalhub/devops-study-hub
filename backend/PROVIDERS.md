@@ -52,7 +52,7 @@ def _async():
     return _async_client
 
 def _model():
-    return os.getenv('AI_MODEL', 'gpt-4o')
+    return os.getenv('CLAUDE_MODEL', 'gpt-4o')
 
 def generate(prompt: str, *, max_tokens: int = 1024, timeout: float = 60.0) -> str:
     try:
@@ -171,10 +171,14 @@ Enable the model in the Bedrock console first.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Model ID for the current provider |
+| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Model ID (used by all providers — set to the right ID for your provider) |
 | `ANTHROPIC_API_KEY` | — | Required for the default Anthropic provider |
 | `OPENAI_API_KEY` | — | Required for OpenAI provider |
 | `AWS_REGION` | `us-east-1` | Required for Bedrock provider |
 
 `CLAUDE_MODEL` is read on every call via `_model()`, so it can be changed at
-runtime without restarting the server.
+runtime without restarting the server. Example values by provider:
+- Anthropic: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`
+- OpenAI: `gpt-4o`, `gpt-4o-mini`
+- Ollama: `llama3.2`, `mistral`
+- Bedrock: `us.anthropic.claude-sonnet-4-6-v1:0`
