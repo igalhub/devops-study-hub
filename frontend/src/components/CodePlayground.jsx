@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -34,6 +34,18 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
   const [checking, setChecking] = useState(false)
   const [answer, setAnswer] = useState(null)
   const [fetchingAnswer, setFetchingAnswer] = useState(false)
+  const [editorHeight, setEditorHeight] = useState(240)
+  const dragRef = useRef(null)
+
+  const startResize = useCallback((e) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = editorHeight
+    const onMove = (ev) => setEditorHeight(Math.max(120, Math.min(800, startH + ev.clientY - startY)))
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [editorHeight])
 
   const switchLanguage = (lang) => {
     setLanguage(lang)
@@ -175,7 +187,7 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
 
       {/* Editor */}
       <Editor
-        height="200px"
+        height={`${editorHeight}px`}
         language={language === 'bash' ? 'shell' : language === 'python' ? 'python' : 'yaml'}
         value={code}
         onChange={v => setCode(v ?? '')}
@@ -190,6 +202,12 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
           automaticLayout: true,
           padding: { top: 8 },
         }}
+      />
+      <div
+        ref={dragRef}
+        onMouseDown={startResize}
+        className="h-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-emerald-400 dark:hover:bg-emerald-600 cursor-ns-resize transition-colors"
+        title="Drag to resize editor"
       />
 
       {/* Run output */}
