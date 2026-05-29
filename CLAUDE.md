@@ -31,7 +31,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
 - **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent)
-- **Projects** — 5 multi-step interview-ready projects mixing modules; steps are Sandbox (stdout check, 10 XP) or AI Review (Claude grades Weak/Adequate/Strong, 8/15 XP); 75 XP completion bonus per project
+- **Projects** — 10 multi-step interview-ready projects mixing modules; steps are Sandbox (stdout check, 10 XP) or AI Review (Claude grades Weak/Adequate/Strong, 8/15 XP); 75 XP completion bonus per project
 
 ### Quick Check authoring rules
 - **Python must be single-line** — markdown list indentation (3 spaces) is captured by the parser and causes `IndentationError` on multi-line blocks. Chain statements with semicolons instead.
