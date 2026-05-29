@@ -18,7 +18,7 @@ integrated practice environments.
 - Curriculum: 23 modules across 5 groups — Foundations, Containers & Infra,
   CI/CD & Cloud, Security & APIs, Observability (see Module Content Outline)
 - Features: AI Tutor, Code Sandbox, Spaced Repetition Quizzes,
-  Roadmap View, Interview Prep Mode
+  Roadmap View, Interview Prep Mode, Projects
 - Study tracking, content planning, daily session management
 
 ### Out
@@ -213,6 +213,8 @@ devops-study-hub/
 │   │   │   ├── LessonViewer.jsx
 │   │   │   ├── ModuleQuiz.jsx
 │   │   │   ├── ModuleView.jsx
+│   │   │   ├── ProjectDetail.jsx # Multi-step project detail + sandbox/AI steps
+│   │   │   ├── Projects.jsx      # Projects list page
 │   │   │   ├── Review.jsx        # Spaced repetition review queue
 │   │   │   ├── Roadmap.jsx
 │   │   │   └── Stats.jsx
@@ -233,6 +235,7 @@ devops-study-hub/
 │   ├── seed.py              # Seeds modules & lessons from content/
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
 │   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
+│   ├── seed_projects.py     # Seeds 5 pilot projects + steps (runs at startup)
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
@@ -248,7 +251,8 @@ devops-study-hub/
 │       ├── sandbox.py       # Code execution (subprocess)
 │       ├── search.py        # Full-text content search
 │       ├── stats.py         # Aggregate stats endpoint
-│       └── export.py        # Progress export (JSON backup)
+│       ├── export.py        # Progress export (JSON backup)
+│       └── projects.py      # Projects CRUD + sandbox/AI-grade step endpoints
 ├── content/                 # 91 .md lesson files
 │   ├── linux/               # 6 lessons
 │   ├── python/              # 5 lessons
@@ -304,6 +308,9 @@ quiz_attempts     id, lesson_id, question_id, answer, is_correct, attempted_at
 xp_log            id, source (lesson/quiz/interview/streak), points, earned_at
 streaks           id, date, completed (bool)
 srs_schedule      question_id (PK), interval_days, ease, next_review, reviews
+projects          id, slug, title, description, modules (JSON), difficulty
+project_steps     id, project_id, order_index, title, type (sandbox/ai), prompt, language, expected_output
+project_progress  id, project_id, step_id, status, score, answer, completed_at
 ```
 
 - Progress is per-lesson; module completion % is derived
@@ -351,6 +358,10 @@ exercises: 3
 | Exercise check (correct, first time) | 5 XP |
 | Complete a full module | 50 XP bonus |
 | Daily streak bonus | +20% on all XP earned that day |
+| Project sandbox step — pass | 10 XP |
+| Project AI step — Adequate | 8 XP |
+| Project AI step — Strong | 15 XP |
+| Complete a full project | 75 XP bonus |
 
 ## Phases (all shipped)
 
@@ -387,3 +398,10 @@ exercises: 3
 - Job readiness score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
 - Progress export — download full JSON backup (progress, XP log, quiz attempts, notes, interview history, SRS state) from Stats page
 - Lab exercise validation — `expected_output` fenced block in lesson markdown; amber Check button in CodePlayground; stdout match + exit 0 required; 5 XP awarded once per exercise (idempotent via xp_log source key); 182 exercises across all 23 modules
+
+### Phase 6 — Projects ✅
+- 5 multi-step interview-ready projects mixing 2–3 modules each: Containerize a Python App, Zero-Downtime Kubernetes Deployment, Linux System Hardening, Observability Stack Setup, IaC: AWS VPC
+- Each project has 4 steps — Sandbox (Monaco editor + stdout check, 10 XP) or AI Review (Claude grading Weak/Adequate/Strong, 8/15 XP)
+- 75 XP completion bonus per project; all XP idempotent via xp_log source keys
+- Projects page (card grid with difficulty, module tags, step progress) + ProjectDetail page (expandable steps, server state restored on reload)
+- Sidebar: Projects link above Interview Prep in Practice section
