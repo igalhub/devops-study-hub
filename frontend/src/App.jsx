@@ -111,8 +111,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 } />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/projects/:projectSlug" element={<ProjectDetail onXpEarned={onXpEarned} />} />
-                <Route path="/interview" element={<InterviewPrep modules={modules} progress={progress} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
-                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} progress={progress} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
+                <Route path="/interview" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
+                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={

@@ -31,7 +31,7 @@ const SCORE_STYLE = {
   Weak: 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700',
 }
 
-export default function InterviewPrep({ modules, progress, onXpEarned, onInterviewDueChange, interviewQueue: queueProp = null }) {
+export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChange, interviewQueue: queueProp = null }) {
   const { moduleSlug: urlSlug } = useParams()
 
   const initialSlug = urlSlug && modules.find(m => m.slug === urlSlug)
