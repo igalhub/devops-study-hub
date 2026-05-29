@@ -386,4 +386,4 @@ exercises: 3
 - Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)
 - Job readiness score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
 - Progress export — download full JSON backup (progress, XP log, quiz attempts, notes, interview history, SRS state) from Stats page
-- Lab exercise validation — `expected_output` fenced block in lesson markdown; amber Check button in CodePlayground; stdout match + exit 0 required; 5 XP awarded once per exercise (idempotent via xp_log source key); 58 exercises across 6 sandboxable modules (Bash 10, Linux 12, Python 10, Git 8, Networking 10, DevSecOps 8)
+- Lab exercise validation — `expected_output` fenced block in lesson markdown; amber Check button in CodePlayground; stdout match + exit 0 required; 5 XP awarded once per exercise (idempotent via xp_log source key); 182 exercises across all 23 modules
