@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { fetchInterviewQuestions, evaluateAnswerWithSrs, fetchInterviewReviewQueue } from '../store/curriculumStore'
+import { fetchInterviewQuestions, evaluateAnswerWithSrs, fetchInterviewReviewQueue, selfGradeInterview } from '../store/curriculumStore'
 
 function HintBox({ hints, resetKey }) {
   const [hintCount, setHintCount] = useState(0)
@@ -47,6 +47,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
 
   // Main session state
   const [selectedSlug, setSelectedSlug] = useState(initialSlug)
+  const [mode, setMode] = useState('ai') // ai | flashcard
   const [phase, setPhase] = useState('idle') // idle | loading | active | evaluating | reviewed | done
   const [questions, setQuestions] = useState([])
   const [qIndex, setQIndex] = useState(0)
@@ -84,7 +85,8 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
 
   // ---- Main session handlers -----------------------------------------------
 
-  const start = async () => {
+  const start = async (startMode = mode) => {
+    setMode(startMode)
     setPhase('loading')
     setError(null)
     try {
@@ -98,6 +100,20 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
     } catch {
       setError('Failed to load questions. Make sure the backend is running.')
       setPhase('idle')
+    }
+  }
+
+  const reveal = () => setPhase('reviewed')
+
+  const selfRate = async (score) => {
+    try {
+      const ev = await selfGradeInterview(selectedSlug, questions[qIndex].id, score)
+      if (!isMounted.current) return
+      setEvaluation(ev)
+      if (ev.xp_earned > 0 && onXpEarned) onXpEarned(ev.xp_total)
+    } catch {
+      if (!isMounted.current) return
+      setError('Failed to record rating. Try again.')
     }
   }
 
@@ -133,6 +149,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
   }
 
   const reset = () => {
+    setMode('ai')
     setPhase('idle')
     setQuestions([])
     setQIndex(0)
@@ -385,13 +402,23 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
             </select>
           </div>
           {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
-          <button
-            onClick={start}
-            disabled={!selectedSlug || phase === 'loading'}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            {phase === 'loading' ? 'Generating questions…' : 'Start Session'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => start('ai')}
+              disabled={!selectedSlug || phase === 'loading'}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              {phase === 'loading' ? 'Loading…' : 'Start Session'}
+            </button>
+            <button
+              onClick={() => start('flashcard')}
+              disabled={!selectedSlug || phase === 'loading'}
+              className="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-500 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-950/30 disabled:opacity-50 transition-colors"
+              title="Reveal model answers and self-grade — no AI calls"
+            >
+              Quick Review
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -403,7 +430,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
     return (
       <div className="p-6 max-w-2xl">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">Session Complete</h1>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{mode === 'flashcard' ? 'Flashcard Session Complete' : 'Session Complete'}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{selectedModule?.title}</p>
         </div>
 
@@ -472,26 +499,85 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
       {(phase === 'active' || phase === 'evaluating') && (
         <>
           <HintBox hints={q.hints ?? []} resetKey={qIndex} />
-          <textarea
-            value={answer}
-            onChange={e => setAnswer(e.target.value)}
-            disabled={phase === 'evaluating'}
-            placeholder="Type your answer here…"
-            rows={6}
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-3"
-          />
-          {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
-          <button
-            onClick={submit}
-            disabled={!answer.trim() || phase === 'evaluating'}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            {phase === 'evaluating' ? 'Evaluating…' : 'Submit Answer'}
-          </button>
+          {mode === 'flashcard' ? (
+            <>
+              {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
+              <button
+                onClick={reveal}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+              >
+                Reveal Answer
+              </button>
+            </>
+          ) : (
+            <>
+              <textarea
+                value={answer}
+                onChange={e => setAnswer(e.target.value)}
+                disabled={phase === 'evaluating'}
+                placeholder="Type your answer here…"
+                rows={6}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-3"
+              />
+              {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
+              <button
+                onClick={submit}
+                disabled={!answer.trim() || phase === 'evaluating'}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                {phase === 'evaluating' ? 'Evaluating…' : 'Submit Answer'}
+              </button>
+            </>
+          )}
         </>
       )}
 
-      {phase === 'reviewed' && evaluation && (
+      {phase === 'reviewed' && mode === 'flashcard' && (
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Model Answer</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed border-l-2 border-emerald-400 pl-3">
+              {q.model_answer || <span className="italic text-gray-400">No model answer seeded yet — run seed_interview.py --model-answers</span>}
+            </p>
+          </div>
+          {!evaluation ? (
+            <>
+              <p className="text-xs text-gray-500 dark:text-gray-400">How well did you know this?</p>
+              {error && <p className="text-sm text-red-500 mb-1">{error}</p>}
+              <div className="flex gap-2">
+                {(['Strong', 'Adequate', 'Weak']).map(score => (
+                  <button
+                    key={score}
+                    onClick={() => selfRate(score)}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${SCORE_STYLE[score]} hover:opacity-80`}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${SCORE_STYLE[evaluation.score]}`}>
+                  {evaluation.score}
+                </div>
+                {evaluation.xp_earned > 0 && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">+{evaluation.xp_earned} XP</span>
+                )}
+              </div>
+              <button
+                onClick={advance}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+              >
+                {qIndex + 1 >= questions.length ? 'Finish Session' : 'Next Question'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {phase === 'reviewed' && mode === 'ai' && evaluation && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${SCORE_STYLE[evaluation.score]}`}>

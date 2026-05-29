@@ -148,6 +148,7 @@ def init_db():
     for migration in [
         "ALTER TABLE project_steps ADD COLUMN hints TEXT DEFAULT '[]'",
         "ALTER TABLE interview_questions ADD COLUMN hints TEXT DEFAULT '[]'",
+        "ALTER TABLE interview_questions ADD COLUMN model_answer TEXT DEFAULT ''",
     ]:
         conn = get_conn()
         try:

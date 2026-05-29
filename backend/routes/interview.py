@@ -25,11 +25,20 @@ def _fetch_questions(module_id: int) -> list[dict]:
     conn = get_conn()
     try:
         rows = conn.execute(
-            "SELECT id, question, hints FROM interview_questions WHERE module_id = ?", (module_id,)
+            "SELECT id, question, hints, model_answer FROM interview_questions WHERE module_id = ?",
+            (module_id,)
         ).fetchall()
     finally:
         conn.close()
-    return [{"id": r["id"], "question": r["question"], "hints": json.loads(r["hints"] or "[]")} for r in rows]
+    return [
+        {
+            "id": r["id"],
+            "question": r["question"],
+            "hints": json.loads(r["hints"] or "[]"),
+            "model_answer": r["model_answer"] or "",
+        }
+        for r in rows
+    ]
 
 
 def _generate_and_store(module_id: int, title: str) -> None:
@@ -184,7 +193,8 @@ def get_interview_review_queue():
     conn = get_conn()
     try:
         rows = conn.execute("""
-            SELECT iq.id, iq.question, iq.hints, m.title AS module_title, m.slug AS module_slug
+            SELECT iq.id, iq.question, iq.hints, iq.model_answer,
+                   m.title AS module_title, m.slug AS module_slug
             FROM interview_srs_schedule s
             JOIN interview_questions iq ON s.question_id = iq.id
             JOIN modules m ON iq.module_id = m.id
@@ -195,8 +205,60 @@ def get_interview_review_queue():
         return [
             {'id': r['id'], 'question': r['question'],
              'hints': json.loads(r['hints'] or '[]'),
+             'model_answer': r['model_answer'] or '',
              'module_title': r['module_title'], 'module_slug': r['module_slug']}
             for r in rows
         ]
     finally:
         conn.close()
+
+
+class SelfGradeRequest(BaseModel):
+    question_id: int
+    module_slug: str
+    score: str
+
+
+@router.post("/interview/self-grade")
+def self_grade(req: SelfGradeRequest):
+    if req.score not in ('Weak', 'Adequate', 'Strong'):
+        raise HTTPException(status_code=400, detail="score must be Weak, Adequate, or Strong")
+    mod = _get_module_row(req.module_slug)
+    if not mod:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    conn = get_conn()
+    try:
+        q_row = conn.execute(
+            "SELECT iq.id, iq.module_id, iq.model_answer FROM interview_questions iq "
+            "JOIN modules m ON iq.module_id = m.id "
+            "WHERE iq.id = ? AND m.slug = ?",
+            (req.question_id, req.module_slug)
+        ).fetchone()
+        if not q_row:
+            raise HTTPException(status_code=404, detail="Question not found")
+
+        is_correct = req.score != 'Weak'
+        conn.execute(
+            "INSERT INTO interview_attempts (question_id, module_id, score, is_correct) VALUES (?, ?, ?, ?)",
+            (req.question_id, q_row['module_id'], req.score, int(is_correct))
+        )
+        _update_interview_srs(conn, req.question_id, is_correct)
+        xp_points = 5 if req.score == 'Strong' else 2 if req.score == 'Adequate' else 0
+        if xp_points > 0:
+            conn.execute(
+                "INSERT INTO xp_log (source, points) VALUES ('interview', ?)", (xp_points,)
+            )
+        conn.commit()
+        xp_total = conn.execute(
+            "SELECT COALESCE(SUM(points), 0) as t FROM xp_log"
+        ).fetchone()['t']
+    finally:
+        conn.close()
+
+    return {
+        'score': req.score,
+        'model_answer': q_row['model_answer'] or '',
+        'xp_earned': xp_points,
+        'xp_total': xp_total,
+    }
