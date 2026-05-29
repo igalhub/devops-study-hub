@@ -139,7 +139,8 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   }
 
   const makeStarter = (text, lang) => {
-    const commented = text.split('\n').map(l => `# ${l}`).join('\n')
+    const prose = text.replace(/```[\s\S]*?```/g, '').trim()
+    const commented = prose.split('\n').map(l => `# ${l}`).join('\n')
     if (lang === 'yaml') return `${commented}\n---\n`
     const shebang = lang === 'python' ? '#!/usr/bin/env python3\n' : '#!/bin/bash\n'
     return `${shebang}${commented}\n\n`
