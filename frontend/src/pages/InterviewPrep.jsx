@@ -2,6 +2,29 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchInterviewQuestions, evaluateAnswerWithSrs, fetchInterviewReviewQueue } from '../store/curriculumStore'
 
+function HintBox({ hints, resetKey }) {
+  const [hintCount, setHintCount] = useState(0)
+  // Reset when question changes
+  useEffect(() => { setHintCount(0) }, [resetKey])
+  if (!hints || hints.length === 0) return null
+  return (
+    <div className="mb-4 space-y-2">
+      {hints.slice(0, hintCount).map((hint, i) => (
+        <div key={i} className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+          <span className="font-semibold">Hint {i + 1}:</span> {hint}
+        </div>
+      ))}
+      <button
+        onClick={() => setHintCount(c => Math.min(c + 1, hints.length))}
+        disabled={hintCount >= hints.length}
+        className="text-xs text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {hintCount === 0 ? 'Hint' : hintCount >= hints.length ? 'No more hints' : 'Next hint'}
+      </button>
+    </div>
+  )
+}
+
 const SCORE_STYLE = {
   Strong: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 border-emerald-300 dark:border-emerald-700',
   Adequate: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700',
@@ -249,6 +272,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
 
         {(reviewPhase === 'active' || reviewPhase === 'submitting') && (
           <>
+            <HintBox hints={card.hints ?? []} resetKey={reviewIndex} />
             <textarea
               value={reviewAnswer}
               onChange={e => setReviewAnswer(e.target.value)}
@@ -447,6 +471,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
 
       {(phase === 'active' || phase === 'evaluating') && (
         <>
+          <HintBox hints={q.hints ?? []} resetKey={qIndex} />
           <textarea
             value={answer}
             onChange={e => setAnswer(e.target.value)}

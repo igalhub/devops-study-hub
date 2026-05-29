@@ -8,6 +8,7 @@ Options:
     --dry-run         List what would be done without making API calls
     --module <slug>   Limit to one module (e.g. linux, docker)
     --force           Re-generate even if questions already exist
+    --hints-only      Generate 2 hints per existing question (no question regeneration)
 
 What it does per module:
 1. Aggregate the content of all the module's lessons (now expanded to gold standard)
@@ -29,6 +30,22 @@ PROJECT_ROOT = Path(__file__).parent.parent
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 QUESTIONS_PER_MODULE = 8
 
+
+HINTS_PROMPT = """\
+You are writing progressive hints for a DevOps interview question in a study platform.
+
+Module: {module_title}
+Question: {question}
+
+Generate exactly 2 hints. Requirements:
+- Hint 1: guide the candidate toward the key concept or area to address — general direction.
+- Hint 2: more specific — name the exact mechanism, flag, command, or technique they should use.
+- Each hint is one sentence, max 20 words.
+- Do NOT reveal the full answer.
+
+Return ONLY a JSON array of 2 strings — no prose, no markdown fences.
+Example: ["Think about how volumes persist data across container restarts.", "Use a named volume in docker-compose and reference it in the service definition."]
+"""
 
 INTERVIEW_PROMPT = """\
 You are generating DevOps job interview questions for a study platform. The \
@@ -143,9 +160,64 @@ def _store_questions(module_id: int, questions: list[str], replace: bool) -> Non
         conn.close()
 
 
+def _generate_hints(question: str, module_title: str) -> list[str]:
+    client = Anthropic()
+    prompt = HINTS_PROMPT.format(module_title=module_title, question=question)
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=256,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = response.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+    hints = json.loads(text.strip())
+    if not isinstance(hints, list) or len(hints) != 2 or not all(isinstance(h, str) for h in hints):
+        raise ValueError(f"unexpected hints format: {hints!r}")
+    return hints
+
+
+def _seed_hints_for_module(module_id: int, module_title: str) -> tuple[int, int]:
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, question FROM interview_questions WHERE module_id = ?", (module_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+
+    ok = failed = 0
+    for row in rows:
+        for attempt in range(3):
+            try:
+                hints = _generate_hints(row["question"], module_title)
+                conn = get_conn()
+                try:
+                    conn.execute(
+                        "UPDATE interview_questions SET hints = ? WHERE id = ?",
+                        (json.dumps(hints), row["id"]),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+                ok += 1
+                break
+            except Exception as e:
+                if attempt < 2:
+                    time.sleep(2)
+                else:
+                    print(f"\n  FAILED hint for question {row['id']}: {e}")
+                    failed += 1
+        time.sleep(0.3)
+    return ok, failed
+
+
 def main() -> None:
     dry_run = "--dry-run" in sys.argv
     force = "--force" in sys.argv
+    hints_only = "--hints-only" in sys.argv
 
     module_filter = None
     if "--module" in sys.argv:
@@ -158,6 +230,21 @@ def main() -> None:
 
     if not modules:
         print("No modules found.")
+        return
+
+    if hints_only:
+        print(f"{len(modules)} module(s) — generating hints for existing questions\n")
+        total_ok = total_failed = 0
+        for i, mod in enumerate(modules, 1):
+            if mod["question_count"] == 0:
+                print(f"[{i}/{len(modules)}] {mod['slug']}: no questions, skipping")
+                continue
+            print(f"[{i}/{len(modules)}] {mod['slug']} ({mod['question_count']} questions) ...", end=" ", flush=True)
+            ok, failed = _seed_hints_for_module(mod["id"], mod["title"])
+            print(f"OK ({ok} hints seeded{', ' + str(failed) + ' failed' if failed else ''})")
+            total_ok += ok
+            total_failed += failed
+        print(f"\nHints: {total_ok} seeded, {total_failed} failed")
         return
 
     prefix = "DRY RUN — " if dry_run else ""

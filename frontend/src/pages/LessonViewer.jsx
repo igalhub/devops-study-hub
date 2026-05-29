@@ -270,6 +270,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                     expectedOutput={ex.expected_output ?? null}
                     exerciseSlug={lessonSlug}
                     exerciseIndex={i}
+                    hints={ex.hints ?? []}
                   />
                 )}
               </div>
