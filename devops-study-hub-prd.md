@@ -243,7 +243,7 @@ devops-study-hub/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 18 integration tests (infra + per-feature)
+│   │   └── test_api.py      # 22 integration tests (infra + per-feature)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
@@ -305,7 +305,7 @@ modules           id, slug, title, group_name, order_index, is_locked
 lessons           id, module_id, slug, title, duration_min, difficulty, order_index, md_path
 progress          id, lesson_id, status (not_started/in_progress/complete), completed_at
 quiz_questions    id, lesson_id, question, options (JSON), correct_index, explanation
-interview_questions  id, module_id, question, hints (JSON)
+interview_questions  id, module_id, question, hints (JSON), model_answer TEXT
 interview_attempts   id, question_id, module_id, score, is_correct, attempted_at
 interview_srs_schedule  question_id (PK), interval_days, ease, next_review, reviews
 quiz_attempts     id, lesson_id, question_id, answer, is_correct, attempted_at
@@ -411,3 +411,9 @@ exercises: 3
 - Projects page (card grid with difficulty, module tags, step progress) + ProjectDetail page (expandable steps, server state restored on reload)
 - Sidebar: Projects link above Interview Prep in Practice section
 - Progressive Hints — amber HintBox in CodePlayground (exercises), InterviewPrep, and ProjectDetail; 2 hints revealed one at a time; resets on question/step change; hints stored as `hint:` lines in markdown (exercises) or JSON column (interview/project steps); seeded via `seed_exercise_hints.py` (184 exercise hints across all 23 modules) and `seed_interview.py --hints-only` (368 interview hints across all 23 modules)
+
+### Phase 7 — Sandbox Polish ✅
+- Show answer button (`POST /sandbox/answer`) on open-ended exercises (no `expected_output`); Haiku generates a complete solution using lesson title + content as context; renders as markdown in a blue Solution panel; validated exercises keep Check button only
+- Per-exercise language assignment: YAML modules (kubernetes, ansible, helm) use bash for validated exercises (bash command exercises) and yaml for open-ended manifest-writing exercises; terraform, cicd, gcp, aws always use bash
+- Language switcher hidden in exercise-bound sandboxes; static language label shown instead; free-form standalone sandbox retains full Bash / Python / YAML switcher
+- Empty YAML stub warning: submitting the default `---` starter now exits 1 with a clear message ("⚠ Nothing to validate — your YAML is empty. Add your manifest below the --- line.")
