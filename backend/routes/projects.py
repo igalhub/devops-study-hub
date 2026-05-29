@@ -3,7 +3,7 @@ import logging
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from anthropic import Anthropic
+from anthropic import Anthropic, APITimeoutError
 from db import get_conn
 from routes.sandbox import _run_subprocess
 
@@ -244,11 +244,15 @@ def grade_ai_step(slug: str, step_id: int, req: AiGradeRequest):
         "Score the response. Return ONLY a JSON object — no other text, no markdown fences:\n"
         '{"score":"Weak|Adequate|Strong","feedback":"2-3 sentences on correctness, completeness, and best-practice gaps","model_answer":"A strong example response"}'
     )
-    response = client.messages.create(
-        model=model,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=45.0,
+        )
+    except APITimeoutError:
+        raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
     text = response.content[0].text.strip()
     if text.startswith("```"):
         parts = text.split("```")

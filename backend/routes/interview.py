@@ -3,7 +3,7 @@ import logging
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from anthropic import Anthropic
+from anthropic import Anthropic, APITimeoutError
 from db import get_conn
 from srs import update_srs
 
@@ -49,6 +49,7 @@ def _generate_and_store(module_id: int, title: str) -> None:
         model=model,
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
+        timeout=60.0,
     )
     text = response.content[0].text.strip()
     if text.startswith("```"):
@@ -119,11 +120,15 @@ def evaluate_answer(req: EvaluateRequest):
         "Score the answer and return ONLY a JSON object — no other text, no markdown fences:\n"
         '{"score":"Weak|Adequate|Strong","feedback":"2-3 sentences on what was good and what was missing","model_answer":"A strong answer in 3-5 sentences"}'
     )
-    response = client.messages.create(
-        model=model,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=45.0,
+        )
+    except APITimeoutError:
+        raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
     text = response.content[0].text.strip()
     if text.startswith("```"):
         parts = text.split("```")
