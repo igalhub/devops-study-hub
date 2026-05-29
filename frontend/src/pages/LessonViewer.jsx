@@ -139,9 +139,10 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   }
 
   const makeStarter = (text, lang) => {
-    if (lang === 'yaml') return `# ${text}\n---\n`
+    const commented = text.split('\n').map(l => `# ${l}`).join('\n')
+    if (lang === 'yaml') return `${commented}\n---\n`
     const shebang = lang === 'python' ? '#!/usr/bin/env python3\n' : '#!/bin/bash\n'
-    return `${shebang}# ${text}\n\n`
+    return `${shebang}${commented}\n\n`
   }
 
   const toggleExercise = (idx) => setActiveExercise(prev => prev === idx ? null : idx)
