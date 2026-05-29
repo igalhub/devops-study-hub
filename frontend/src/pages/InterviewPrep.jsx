@@ -69,7 +69,10 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
   const selectedModule = modules.find(m => m.slug === selectedSlug)
   const topRef = useRef(null)
   const isMounted = useRef(true)
-  useEffect(() => () => { isMounted.current = false }, [])
+  useEffect(() => {
+    isMounted.current = true
+    return () => { isMounted.current = false }
+  }, [])
 
   // Sync when App's isolated fetch completes (queueProp transitions null → loaded)
   useEffect(() => {

@@ -119,17 +119,29 @@ def evaluate_answer(req: EvaluateRequest):
         "Score the answer and return ONLY a JSON object — no other text, no markdown fences:\n"
         '{"score":"Weak|Adequate|Strong","feedback":"2-3 sentences on what was good and what was missing","model_answer":"A strong answer in 3-5 sentences"}'
     )
-    try:
-        text = generate(prompt, max_tokens=1024, timeout=45.0)
-    except AITimeoutError:
-        raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
-    if text.startswith("```"):
-        parts = text.split("```")
-        text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
-    try:
-        result = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=502, detail=f"Claude returned unparseable JSON: {e}")
+    result = None
+    last_err = None
+    for attempt in range(2):
+        try:
+            text = generate(prompt, max_tokens=1024, timeout=45.0)
+        except AITimeoutError:
+            raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
+        # Strip markdown fences (```json ... ``` or ``` ... ```)
+        if "```" in text:
+            parts = text.split("```")
+            text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
+        # Extract first {...} block in case Claude adds prose around JSON
+        start, end = text.find('{'), text.rfind('}')
+        if start != -1 and end != -1:
+            text = text[start:end + 1]
+        try:
+            result = json.loads(text)
+            break
+        except json.JSONDecodeError as e:
+            last_err = e
+            logger.warning("evaluate attempt %d: JSON parse failed: %s", attempt + 1, e)
+    if result is None:
+        raise HTTPException(status_code=502, detail=f"Claude returned unparseable JSON: {last_err}")
 
     if not isinstance(result, dict):
         raise HTTPException(status_code=502, detail=f"Claude returned unexpected type: {type(result).__name__}")
