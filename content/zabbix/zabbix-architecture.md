@@ -692,3 +692,19 @@ watch -n5 "zabbix_server -R config_cache_reload 2>&1; \
 5. Make one configuration change, restart the server, and observe whether the metric stabilizes.
 
 **What to answer:** If all three metrics are healthy but users report the UI feels slow, which component is most likely the bottleneck, and what would you check first?
+
+---
+
+### Quick Checks
+
+6. Identify the default Zabbix agent listening port. Run: `python3 -c "ports={'agent': 10050, 'server': 10051}; print(ports['agent'])"`
+
+```expected_output
+10050
+```
+
+7. Count Zabbix architecture components. Run: `printf 'server\nproxy\nagent\nfrontend\ndatabase\n' | wc -l`
+
+```expected_output
+5
+```

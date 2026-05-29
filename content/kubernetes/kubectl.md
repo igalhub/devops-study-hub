@@ -759,3 +759,19 @@ Without reading the YAML above after applying it:
 3. Fix the Service using `kubectl patch` — do not re-apply the YAML file.
 4. Confirm connectivity by running a temporary curl pod inside the cluster targeting `backend-svc`.
 5. As a final check, explain in one sentence what would have happened if the Service selector had a label the pods *did* have but with a wrong value (e.g., `tier: frontend` instead of `tier: api`).
+
+---
+
+### Quick Checks
+
+6. Count Running pods from a status list. Run: `printf 'web-1 Running\ndb-0 Pending\nweb-2 Running\ncache-0 Running\n' | awk '$2=="Running"{c++} END{print c}'`
+
+```expected_output
+3
+```
+
+7. Extract a pod status field using simulated jsonpath. Run: `printf 'name: nginx\nstatus: Running\nready: 1/1\n' | awk '/^status:/{print $2}'`
+
+```expected_output
+Running
+```

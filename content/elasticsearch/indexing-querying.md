@@ -845,3 +845,19 @@ curl -s -X GET http://localhost:9200/services/_search \
 ```
 
 Use `_explain` on `svc-debug` with this query to identify **both** bugs. Fix the query so it returns `svc-debug`. Explain in a comment why each original clause was wrong given the field mapping.
+
+---
+
+### Quick Checks
+
+5. Extract the query type from an Elasticsearch DSL stub. Run: `printf '{"query":{"match":{"title":"devops"}}}\n' | python3 -c "import sys,json; q=json.load(sys.stdin)['query']; print(list(q.keys())[0])"`
+
+```expected_output
+match
+```
+
+6. Calculate index size in GB from MB. Run: `python3 -c "mb=2048; print(round(mb/1024, 1))"`
+
+```expected_output
+2.0
+```

@@ -811,3 +811,19 @@ This exercise connects base image choice directly to CVE counts.
 3. Record the HIGH and CRITICAL CVE counts for each base image in a table.
 4. Pick the image with the lowest CVE count. Add a non-root user and pin the base image to its digest. Rebuild and re-scan to confirm the CVE count did not increase.
 5. Answer: if `alpine:3.19` has the fewest CVEs but your application uses a Python package with a C extension, what is the recommended approach and why?
+
+---
+
+### Quick Checks
+
+6. Count `RUN` instructions in a Dockerfile stub (combining saves a layer). Run: `printf 'FROM ubuntu:22.04\nRUN apt-get update\nRUN apt-get install -y curl git\nRUN apt-get clean\nRUN rm -rf /var/lib/apt/lists/*\n' | grep -c '^RUN'`
+
+```expected_output
+4
+```
+
+7. Count images tagged `:latest` in an image list. Run: `printf 'nginx:latest\nalpine:3.19\nubuntu:latest\npython:3.12-slim\n' | grep -c ':latest'`
+
+```expected_output
+2
+```

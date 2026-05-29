@@ -875,3 +875,19 @@ kubectl logs -n monitoring daemonset/otel-collector --tail=50
    - Both spans share the same `traceId`
 
 **Debugging step:** if the spans appear as two separate traces instead of one, add `print` statements to log the `traceparent` header that service-a sends and verify service-b is receiving it. This is the most common failure mode when setting up cross-service tracing.
+
+---
+
+### Quick Checks
+
+7. Count receivers in an OTel pipeline config stub. Run: `printf 'receivers:\n  otlp:\n  prometheus:\n  hostmetrics:\n' | awk '/^  [a-z]/{c++} END{print c}'`
+
+```expected_output
+3
+```
+
+8. Extract the exporter transport protocol from a config stub. Run: `printf 'exporters:\n  otlp:\n    endpoint: otelcol:4317\n    protocol: grpc\n' | awk '/protocol:/{print $2}'`
+
+```expected_output
+grpc
+```

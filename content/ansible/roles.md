@@ -289,3 +289,20 @@ molecule destroy                 # clean up
 2. Use the `defaults/main.yml` to define configurable variables (`nginx_port`, `nginx_worker_processes`). Override them from the playbook for one group of hosts and use defaults for another.
 3. Add a `meta/main.yml` with a dependency on a `common` role you also write. Verify Ansible runs `common` before `nginx` without you having to specify the order in the playbook.
 4. Write a Molecule test for your nginx role that verifies: the nginx package is installed, the service is running, and port 80 is listening. Run `molecule test` and confirm it passes.
+
+
+---
+
+### Quick Checks
+
+5. Count standard role subdirectories. Run: `printf 'tasks\nhandlers\ndefaults\nvars\nfiles\ntemplates\nmeta\n' | wc -l`
+
+```expected_output
+7
+```
+
+6. Extract the role entry-point filename from a path. Run: `echo "roles/nginx/tasks/main.yml" | awk -F/ '{print $NF}'`
+
+```expected_output
+main.yml
+```

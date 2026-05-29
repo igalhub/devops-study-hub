@@ -666,3 +666,20 @@ Result event fields: `level`, `service`, `request_id`, `username`, `duration_ms`
 2. Add a filter block that: (a) drops any event where `level` equals `DEBUG`; (b) converts `level` to uppercase using `mutate`; (c) adds a field `datacenter` with value `eu-west-1`; (d) adds the tag `error` if `level` is `ERROR`. Write these as a single `filter {}` block with the correct order of operations.
 
 3. A colleague reports that events in Elasticsearch all have the same `@timestamp` — the time Logstash ingested them, not the actual log time. The log timestamp field extracted by grok is named `log_ts` and is in the format `yyyy-MM-dd HH:mm:ss`. (a) Identify which filter is missing. (b) Write the correct `date` filter block to fix the issue, including removing the `log_ts` field after parsing. (c) Explain why leaving `log_ts` in the event would cause no harm to Elasticsearch but would waste storage.
+
+
+---
+
+### Quick Checks
+
+4. Count grok pattern captures in a pattern string. Run: `echo '%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{GREEDYDATA:message}' | grep -o '%{[^}]*}' | wc -l`
+
+```expected_output
+3
+```
+
+5. Extract the output plugin name from a Logstash config stub. Run: `printf 'output {\n  elasticsearch {\n    hosts => ["http://es:9200"]\n  }\n}\n' | awk '/^  [a-z]/{gsub(/[ {]/, "", $0); print; exit}'`
+
+```expected_output
+elasticsearch
+```

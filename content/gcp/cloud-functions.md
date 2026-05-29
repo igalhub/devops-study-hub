@@ -267,3 +267,20 @@ def resize_image(cloud_event):
 2. Create a Pub/Sub topic and deploy a Cloud Function triggered by it. The function should log the decoded message content. Publish 5 test messages and verify all appear in the function logs.
 3. Deploy a Cloud Storage-triggered function that logs the name and size of every file uploaded to a specific bucket. Verify by uploading several files and checking the logs.
 4. Deploy a secure (authenticated) HTTP function. Write a Python script that calls it with a valid identity token obtained via `gcloud auth print-identity-token`. Verify the same URL returns 403 without the token.
+
+
+---
+
+### Quick Checks
+
+5. Extract the trigger type from a Cloud Function config stub. Run: `printf 'trigger:\n  type: http\n  allowUnauthenticated: true\n' | awk '/^  type:/{print $2}'`
+
+```expected_output
+http
+```
+
+6. Calculate the maximum function timeout (9 minutes) in seconds. Run: `python3 -c "print(9 * 60)"`
+
+```expected_output
+540
+```

@@ -470,3 +470,20 @@ The `${datasource}` placeholder works with the `Export for sharing externally` f
 2. Add a **namespace** query variable populated from `label_values(kube_pod_info, namespace)`. Enable **Multi-value** and **Include All**. Wire the variable into both panel queries using `namespace=~"$namespace"`. Verify the dropdown filters data correctly by switching namespaces and confirming both panels update. Explain why `=~` is required instead of `=` when the variable is multi-value.
 
 3. Export your dashboard as JSON using **Share → Export → Export for sharing externally → Save to file**. Commit it to a Git repo. Write a Grafana provisioning YAML config (`/etc/grafana/provisioning/dashboards/default.yaml`) that watches `/var/lib/grafana/dashboards`. Copy the exported JSON to that directory, restart Grafana, and confirm the dashboard appears in the UI by querying the API: `curl -s http://admin:admin@localhost:3000/api/search?query= | jq '.[].title'`.
+
+
+---
+
+### Quick Checks
+
+4. Count panels in a dashboard stub. Run: `printf 'panels:\n- title: CPU\n  type: gauge\n- title: Memory\n  type: gauge\n- title: Requests\n  type: graph\n- title: Errors\n  type: stat\n' | grep -c '^- title:'`
+
+```expected_output
+4
+```
+
+5. Extract the panel type from a JSON panel stub. Run: `printf '{"title":"Error Rate","type":"graph","datasource":"Prometheus"}\n' | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['type'])"`
+
+```expected_output
+graph
+```

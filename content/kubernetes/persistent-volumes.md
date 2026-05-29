@@ -802,3 +802,19 @@ kubectl exec -n production postgres -- df -h /var/lib/postgresql/data
 6. Attempt to shrink the PVC back to `1Gi`. Document the exact error message returned by the API.
 
 **Verification:** `df -h` shows the expanded size. The shrink attempt is rejected with a validation error mentioning that storage requests cannot be decreased.
+
+---
+
+### Quick Checks
+
+7. Extract the access mode from a PVC spec stub. Run: `printf 'spec:\n  accessModes:\n  - ReadWriteOnce\n' | awk '/- Read/{print $2}'`
+
+```expected_output
+ReadWriteOnce
+```
+
+8. Parse the storage request size from a PVC. Run: `printf 'resources:\n  requests:\n    storage: 10Gi\n' | awk '/storage:/{print $2}'`
+
+```expected_output
+10Gi
+```

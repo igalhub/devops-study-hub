@@ -710,3 +710,19 @@ curl -s "https://alertmanager.internal:9093/api/v2/alerts" | \
    - If `failed tasks` is non-zero, where would you look to find the root cause? (Hint: Kibana server logs, rule execution history, Elasticsearch cluster health.)
    - What two operational changes could you make to reduce drift without changing rule logic?
 5. Delete the 10-second rule after the exercise to reduce task manager load.
+
+---
+
+### Quick Checks
+
+6. Extract the alert threshold value from a rule stub. Run: `printf 'threshold:\n  comparator: ">"\n  value: 100\n' | awk '/^  value:/{print $2}'`
+
+```expected_output
+100
+```
+
+7. Count notification actions in an alert rule. Run: `printf 'actions:\n- id: email-action\n- id: slack-action\n- id: pagerduty-action\n' | grep -c '^- id:'`
+
+```expected_output
+3
+```

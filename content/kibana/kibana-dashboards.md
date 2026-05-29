@@ -720,3 +720,19 @@ You have been handed a dashboard that "takes forever to load." It has 15 panels 
 5. Document your findings: which panel was slow, what the root cause was, and what you changed. This is the format of a real performance review you would present to a team.
 
 **What to verify:** After optimization, the dashboard's total load time (observable in the Network tab as the time from first request to last response) should be meaningfully reduced. If it is not, there may be an Elasticsearch cluster resource issue rather than a query design issue — note that distinction.
+
+---
+
+### Quick Checks
+
+6. Count panels in a Kibana dashboard stub. Run: `printf 'panels:\n- title: Requests\n- title: Errors\n- title: Latency\n- title: CPU\n' | grep -c '^- title:'`
+
+```expected_output
+4
+```
+
+7. Extract the auto-refresh interval value from a dashboard config. Run: `printf 'refreshInterval:\n  display: 30 seconds\n  value: 30\n' | awk '/  value:/{print $2}'`
+
+```expected_output
+30
+```

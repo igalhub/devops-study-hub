@@ -278,3 +278,20 @@ aws iam put-role-policy \
 2. Create an S3 bucket with versioning enabled. Upload three versions of the same file. Use `aws s3api list-object-versions` to see all versions. Delete the latest version and verify the previous version is accessible.
 3. Create an IAM role for EC2 with a policy that allows read-only access to a specific S3 bucket. Attach the role to an EC2 instance. SSH in and verify `aws s3 ls s3://your-bucket` works without configuring credentials.
 4. Write a least-privilege IAM policy that allows only `s3:PutObject` on a specific bucket path (`s3:::my-bucket/uploads/*`). Test it with `aws iam simulate-principal-policy`. Then add `s3:DeleteObject` and re-test.
+
+
+---
+
+### Quick Checks
+
+5. Extract the S3 bucket name from an ARN. Run: `echo "arn:aws:s3:::my-app-bucket-prod" | cut -d: -f6`
+
+```expected_output
+my-app-bucket-prod
+```
+
+6. Extract the account ID from an IAM ARN. Run: `echo "arn:aws:iam::123456789012:role/MyRole" | cut -d: -f5`
+
+```expected_output
+123456789012
+```

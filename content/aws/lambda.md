@@ -855,3 +855,19 @@ Build a pipeline: EventBridge rule (rate 1 minute) → Lambda → intentional fa
 5. Read one DLQ message and decode its body — document what fields Lambda includes in the async failure record.
 
 **What you're learning:** async retry behavior (Lambda retries 2×, then routes to the DLQ), the structure of Lambda's async failure payload, and the difference between a function-level DLQ and an event source DLQ. Disable the EventBridge rule when you're done to avoid ongoing charges.
+
+---
+
+### Quick Checks
+
+6. Extract the handler function name from a Lambda config stub. Run: `printf 'Handler: index.handler\nRuntime: nodejs20.x\n' | awk '/^Handler:/{split($2, a, "."); print a[2]}'`
+
+```expected_output
+handler
+```
+
+7. Calculate Lambda memory after doubling from 512 MB. Run: `python3 -c "print(512 * 2)"`
+
+```expected_output
+1024
+```

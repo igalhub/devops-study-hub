@@ -982,3 +982,19 @@ resource "datadog_monitor" "broken_alert" {
 3. Write the two Datadog SLO alert monitors (fast burn and slow burn) for a service called `search-service`. Use the burn rates from questions 1 and 2.
 4. Explain in 3–4 sentences why a single threshold-based monitor on the SLO's 30-day compliance percentage would fail to catch an acute incident in its early stages. What property of the 30-day rolling window causes this?
 5. **Design question:** A colleague suggests adding a third window — 5-minute burn rate at 36× — to catch catastrophic failures even faster. What is the risk of this approach, and under what circumstances would you accept that risk?
+
+---
+
+### Quick Checks
+
+6. Calculate the error rate as a percentage. Run: `python3 -c "errors=15; total=200; print(round(errors/total*100, 1))"`
+
+```expected_output
+7.5
+```
+
+7. Count monitors in a config stub. Run: `printf 'monitors:\n- name: CPU High\n- name: Error Rate\n- name: API Latency\n' | grep -c '^- name:'`
+
+```expected_output
+3
+```

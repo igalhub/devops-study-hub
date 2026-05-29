@@ -241,3 +241,20 @@ spec:
 2. Change the Service type to `NodePort`. Find the assigned node port with `kubectl get svc`. Access the service from outside the cluster at `<node-ip>:<node-port>`.
 3. Write an Ingress resource that routes `api.local/v1` to one Service and `api.local/v2` to another Service. Apply it and test with `curl -H "Host: api.local" http://<ingress-ip>/v1`.
 4. Write a NetworkPolicy that allows only pods with label `app: frontend` to talk to pods with label `app: api` on port 8080. Deny all other ingress. Test it by creating both pod types and verifying connectivity.
+
+
+---
+
+### Quick Checks
+
+5. Extract the `targetPort` from a Service spec stub. Run: `printf 'ports:\n- port: 80\n  targetPort: 8080\n' | awk '/targetPort:/{print $2}'`
+
+```expected_output
+8080
+```
+
+6. Count host rules in an Ingress spec stub. Run: `printf 'rules:\n- host: app.example.com\n- host: api.example.com\n- host: admin.example.com\n' | grep -c 'host:'`
+
+```expected_output
+3
+```

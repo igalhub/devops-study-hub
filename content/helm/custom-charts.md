@@ -255,3 +255,20 @@ spec:
 2. Write a chart test that verifies the application's `/health` endpoint returns HTTP 200. Run it with `helm test` and verify it passes and cleans up the test pod.
 3. Create a library chart with a `common.labels` template. Create a dependent application chart that uses it. Verify `helm template` produces the shared labels on all resources.
 4. Add `postgresql` from Bitnami as a chart dependency with `condition: postgresql.enabled`. Show that `helm install --set postgresql.enabled=false` deploys your app without a PostgreSQL instance.
+
+
+---
+
+### Quick Checks
+
+5. Count template files in a chart template directory listing. Run: `printf 'deployment.yaml\nservice.yaml\ningress.yaml\nconfigmap.yaml\nserviceaccount.yaml\n' | grep -c '\.yaml$'`
+
+```expected_output
+5
+```
+
+6. Extract the chart type from a library Chart.yaml stub. Run: `printf 'apiVersion: v2\nname: mylib\ntype: library\n' | awk '/^type:/{print $2}'`
+
+```expected_output
+library
+```

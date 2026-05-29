@@ -256,3 +256,20 @@ module "eks" {
 2. Use `for_each` to create three S3 buckets from a `toset` of names. Then remove one name from the set — observe how `terraform plan` handles removal vs what would happen with `count`.
 3. Create two workspaces (`dev` and `prod`). Use `terraform.workspace` to set different instance types in each. Apply in both workspaces and verify different instances were created via `terraform state list`.
 4. Use the `terraform-aws-modules/s3-bucket/aws` module from the Terraform Registry to create an S3 bucket with versioning and encryption. Compare the amount of HCL needed vs writing the resources directly.
+
+
+---
+
+### Quick Checks
+
+5. Count `module` blocks in an HCL config stub. Run: `printf 'module "vpc" {\n  source = "./modules/vpc"\n}\nmodule "eks" {\n  source = "./modules/eks"\n}\n' | grep -c '^module'`
+
+```expected_output
+2
+```
+
+6. Extract the resource type from a Terraform resource address. Run: `echo "aws_instance.web_server" | cut -d. -f1`
+
+```expected_output
+aws_instance
+```

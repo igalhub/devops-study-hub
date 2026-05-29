@@ -435,3 +435,20 @@ Both series plot on the same time axis. Add a threshold line at your SLO target 
 2. Create a panel using the **Mixed** data source that overlays Prometheus CPU metrics (Query A) with a PostgreSQL annotation series (Query B) returning deployment timestamps as points. In the PostgreSQL query, use `$__timeFilter(deployed_at)` to scope results to the dashboard time range. Add a threshold line at your SLO CPU limit. Confirm both series appear on the same graph by running the query and inspecting output under **Inspect → Data**.
 
 3. Build a Table panel that queries two Prometheus metrics (request count as Query A, error count as Query B). In the **Transform** tab, add a **Reduce** transformation (mode: Last, applied to both series), then a **Calculate field** transformation (expression: `errors / requests * 100`, alias: `Error Rate %`), then a **Sort by** transformation (field: `Error Rate %`, descending). Confirm the table shows a single row per service with the computed error rate sorted highest-first.
+
+
+---
+
+### Quick Checks
+
+4. Extract the data source type from a provisioning stub. Run: `printf 'name: Prometheus\ntype: prometheus\nurl: http://prometheus:9090\n' | awk '/^type:/{print $2}'`
+
+```expected_output
+prometheus
+```
+
+5. Count configured data sources in a provisioning stub. Run: `printf 'datasources:\n- name: Prometheus\n  type: prometheus\n- name: Loki\n  type: loki\n- name: Tempo\n  type: tempo\n' | grep -c '^- name:'`
+
+```expected_output
+3
+```

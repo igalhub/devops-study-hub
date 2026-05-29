@@ -713,3 +713,19 @@ Write a shell script (not a one-liner) that:
 4. Runs a second time against the same release to confirm idempotency — the revision number should increment by 1 (because `upgrade --install` always creates a new revision even if values are unchanged), and the script should exit 0 both times.
 
 **Goal:** build the habit of writing Helm deployments as safe, self-verifying scripts rather than ad hoc commands. Understand that `upgrade --install` always creates a revision even with no changes — plan `--history-max` accordingly.
+
+---
+
+### Quick Checks
+
+5. Extract the release status from a `helm list` output stub. Run: `printf 'NAME\tSTATUS\tCHART\nmyapp\tdeployed\tmyapp-1.0.0\n' | awk '/^myapp/{print $2}'`
+
+```expected_output
+deployed
+```
+
+6. Calculate the next revision number after three upgrades. Run: `python3 -c "current=3; print(current + 1)"`
+
+```expected_output
+4
+```

@@ -266,3 +266,20 @@ curl -s -X POST http://zabbix-server/api_jsonrpc.php \
 1. Write a trigger expression for a host that fires at `Average` severity when the 5-minute CPU load average exceeds 4 for more than 3 consecutive minutes, and recovers only when it drops below 2. Include a recovery expression. Explain why using `avg()` instead of `last()` is important here.
 2. Configure a three-step escalation action: Step 1 sends a Slack message to `#alerts`, Step 2 (after 30 minutes if unacknowledged) sends a PagerDuty alert to on-call, Step 3 (after 1 hour) sends an email to the engineering manager. Set conditions so only `High` or `Disaster` severity triggers from the `Production` host group match.
 3. Create a maintenance window for a host group covering 02:00–04:00 UTC on the first Sunday of each month, using `With data collection` mode. Verify that an active trigger on a host in that group does not generate a notification during the window, but data is still visible in **Monitoring → Latest data**.
+
+
+---
+
+### Quick Checks
+
+4. Evaluate a simple Zabbix trigger threshold. Run: `python3 -c "cpu=85; threshold=80; print('PROBLEM' if cpu > threshold else 'OK')"`
+
+```expected_output
+PROBLEM
+```
+
+5. Count Zabbix trigger severity levels. Run: `printf 'Not classified\nInformation\nWarning\nAverage\nHigh\nDisaster\n' | wc -l`
+
+```expected_output
+6
+```

@@ -738,3 +738,19 @@ COPY --from=builder /install /usr/local
 2. Run an nginx container with port 8080 mapped to container port 80. Use `docker inspect` with a Go template to extract only the container's IP address on the default bridge network.
 3. Without stopping the container, use `docker exec` to create a file at `/tmp/test.txt` inside the container. Then stop and remove the container. Start a new container from `nginx:1.25`. Verify that `/tmp/test.txt` does not exist — demonstrating that the writable layer is destroyed with the container.
 4. Use `docker run --rm nginx:1.25 nginx -v` to extract the nginx version without keeping the container around. Explain what `--rm` does and why it is useful for one-off inspection commands.
+
+---
+
+### Quick Checks
+
+5. Count `FROM` instructions in a multi-stage Dockerfile stub. Run: `printf 'FROM ubuntu:22.04\nRUN apt-get update\nFROM python:3.12-slim\nCMD ["python"]\n' | grep -c '^FROM'`
+
+```expected_output
+2
+```
+
+6. Extract the image tag from a fully qualified reference. Run: `echo "nginx:1.25" | cut -d: -f2`
+
+```expected_output
+1.25
+```

@@ -289,3 +289,20 @@ jobs:
 2. Add a Docker build-and-push job that runs only on pushes to `main` (not PRs). Push the image to GitHub Container Registry (`ghcr.io`) using `GITHUB_TOKEN` for auth. Tag it with the commit SHA.
 3. Create a deployment job with an `environment: production` gate requiring manual approval. The job should only run after successful test and build jobs, and only on the `main` branch.
 4. Write a reusable workflow that accepts `python-version` as an input and runs linting + tests. Call it from a main workflow with two different Python versions.
+
+
+---
+
+### Quick Checks
+
+5. Count jobs in a workflow stub. Run: `printf 'jobs:\n  build:\n    runs-on: ubuntu-latest\n  test:\n    runs-on: ubuntu-latest\n  deploy:\n    runs-on: ubuntu-latest\n' | awk '/^  [a-z]/ && !/^    /{c++} END{print c}'`
+
+```expected_output
+3
+```
+
+6. Count steps in a workflow job. Run: `printf 'steps:\n  - uses: actions/checkout@v4\n  - run: npm ci\n  - run: npm test\n  - run: npm run build\n' | grep -c '  - '`
+
+```expected_output
+4
+```

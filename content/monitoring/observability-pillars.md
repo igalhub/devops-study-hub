@@ -760,3 +760,19 @@ A new checkout service has the following raw data from the last 7 days:
 2. The team wants to set a 30-day availability SLO of 99.8%. Using only the 7-day data, estimate whether the service would meet this target. Show your calculation.
 3. Write a PromQL expression that computes the current 7-day availability SLI from raw `http_requests_total` counters. Test it in the Prometheus UI.
 4. The team wants to alert when they have consumed 20% of their monthly error budget within a single day. Calculate the error rate threshold that triggers this condition and write the alert rule. (Hint: a 30-day budget at 99.8% SLO = 0.2% allowed errors = how many minutes of downtime?)
+
+---
+
+### Quick Checks
+
+5. Count the three observability pillars. Run: `printf 'metrics\nlogs\ntraces\n' | wc -l`
+
+```expected_output
+3
+```
+
+6. Classify a metric by name convention. Run: `python3 -c "name='http_requests_total'; print('counter' if name.endswith('_total') else 'gauge')"`
+
+```expected_output
+counter
+```

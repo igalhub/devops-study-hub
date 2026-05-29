@@ -857,3 +857,19 @@ Tasks:
 6. Add a `.trivyignore` file to suppress one specific CVE by ID (look up the CVE ID from the scan output). Verify the suppressed CVE no longer fails the build but still appears in the SARIF report.
 
 **Expected outcome:** you have a working security gate, understand how to tune it without disabling it, and know where findings are tracked for remediation tracking.
+
+---
+
+### Quick Checks
+
+7. Count secrets referenced in a workflow environment block. Run: `printf 'env:\n  DB_PASS: ${{ secrets.DB_PASSWORD }}\n  API_KEY: ${{ secrets.API_KEY }}\n  TOKEN: ${{ secrets.DEPLOY_TOKEN }}\n' | grep -c 'secrets\.'`
+
+```expected_output
+3
+```
+
+8. Calculate percentage of build time saved by caching. Run: `python3 -c "print(int((120-15)/120*100))"`
+
+```expected_output
+87
+```

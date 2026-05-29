@@ -667,3 +667,19 @@ Type:  Zabbix agent (active)
 5. Wait for the discovery interval, then stop one of the discovered services (e.g., `systemctl stop ssh`). Confirm the trigger fires within one check interval and resolves when the service is restarted.
 
 **What to understand:** what is the **Keep lost resources period** on a discovery rule, and what happens to the generated items and triggers when the discovery rule stops returning a previously known port?
+
+---
+
+### Quick Checks
+
+6. Count monitored item keys in a template list. Run: `printf 'system.cpu.util\nvm.memory.size[available]\nnet.if.in[eth0]\nproc.num\nvfs.fs.size[/,pfree]\n' | wc -l`
+
+```expected_output
+5
+```
+
+7. Extract the top-level namespace from a Zabbix item key. Run: `echo "system.cpu.util[,idle]" | cut -d. -f1`
+
+```expected_output
+system
+```

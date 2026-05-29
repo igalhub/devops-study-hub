@@ -722,3 +722,19 @@ Practice the most common state manipulation operation: renaming a resource witho
 4. Run `terraform state mv aws_s3_bucket.temp123 aws_s3_bucket.app_assets` to update the state address.
 5. Run `terraform plan` again — confirm it shows no changes.
 6. **Challenge:** Take it further. Wrap the resource in a module (`module "storage"`) and use `terraform state mv` to move it to `module.storage.aws_s3_bucket.app_assets`. Verify `terraform plan` still shows no changes after the move.
+
+---
+
+### Quick Checks
+
+7. Count resources in a Terraform state list. Run: `printf 'aws_instance.web\naws_s3_bucket.logs\naws_iam_role.app\naws_security_group.web\n' | wc -l`
+
+```expected_output
+4
+```
+
+8. Parse the backend type from a Terraform config stub. Run: `printf 'terraform {\n  backend "s3" {\n    bucket = "my-tfstate"\n  }\n}\n' | awk '/backend/{gsub(/"/, ""); print $2; exit}'`
+
+```expected_output
+s3
+```

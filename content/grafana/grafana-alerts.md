@@ -437,3 +437,20 @@ curl -s http://admin:admin@localhost:3000/api/prometheus/grafana/api/v1/rules \
 2. Configure a notification policy tree with three levels: critical alerts (`severity=critical`) go to a PagerDuty contact point, warning alerts (`severity=warning`) go to a Slack contact point, and all staging-environment alerts (`env=staging`) use a mute timing that suppresses notifications outside Monday–Friday 09:00–18:00 UTC. Create the mute timing first (**Alerting → Mute timings → Add mute timing**), then attach it to the staging policy node. Verify the structure in the UI matches your intended routing.
 
 3. Use the Grafana API to create a silence that suppresses all alerts with `env=staging` for a 2-hour window starting from now. Construct the `startsAt` and `endsAt` values using: `date -u +"%Y-%m-%dT%H:%M:%SZ"` for start, and add 2 hours for end. After POST-ing the silence, list active silences via the API and confirm your silence appears with state `active`. Then delete it using the returned `silenceID`.
+
+
+---
+
+### Quick Checks
+
+4. Extract the `for` duration from an alert rule stub. Run: `printf 'for: 5m\nstate: pending\ncondition: B\n' | awk '/^for:/{print $2}'`
+
+```expected_output
+5m
+```
+
+5. Count alert rules in a group stub. Run: `printf 'groups:\n- name: web-alerts\n  rules:\n  - alert: HighCPU\n  - alert: HighMemory\n  - alert: LowDisk\n' | grep -c '  - alert:'`
+
+```expected_output
+3
+```

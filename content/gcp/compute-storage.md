@@ -780,3 +780,19 @@ Run a compute job on a Spot VM and demonstrate that preemption and restart produ
 5. Now introduce a deliberate race condition: run two VMs simultaneously using the same GCS object. Observe what happens to the counter. Research and implement a fix using GCS object generation preconditions (`x-goog-if-generation-match`).
 
 **Acceptance criteria:** You can demonstrate idempotent state updates to GCS from a VM startup script, and you understand why concurrent writes require generation-based optimistic locking.
+
+---
+
+### Quick Checks
+
+6. Extract the instance zone from a GCP resource path. Run: `echo "projects/my-project/zones/us-central1-a/instances/web-server" | cut -d/ -f4`
+
+```expected_output
+us-central1-a
+```
+
+7. Convert a GCS URI to its bucket name. Run: `echo "gs://my-data-bucket/path/to/object.csv" | cut -d/ -f3`
+
+```expected_output
+my-data-bucket
+```

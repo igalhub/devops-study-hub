@@ -820,3 +820,19 @@ This exercise simulates the real-world pattern of sharing templates across multi
 4. Run `helm dependency update ./consumer-app` to link the library chart.
 5. In `consumer-app/templates/deployment.yaml`, replace any inline service account name logic with `{{ include "common-lib.serviceAccountName" . }}`.
 6. Render the consumer chart with and without `--set serviceAccount.name=mysa` and verify the correct name appears in the rendered Deployment's `spec.serviceAccountName` field.
+
+---
+
+### Quick Checks
+
+7. Extract the chart name from a Chart.yaml stub. Run: `printf 'apiVersion: v2\nname: mywebapp\nversion: 1.0.0\n' | awk '/^name:/{print $2}'`
+
+```expected_output
+mywebapp
+```
+
+8. Extract the chart API version. Run: `printf 'apiVersion: v2\nname: mywebapp\nversion: 1.0.0\n' | awk '/^apiVersion:/{print $2}'`
+
+```expected_output
+v2
+```
