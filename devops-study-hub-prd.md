@@ -235,7 +235,7 @@ devops-study-hub/
 │   ├── seed.py              # Seeds modules & lessons from content/
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
 │   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
-│   ├── seed_projects.py     # Seeds 5 pilot projects + steps (runs at startup)
+│   ├── seed_projects.py     # Seeds 10 projects + steps (runs at startup)
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
