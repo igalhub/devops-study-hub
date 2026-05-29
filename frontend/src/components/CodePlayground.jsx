@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -34,8 +34,14 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
   const [checking, setChecking] = useState(false)
   const [answer, setAnswer] = useState(null)
   const [fetchingAnswer, setFetchingAnswer] = useState(false)
-  const [editorHeight, setEditorHeight] = useState(240)
-  const dragRef = useRef(null)
+  const [editorHeight, setEditorHeight] = useState(() => {
+    const saved = localStorage.getItem('playground-editor-height')
+    return saved ? Math.max(120, Math.min(800, Number(saved))) : 240
+  })
+
+  useEffect(() => {
+    localStorage.setItem('playground-editor-height', String(editorHeight))
+  }, [editorHeight])
 
   const startResize = useCallback((e) => {
     e.preventDefault()
@@ -204,7 +210,6 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
         }}
       />
       <div
-        ref={dragRef}
         onMouseDown={startResize}
         className="h-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-emerald-400 dark:hover:bg-emerald-600 cursor-ns-resize transition-colors"
         title="Drag to resize editor"
