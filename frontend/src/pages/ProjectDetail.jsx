@@ -321,7 +321,7 @@ export default function ProjectDetail({ onXpEarned }) {
 
               {isOpen && (
                 <div className="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-wrap leading-relaxed">
+                  <div className="text-sm text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-wrap leading-relaxed break-words">
                     {step.prompt}
                   </div>
                   {step.type === 'sandbox' ? (
