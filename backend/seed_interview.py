@@ -5,10 +5,11 @@ Run from backend/:
     python3 seed_interview.py [options]
 
 Options:
-    --dry-run         List what would be done without making API calls
-    --module <slug>   Limit to one module (e.g. linux, docker)
-    --force           Re-generate even if questions already exist
-    --hints-only      Generate 2 hints per existing question (no question regeneration)
+    --dry-run           List what would be done without making API calls
+    --module <slug>     Limit to one module (e.g. linux, docker)
+    --force             Re-generate even if questions already exist
+    --hints-only        Generate 2 hints per existing question (no question regeneration)
+    --model-answers     Generate 1 model answer per existing question (no question regeneration)
 
 What it does per module:
 1. Aggregate the content of all the module's lessons (now expanded to gold standard)
@@ -28,6 +29,21 @@ from db import get_conn, init_db
 PROJECT_ROOT = Path(__file__).parent.parent
 QUESTIONS_PER_MODULE = 8
 
+
+MODEL_ANSWER_PROMPT = """\
+You are writing a model answer for a DevOps interview question in a study platform.
+
+Module: {module_title}
+Question: {question}
+
+Write a strong, concise model answer (3-5 sentences) that:
+- Directly answers the question
+- Demonstrates practical understanding of the concept
+- Mentions key tools, tradeoffs, or real-world considerations where relevant
+- Sounds like a confident, senior DevOps engineer speaking
+
+Return ONLY the answer text — no preamble, no labels, no markdown formatting.
+"""
 
 HINTS_PROMPT = """\
 You are writing progressive hints for a DevOps interview question in a study platform.
@@ -200,10 +216,53 @@ def _seed_hints_for_module(module_id: int, module_title: str) -> tuple[int, int]
     return ok, failed
 
 
+def _generate_model_answer(question: str, module_title: str) -> str:
+    prompt = MODEL_ANSWER_PROMPT.format(module_title=module_title, question=question)
+    return generate(prompt, max_tokens=512)
+
+
+def _seed_model_answers_for_module(module_id: int, module_title: str) -> tuple[int, int]:
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, question FROM interview_questions "
+            "WHERE module_id = ? AND (model_answer IS NULL OR model_answer = '')",
+            (module_id,)
+        ).fetchall()
+    finally:
+        conn.close()
+
+    ok = failed = 0
+    for row in rows:
+        for attempt in range(3):
+            try:
+                answer = _generate_model_answer(row["question"], module_title)
+                conn = get_conn()
+                try:
+                    conn.execute(
+                        "UPDATE interview_questions SET model_answer = ? WHERE id = ?",
+                        (answer, row["id"]),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+                ok += 1
+                break
+            except Exception as e:
+                if attempt < 2:
+                    time.sleep(2)
+                else:
+                    print(f"\n  FAILED model answer for question {row['id']}: {e}")
+                    failed += 1
+        time.sleep(0.3)
+    return ok, failed
+
+
 def main() -> None:
     dry_run = "--dry-run" in sys.argv
     force = "--force" in sys.argv
     hints_only = "--hints-only" in sys.argv
+    model_answers_only = "--model-answers" in sys.argv
 
     module_filter = None
     if "--module" in sys.argv:
@@ -231,6 +290,21 @@ def main() -> None:
             total_ok += ok
             total_failed += failed
         print(f"\nHints: {total_ok} seeded, {total_failed} failed")
+        return
+
+    if model_answers_only:
+        print(f"{len(modules)} module(s) — generating model answers for existing questions\n")
+        total_ok = total_failed = 0
+        for i, mod in enumerate(modules, 1):
+            if mod["question_count"] == 0:
+                print(f"[{i}/{len(modules)}] {mod['slug']}: no questions, skipping")
+                continue
+            print(f"[{i}/{len(modules)}] {mod['slug']} ({mod['question_count']} questions) ...", end=" ", flush=True)
+            ok, failed = _seed_model_answers_for_module(mod["id"], mod["title"])
+            print(f"OK ({ok} model answers seeded{', ' + str(failed) + ' failed' if failed else ''})")
+            total_ok += ok
+            total_failed += failed
+        print(f"\nModel answers: {total_ok} seeded, {total_failed} failed")
         return
 
     prefix = "DRY RUN — " if dry_run else ""

@@ -82,6 +82,14 @@ export function fetchInterviewReviewQueue() {
   return apiFetch('/interview/review/queue')
 }
 
+export function selfGradeInterview(moduleSlug, questionId, score) {
+  return apiFetch('/interview/self-grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ module_slug: moduleSlug, question_id: questionId, score }),
+  })
+}
+
 export function fetchNote(lessonSlug) {
   return apiFetch(`/notes/${lessonSlug}`)
 }
