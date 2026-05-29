@@ -34,22 +34,25 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   const [rightWidth, setRightWidth] = useState(() => {
     const s = localStorage.getItem('right-panel-width'); return s ? Math.max(280, Math.min(700, Number(s))) : 440
   })
+  const [resizing, setResizing] = useState(false)
 
   useEffect(() => { if (!lessonMatch) setReadingMode(false) }, [lessonMatch])
 
   const startSidebarResize = useCallback((e) => {
     e.preventDefault()
+    setResizing(true)
     const startX = e.clientX, startW = sidebarWidth
     const onMove = (ev) => { const w = Math.max(150, Math.min(400, startW + ev.clientX - startX)); setSidebarWidth(w); localStorage.setItem('sidebar-width', w) }
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    const onUp = () => { setResizing(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }, [sidebarWidth])
 
   const startRightResize = useCallback((e) => {
     e.preventDefault()
+    setResizing(true)
     const startX = e.clientX, startW = rightWidth
     const onMove = (ev) => { const w = Math.max(280, Math.min(700, startW - ev.clientX + startX)); setRightWidth(w); localStorage.setItem('right-panel-width', w) }
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    const onUp = () => { setResizing(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }, [rightWidth])
 
@@ -75,8 +78,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   return (
     <div className={dark ? 'dark' : ''}>
       {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
-      <div className="flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900">
-        <div className={`shrink-0 overflow-hidden transition-[width] duration-200`} style={{ width: sidebarOpen ? sidebarWidth : 0 }}>
+      <div className={`flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900 ${resizing ? 'select-none' : ''}`}>
+        <div className={`shrink-0 overflow-hidden ${resizing ? '' : 'transition-[width] duration-200'}`} style={{ width: sidebarOpen ? sidebarWidth : 0 }}>
           <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} interviewDue={interviewDue} />
         </div>
         {sidebarOpen && (
