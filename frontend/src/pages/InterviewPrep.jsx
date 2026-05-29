@@ -272,6 +272,13 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
               Question {reviewIndex + 1} of {reviewQueue.length}
             </h1>
           </div>
+          <div className="flex items-center gap-3">
+          <button
+            onClick={exitReview}
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 underline"
+          >
+            Exit review
+          </button>
           <div className="flex gap-1.5">
             {reviewQueue.map((_, i) => (
               <div
@@ -285,6 +292,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
                 }`}
               />
             ))}
+          </div>
           </div>
         </div>
 
@@ -481,6 +489,12 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
             Question {qIndex + 1} of {questions.length}
           </h1>
         </div>
+        <button
+          onClick={reset}
+          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 underline"
+        >
+          Exit session
+        </button>
         <div className="flex gap-1.5">
           {questions.map((_, i) => (
             <div
