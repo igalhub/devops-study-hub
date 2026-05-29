@@ -165,7 +165,7 @@ integrated practice environments.
 ### Backend
 - FastAPI (Python) — API layer, Claude proxy, progress/quiz endpoints
 - SQLite via `hub.db` — all persistent state
-- Anthropic SDK — AI Tutor, quiz generation, interview prep
+- AI calls isolated behind `ai_client.py` wrapper (swappable — see `backend/PROVIDERS.md`)
 
 ### AI
 - Claude API via FastAPI backend (API key never exposed to frontend)
@@ -231,6 +231,8 @@ devops-study-hub/
 │   └── package.json
 ├── backend/
 │   ├── main.py              # FastAPI app entry point
+│   ├── ai_client.py         # AI provider wrapper (generate + stream_text; swap via PROVIDERS.md)
+│   ├── PROVIDERS.md         # Drop-in implementations for OpenAI, Ollama, AWS Bedrock
 │   ├── db.py                # SQLite schema + connection helpers
 │   ├── srs.py               # Shared SM-2 spaced repetition logic
 │   ├── seed.py              # Seeds modules & lessons from content/
