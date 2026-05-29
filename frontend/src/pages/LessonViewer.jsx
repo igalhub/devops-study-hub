@@ -33,7 +33,10 @@ const slugify = (text) =>
 
 function extractHeadings(content) {
   if (!content) return []
+  let inFence = false
   return content.split('\n').reduce((acc, line) => {
+    if (line.startsWith('```')) { inFence = !inFence; return acc }
+    if (inFence) return acc
     const m = line.match(/^## (.+)/)
     if (m) acc.push({ text: m[1].trim(), id: slugify(m[1].trim()) })
     return acc
