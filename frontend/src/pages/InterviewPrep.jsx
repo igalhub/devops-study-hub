@@ -111,9 +111,9 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
       setModelOpen(false)
       setPhase('reviewed')
       if (ev.xp_earned > 0 && onXpEarned) onXpEarned(ev.xp_total)
-    } catch {
+    } catch (err) {
       if (!isMounted.current) return
-      setError('Evaluation failed. Try again.')
+      setError(err?.message?.includes('504') ? 'Evaluation timed out — please try again.' : 'Evaluation failed. Try again.')
       setPhase('active')
     }
   }
@@ -164,9 +164,9 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
       setReviewModelOpen(false)
       setReviewPhase('reviewed_card')
       if (ev.xp_earned > 0 && onXpEarned) onXpEarned(ev.xp_total)
-    } catch {
+    } catch (err) {
       if (!isMounted.current) return
-      setError('Evaluation failed. Try again.')
+      setError(err?.message?.includes('504') ? 'Evaluation timed out — please try again.' : 'Evaluation failed. Try again.')
       setReviewPhase('active')
     }
   }
