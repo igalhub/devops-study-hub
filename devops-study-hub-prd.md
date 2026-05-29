@@ -180,7 +180,8 @@ integrated practice environments.
   - `seed_curriculum.py` — full pipeline: detects thin content, expands via Claude API,
     then seeds quiz questions in one pass (idempotent, auto-commits); `--quiz-only` or
     `--force-quiz` to regenerate quiz questions without expanding content
-  - `seed_interview.py` — pre-seeds interview questions (8 per module) for all 23 modules
+  - `seed_interview.py` — pre-seeds interview questions (8 per module) for all 23 modules; `--hints-only` backfills 2 progressive hints per question
+  - `seed_exercise_hints.py` — adds 2 Claude-generated hints to Quick Check exercises that have `expected_output` but no hints; `--dry-run` and `--module` flags
 
 ## Code Sandbox
 - Monaco Editor for inline code editing (Bash, Python, YAML)
@@ -234,7 +235,8 @@ devops-study-hub/
 │   ├── srs.py               # Shared SM-2 spaced repetition logic
 │   ├── seed.py              # Seeds modules & lessons from content/
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
-│   ├── seed_interview.py    # Pre-seeds interview questions (8 per module)
+│   ├── seed_interview.py    # Pre-seeds interview questions (8 per module); --hints-only to backfill hints
+│   ├── seed_exercise_hints.py  # Adds 2 Claude hints to Quick Check exercises in lesson markdown
 │   ├── seed_projects.py     # Seeds 10 projects + steps (runs at startup)
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
@@ -301,7 +303,7 @@ modules           id, slug, title, group_name, order_index, is_locked
 lessons           id, module_id, slug, title, duration_min, difficulty, order_index, md_path
 progress          id, lesson_id, status (not_started/in_progress/complete), completed_at
 quiz_questions    id, lesson_id, question, options (JSON), correct_index, explanation
-interview_questions  id, module_id, question
+interview_questions  id, module_id, question, hints (JSON)
 interview_attempts   id, question_id, module_id, score, is_correct, attempted_at
 interview_srs_schedule  question_id (PK), interval_days, ease, next_review, reviews
 quiz_attempts     id, lesson_id, question_id, answer, is_correct, attempted_at
@@ -309,7 +311,7 @@ xp_log            id, source (lesson/quiz/interview/streak), points, earned_at
 streaks           id, date, completed (bool)
 srs_schedule      question_id (PK), interval_days, ease, next_review, reviews
 projects          id, slug, title, description, modules (JSON), difficulty
-project_steps     id, project_id, order_index, title, type (sandbox/ai), prompt, language, expected_output
+project_steps     id, project_id, order_index, title, type (sandbox/ai), prompt, language, expected_output, hints (JSON)
 project_progress  id, project_id, step_id, status, score, answer, completed_at
 ```
 
@@ -405,3 +407,4 @@ exercises: 3
 - 75 XP completion bonus per project; all XP idempotent via xp_log source keys
 - Projects page (card grid with difficulty, module tags, step progress) + ProjectDetail page (expandable steps, server state restored on reload)
 - Sidebar: Projects link above Interview Prep in Practice section
+- Progressive Hints — amber HintBox in CodePlayground (exercises), InterviewPrep, and ProjectDetail; 2 hints revealed one at a time; resets on question/step change; hints stored as `hint:` lines in markdown (exercises) or JSON column (interview/project steps); seeded via `seed_exercise_hints.py` (184 exercise hints across all 23 modules) and `seed_interview.py --hints-only` (368 interview hints across all 23 modules)

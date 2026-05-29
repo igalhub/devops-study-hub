@@ -32,6 +32,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Module Quiz** — dedicated per-module quiz page
 - **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent)
 - **Projects** — 10 multi-step interview-ready projects mixing modules; steps are Sandbox (stdout check, 10 XP) or AI Review (Claude grades Weak/Adequate/Strong, 8/15 XP); 75 XP completion bonus per project
+- **Progressive Hints** — amber "Hint" button on exercises (CodePlayground), interview questions (InterviewPrep), and project steps (ProjectDetail); reveals 2 hints one at a time, resets on question change; hints stored as markdown `hint:` lines (exercises) or JSON column (interview/projects)
 
 ### Quick Check authoring rules
 - **Python must be single-line** — markdown list indentation (3 spaces) is captured by the parser and causes `IndentationError` on multi-line blocks. Chain statements with semicolons instead.
@@ -45,6 +46,8 @@ Always reference `devops-study-hub-prd.md` at the project root for authoritative
 
 ## Content Expansion
 Use `/expand-content` to expand thin lesson content. The skill enforces code-review after patches and a single-module smoke test before the full run — do not bypass it by running `seed_curriculum.py` directly for a full batch.
+
+To seed exercise hints: `python3 seed_exercise_hints.py [--dry-run] [--module <slug>]` — adds `hint:` lines to lesson markdown files for any Quick Check that has `expected_output` but no hints yet. To seed interview hints: `python3 seed_interview.py --hints-only [--module <slug>]`.
 
 ## Documentation Currency
 Run `/update-docs` after any significant change (new skill, schema change, lesson count change, new feature). It audits CLAUDE.md, the PRD, skill files, and memory against ground truth from `.claude/docs-manifest.sh` and proposes edits before committing.
