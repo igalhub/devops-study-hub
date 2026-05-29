@@ -268,8 +268,14 @@ module "eks" {
 2
 ```
 
+hint: Think about how you can filter lines that start with a specific keyword and count the matches in a single command.
+hint: Use grep with the -c flag and the anchored pattern '^module' to count only lines where 'module' appears at the very beginning.
+
 6. Extract the resource type from a Terraform resource address. Run: `echo "aws_instance.web_server" | cut -d. -f1`
 
 ```expected_output
 aws_instance
 ```
+
+hint: Think about how you can split a string by a delimiter and select only the first segment.
+hint: Use the cut command with the -d flag to specify '.' as the delimiter and -f1 to extract the first field.

@@ -410,8 +410,14 @@ curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job:
 counter
 ```
 
+hint: Think about how Prometheus metric naming conventions use suffixes to indicate the metric type.
+hint: Use Python's string method that checks if a string ends with a specific suffix, such as `str.endswith('_total')`, to distinguish counters from gauges.
+
 5. Count label-value pairs in a metric label set. Run: `echo '{method="GET",code="200",handler="/api"}' | tr ',' '\n' | wc -l`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can split a comma-separated string into separate lines so each label-value pair can be counted individually.
+hint: Use `tr ',' '\n'` to replace each comma with a newline, then pipe the result into `wc -l` to count the resulting lines.

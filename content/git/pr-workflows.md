@@ -696,6 +696,9 @@ gh pr view 289 --json mergeable,reviewDecision
    invalid
    ```
 
+hint: Think about how you can use pattern matching to compare the branch name against a required naming convention format.
+hint: Use a regex pattern with grep -E (or [[ $branch =~ ]]) to test whether the branch name matches your team's required convention, such as feature/, bugfix/, or hotfix/ prefixes followed by a ticket ID.
+
 2. Initialize a repo, make one commit, and verify the commit count matches.
 
    ```bash
@@ -709,3 +712,5 @@ gh pr view 289 --json mergeable,reviewDecision
    ```expected_output
    1
    ```
+hint: Think about how Git stores a history of commits and how you can inspect or count that history from the command line.
+hint: Use git rev-list --count HEAD to get the total number of commits reachable from your current branch.

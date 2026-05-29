@@ -733,8 +733,14 @@ Practice the most common state manipulation operation: renaming a resource witho
 4
 ```
 
+hint: Think about how you can count the number of lines produced by a command's output.
+hint: Pipe the output of printf (or terraform state list) into wc -l, which counts the total number of lines received on stdin.
+
 8. Parse the backend type from a Terraform config stub. Run: `printf 'terraform {\n  backend "s3" {\n    bucket = "my-tfstate"\n  }\n}\n' | awk '/backend/{gsub(/"/, ""); print $2; exit}'`
 
 ```expected_output
 s3
 ```
+
+hint: Consider how you can stream a multi-line Terraform config into a text-processing tool that can search for a specific keyword and extract a particular field from that line.
+hint: Use printf to generate the config, pipe it into awk with a pattern matching 'backend', then use gsub to strip quote characters and print the second whitespace-separated field before calling exit.

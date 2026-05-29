@@ -594,8 +594,14 @@ watch -n 5 "curl -s http://localhost:9600/_node/stats/pipelines/main | \
 2500
 ```
 
+hint: Think about how you can use Python's inline execution to perform arithmetic that converts a time interval into a per-second rate and multiplies it by the batch size.
+hint: Use python3 -c with the print() function, applying int(1000/interval) to convert milliseconds to a per-second multiplier, then multiply by the batch size.
+
 5. Determine pipeline worker count for 4 CPUs at 75% utilization. Run: `python3 -c "print(int(4 * 0.75))"`
 
 ```expected_output
 3
 ```
+
+hint: Consider how you might use Python to calculate a percentage of available CPU cores directly from the command line.
+hint: Use python3 -c with the print and int functions to multiply the CPU count by the utilization ratio as a decimal.

@@ -253,8 +253,14 @@ spec:
 8080
 ```
 
+hint: Think about how you can filter a YAML stream line by line to isolate the field you need and then extract its value.
+hint: Use awk with a pattern match on the field name, such as /targetPort:/, and print the second whitespace-separated field with {print $2}.
+
 6. Count host rules in an Ingress spec stub. Run: `printf 'rules:\n- host: app.example.com\n- host: api.example.com\n- host: admin.example.com\n' | grep -c 'host:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can filter lines matching a specific pattern and get a count directly from that filtering command.
+hint: The grep command has a -c flag that counts matching lines instead of printing them — use it with the pattern 'host:' on the piped input.

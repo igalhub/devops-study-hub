@@ -830,8 +830,14 @@ Observe the Cluster Autoscaler scaling up and down in response to load.
 my-cluster
 ```
 
+hint: Think about how you can split a string by a specific delimiter and select a particular segment from the result.
+hint: Use the cut command with the -d flag to set underscore as the delimiter and the -f flag to specify which field number you want to extract.
+
 7. Count node pools in a GKE config stub. Run: `printf 'nodePools:\n- name: default-pool\n- name: gpu-pool\n- name: spot-pool\n' | grep -c '^- name:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can filter lines matching a specific pattern and have the tool count them directly.
+hint: Use grep with the -c flag to count lines matching the pattern '^- name:' from the piped input.

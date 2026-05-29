@@ -989,6 +989,9 @@ echo 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE' | grep -oE 'AKIA[0-9A-Z]{16}'
 AKIAIOSFODNN7EXAMPLE
 ```
 
+hint: Think about using a regex pattern that matches the specific format of AWS access key IDs, which have a recognizable prefix and fixed length.
+hint: Use grep -oP with the pattern '[A-Z0-9]{20}' or more precisely '(?<![A-Z0-9])[A-Z]{4}[A-Z0-9]{16}(?![A-Z0-9])' to extract only the matching key from the line.
+
 7. Compute the SHA-256 hash of the string `vault-token` (no trailing newline). Print only the hex digest.
 
 ```bash
@@ -998,3 +1001,5 @@ echo -n "vault-token" | sha256sum | awk '{print $1}'
 ```expected_output
 1be23b07ef444b13455e71fc8de580aef6cb309128f9e9a91e3cb7ab08d27cfb
 ```
+hint: Consider using a command-line hashing utility that can read from standard input to compute a SHA-256 digest.
+hint: Use printf 'vault-token' | sha256sum and then extract only the hex portion by piping to awk '{print $1}' or cut -d' ' -f1.

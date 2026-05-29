@@ -678,8 +678,14 @@ Result event fields: `level`, `service`, `request_id`, `username`, `duration_ms`
 3
 ```
 
+hint: Think about how you can extract all pattern placeholders from the string and then count them.
+hint: Use grep -o with a regex like '%{[^}]*}' to isolate each capture group, then pipe the results to wc -l to get the total count.
+
 5. Extract the output plugin name from a Logstash config stub. Run: `printf 'output {\n  elasticsearch {\n    hosts => ["http://es:9200"]\n  }\n}\n' | awk '/^  [a-z]/{gsub(/[ {]/, "", $0); print; exit}'`
 
 ```expected_output
 elasticsearch
 ```
+
+hint: Think about how you can pipe a multi-line config string into a text-processing tool that matches lines by their indentation pattern.
+hint: Use awk with a regex like /^  [a-z]/ to match the plugin line, then apply gsub to strip spaces and braces before printing the first match and exiting.

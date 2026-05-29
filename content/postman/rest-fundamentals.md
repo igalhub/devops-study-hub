@@ -638,8 +638,14 @@ curl -sI \
 POST
 ```
 
+hint: Think about how awk can loop through all fields in a line to search for a specific flag like -X and then print the value that follows it.
+hint: Use a for loop in awk over NF fields, check if the current field equals "-X", and print the next field using $(i+1).
+
 5. Classify an HTTP status code by family. Run: `python3 -c "code=201; print('2xx' if 200 <= code < 300 else '4xx')"`
 
 ```expected_output
 2xx
 ```
+
+hint: Think about how you can use a conditional expression in Python to check which numeric range an HTTP status code falls into.
+hint: Use Python's inline ternary syntax with a chained comparison like `200 <= code < 300` to determine the status code family.

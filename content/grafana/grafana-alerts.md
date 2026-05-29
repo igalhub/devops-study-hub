@@ -449,8 +449,14 @@ curl -s http://admin:admin@localhost:3000/api/prometheus/grafana/api/v1/rules \
 5m
 ```
 
+hint: Think about how to filter lines that match a specific pattern and then extract a particular field from those lines.
+hint: Use awk with a regex pattern like /^for:/ to match the line, then reference $2 to print the second whitespace-separated field.
+
 5. Count alert rules in a group stub. Run: `printf 'groups:\n- name: web-alerts\n  rules:\n  - alert: HighCPU\n  - alert: HighMemory\n  - alert: LowDisk\n' | grep -c '  - alert:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how to search through piped YAML content and count how many lines match a specific pattern.
+hint: Use grep with the -c flag to directly count lines matching the indented '  - alert:' pattern from the printf output.

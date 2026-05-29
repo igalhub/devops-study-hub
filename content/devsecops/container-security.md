@@ -810,6 +810,9 @@ printf 'FROM ubuntu:20.04\nRUN apt-get update\nUSER appuser\n' | grep -c '^USER'
 1
 ```
 
+hint: Think about which command searches for specific text patterns within a file and can count occurrences.
+hint: Use grep -c '^USER' Dockerfile to count lines that begin with the USER instruction.
+
 8. Check whether this image reference uses a floating tag. Print `unpinned` if it does, `pinned` if it doesn't.
 
 ```bash
@@ -819,3 +822,5 @@ echo "nginx:latest" | grep -q ':latest' && echo "unpinned" || echo "pinned"
 ```expected_output
 unpinned
 ```
+hint: Think about what makes an image reference 'floating' versus 'pinned' — consider how image tags like `latest` or a version name differ from a digest-based reference.
+hint: Use a shell conditional or grep to check whether the image reference string contains a digest (the `@sha256:` pattern); if it lacks one, echo the appropriate result.

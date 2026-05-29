@@ -749,8 +749,13 @@ COPY --from=builder /install /usr/local
 2
 ```
 
+hint: Think about how you can filter lines that match a specific pattern and have the shell count those matches automatically.
+hint: Use grep with the -c flag to count lines matching the anchored pattern ^FROM, which ensures you only match lines where FROM appears at the very start.
+
 6. Extract the image tag from a fully qualified reference. Run: `echo "nginx:1.25" | cut -d: -f2`
 
 ```expected_output
 1.25
 ```
+hint: Think about how you can split a string on a specific character to isolate one part of it.
+hint: Use the cut command with the -d flag to set ':' as the delimiter and -f to select the second field.

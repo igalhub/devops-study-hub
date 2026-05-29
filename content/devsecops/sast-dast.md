@@ -788,6 +788,9 @@ code = "subprocess.call(user_input, shell=True)"; print("HIGH" if "shell=True" i
 HIGH
 ```
 
+hint: Look for how to detect dangerous patterns in Python code that combine user-controlled input with shell execution.
+hint: Check whether the subprocess call uses shell=True alongside a variable or concatenated string rather than a hardcoded command, and use that combination as your detection condition.
+
 8. Detect SQL injection by string concatenation in this code line. Print `injection risk` if the pattern matches, `clean` if not.
 
 ```bash
@@ -797,3 +800,5 @@ echo "query = 'SELECT * FROM users WHERE id = ' + user_id" | grep -qE 'SELECT.*\
 ```expected_output
 injection risk
 ```
+hint: Think about how SQL injection via string concatenation looks as a pattern — focus on detecting quote characters or concatenation operators joining user input to a query string.
+hint: Use grep with a regex pattern like '[\'"\+].*SELECT\|SELECT.*[\+\'"\+]' or look for signs like single quotes and plus signs near SQL keywords, then pipe the result through a conditional to echo the appropriate message.

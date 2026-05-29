@@ -934,8 +934,14 @@ You are given three workloads:
 69.12
 ```
 
+hint: Think about how you can use Python's print function directly from the terminal to perform arithmetic calculations.
+hint: Use python3 -c to run an inline script that multiplies the hourly rate by 24 hours and 30 days, wrapping the result in round() with 2 decimal places.
+
 6. Find the most expensive service in a cost breakdown. Run: `printf 'EC2: 450\nS3: 45\nRDS: 280\nDataTransfer: 120\n' | sort -t: -k2 -rn | head -1 | cut -d: -f1`
 
 ```expected_output
 EC2
 ```
+
+hint: Think about how you can sort lines numerically by a specific field after a delimiter, then isolate just the top result and extract a portion of it.
+hint: Use sort with -t: to set the colon delimiter and -k2 -rn to sort by the numeric value in reverse, then chain head -1 and cut -d: -f1 to grab only the service name.

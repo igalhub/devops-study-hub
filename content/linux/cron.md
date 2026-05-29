@@ -612,6 +612,9 @@ Build a complete log archiving solution using cron. Requirements:
    5
    ```
 
+hint: Think about how you can split a cron expression into its individual parts and count those parts.
+hint: Use echo with the cron expression string and pipe it to awk, using NF to print the number of fields.
+
 2. Extract the minute field from a cron expression.
 
    ```bash
@@ -621,3 +624,5 @@ Build a complete log archiving solution using cron. Requirements:
    ```expected_output
    */15
    ```
+hint: Think about how you can isolate a specific field from a delimited string in Linux.
+hint: Use the cut command with the -d flag to set the delimiter and -f1 to select the first field from the cron expression.

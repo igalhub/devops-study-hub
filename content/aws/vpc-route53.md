@@ -273,8 +273,14 @@ module "vpc" {
 254
 ```
 
+hint: Think about how subnet math works — the total number of addresses minus reserved ones gives you usable hosts.
+hint: Use Python's exponentiation with 2**(32-prefix) and subtract the reserved network and broadcast addresses.
+
 6. Count the octets in an IPv4 address. Run: `echo "192.168.10.5" | tr '.' '\n' | wc -l`
 
 ```expected_output
 4
 ```
+
+hint: Think about how you can split the IP address into separate lines and then count those lines using standard Unix tools.
+hint: Use tr to translate the dot separator into newline characters, then pipe the result into wc -l to count the resulting lines.

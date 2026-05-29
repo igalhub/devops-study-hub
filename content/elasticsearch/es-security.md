@@ -340,8 +340,14 @@ If the API key is rotated or the Logstash instance is compromised, you invalidat
 true
 ```
 
+hint: Think about how awk can scan input line by line and extract a specific field when a pattern matches.
+hint: Use awk with a pattern like /transport.ssl.enabled:/ and print the second field using {print $2} to isolate the value.
+
 5. Count privileges in an index role definition. Run: `printf 'privileges: ["read", "write", "delete", "index"]\n' | tr ',' '\n' | grep -c '"'`
 
 ```expected_output
 4
 ```
+
+hint: Think about how you can count the number of times a specific character appears across lines in a stream.
+hint: Use grep with the -c flag to count lines matching a pattern, such as a double-quote character, after splitting the input into separate lines with tr.

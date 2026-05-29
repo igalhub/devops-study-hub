@@ -886,8 +886,14 @@ kubectl logs -n monitoring daemonset/otel-collector --tail=50
 3
 ```
 
+hint: Think about how awk can match indented lines and use a counter variable to tally each match before printing the result.
+hint: Use an awk pattern like `/^  [a-z]/` to match receiver entries, increment a counter variable `c++` inside that block, and print it in the `END` rule.
+
 8. Extract the exporter transport protocol from a config stub. Run: `printf 'exporters:\n  otlp:\n    endpoint: otelcol:4317\n    protocol: grpc\n' | awk '/protocol:/{print $2}'`
 
 ```expected_output
 grpc
 ```
+
+hint: Think about how you can filter lines in a text stream and then extract a specific field from matching lines.
+hint: Use awk with a pattern match on 'protocol:' and print the second field ($2) from the piped config output.

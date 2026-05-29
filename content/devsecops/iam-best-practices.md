@@ -955,6 +955,9 @@ import json; p = json.loads('{"Statement": [{"Effect": "Allow", "Action": "*", "
 overprivileged
 ```
 
+hint: Think about how to parse JSON in a shell or scripting language and navigate nested structures to inspect each statement's Action field.
+hint: Use `jq` with a query like `.Statement[].Action` to iterate over statements, then pipe through `grep` or add a conditional `if` in jq to check whether any value equals `"*"`.
+
 7. Extract the AWS account ID (the 12-digit field) from this ARN: `arn:aws:iam::123456789012:user/alice`.
 
 ```python
@@ -964,3 +967,5 @@ arn = "arn:aws:iam::123456789012:user/alice"; print(arn.split(":")[4])
 ```expected_output
 123456789012
 ```
+hint: Think about how to split a string by a delimiter to isolate specific fields.
+hint: Use the cut command with -d':' to set the colon as the delimiter, then select the appropriate field number with -f to target the account ID position.

@@ -678,8 +678,14 @@ Type:  Zabbix agent (active)
 5
 ```
 
+hint: Think about how you can generate a list of item keys and then count the lines in that output.
+hint: Use printf to print each key on its own line with \n separators, then pipe the result into wc -l to count the lines.
+
 7. Extract the top-level namespace from a Zabbix item key. Run: `echo "system.cpu.util[,idle]" | cut -d. -f1`
 
 ```expected_output
 system
 ```
+
+hint: Think about how you can split a string by a specific delimiter and extract only the first segment.
+hint: Use the cut command with the -d flag to set '.' as the delimiter, then use -f1 to select the first field.

@@ -809,8 +809,14 @@ Write a one-paragraph explanation of what you observed about how each tool handl
 terraform
 ```
 
+hint: Think about how awk can filter lines based on a pattern match and then extract a specific field from those lines.
+hint: Use awk with -F: to set the colon as a field separator, then match lines containing your target pattern inside /.../ and print the first field with {print $1}.
+
 8. Count YAML playbook files in a directory listing. Run: `printf 'main.yml\ninventory.ini\nplaybook.yml\nrequirements.yml\n' | grep -c '\.yml$'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how grep can be used to filter lines by a file extension pattern and also count matches directly.
+hint: Use grep with the -c flag and the regex pattern \.yml$ to count only lines ending in .yml.

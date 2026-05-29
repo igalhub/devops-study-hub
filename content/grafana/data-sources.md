@@ -447,8 +447,14 @@ Both series plot on the same time axis. Add a threshold line at your SLO target 
 prometheus
 ```
 
+hint: Think about how awk can match lines by a pattern and then print a specific field from those lines.
+hint: Use awk with a regex pattern like '/^type:/' to match the line, then reference the second whitespace-separated field with '$2'.
+
 5. Count configured data sources in a provisioning stub. Run: `printf 'datasources:\n- name: Prometheus\n  type: prometheus\n- name: Loki\n  type: loki\n- name: Tempo\n  type: tempo\n' | grep -c '^- name:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can filter lines that mark the start of a new data source entry and count how many matches exist.
+hint: Use grep with the -c flag to count lines matching the pattern '^- name:' from the piped YAML content.

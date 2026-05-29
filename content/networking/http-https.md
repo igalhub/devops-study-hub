@@ -779,6 +779,9 @@ Test it against `https://httpbin.org/status/200` (should succeed immediately) an
    admin:secret
    ```
 
+hint: Basic Auth credentials are Base64-encoded, so you need a tool that can decode that encoding scheme.
+hint: Use the command `echo '<encoded_string>' | base64 --decode` to reveal the original plaintext credentials.
+
 2. Identify the HTTP status class for a given code — useful for writing generic response handlers.
 
    ```python
@@ -788,3 +791,5 @@ Test it against `https://httpbin.org/status/200` (should succeed immediately) an
    ```expected_output
    4xx
    ```
+hint: HTTP status codes are grouped into classes based on their first digit, each class representing a category of response type.
+hint: Check whether the first digit of the status code is 4, which maps to a specific class using the pattern <digit>xx — look up what that class is named in the HTTP specification.

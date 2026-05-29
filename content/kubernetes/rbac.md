@@ -592,8 +592,14 @@ kubectl patch serviceaccount default -n hardened \
 3
 ```
 
+hint: Think about how you can split a comma-separated string into separate lines and then count occurrences of a specific character pattern.
+hint: Use `tr ',' '\n'` to split on commas, then pipe to `grep -c` with a quote character as the pattern to count matching lines.
+
 8. Extract the subject kind from a RoleBinding stub. Run: `printf 'subjects:\n- kind: ServiceAccount\n  name: myapp\n' | awk '/kind:/{print $2; exit}'`
 
 ```expected_output
 ServiceAccount
 ```
+
+hint: Consider using a stream processing tool that can match lines by pattern and extract specific fields from the matched line.
+hint: Use awk with a pattern like /kind:/ to match the relevant line, then print the second field with $2 and use exit to stop after the first match.

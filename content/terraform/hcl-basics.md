@@ -274,8 +274,14 @@ output "instance_ips" {
 2
 ```
 
+hint: Think about how you can filter lines that start with a specific keyword and count the matches in one step.
+hint: Use grep with the -c flag and anchor your pattern with ^ to match only lines beginning with 'resource'.
+
 6. Extract a variable default value from HCL. Run: `printf 'variable "instance_type" {\n  default = "t3.micro"\n}\n' | awk '/default =/{gsub(/"/, "", $3); print $3}'`
 
 ```expected_output
 t3.micro
 ```
+
+hint: Think about how you can use a text-processing tool to match a specific line in the HCL output and extract a particular field from it.
+hint: Use awk to match lines containing 'default =', then apply gsub() to strip double-quote characters from the third field ($3) before printing it.

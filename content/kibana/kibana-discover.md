@@ -565,8 +565,14 @@ This exercise builds the habit of looking before and after an error, not just at
 logs-*
 ```
 
+hint: Think about how you can filter and extract a specific field value from structured text using a pattern-matching tool.
+hint: Use awk with a regex pattern like /^index:/ to match the correct line, then print the second whitespace-separated field with print $2.
+
 7. Count active field filters in a search stub. Run: `printf 'filters:\n- field: level\n  value: error\n- field: service\n  value: api\n- field: env\n  value: prod\n' | grep -c '^- field:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can use a pattern-matching tool to identify and count specific lines in the YAML output.
+hint: Use grep with the -c flag to count lines matching the pattern '^- field:' from the piped output.

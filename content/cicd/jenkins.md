@@ -299,8 +299,14 @@ pipeline {
 3
 ```
 
+hint: Think about how you can search for a pattern in text and have the tool report the number of matching lines directly.
+hint: Use grep with the -c flag to count occurrences of the pattern stage( in the piped input.
+
 6. Count `post` condition blocks in a Jenkinsfile. Run: `printf 'post {\n  always {}\n  success {}\n  failure {}\n}\n' | grep -c '  [a-z]* {}'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can use grep not just to find matches, but to count how many lines match a pattern.
+hint: Use grep with the -c flag and a regex pattern like '  [a-z]* {}' to count lines that match indented condition block syntax.

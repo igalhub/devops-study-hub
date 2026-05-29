@@ -301,8 +301,14 @@ molecule destroy                 # clean up
 7
 ```
 
+hint: Think about how you can generate a list of items and count how many lines it contains using standard Unix tools.
+hint: Use printf to print each role subdirectory name on its own line with \n separators, then pipe that output to wc -l to count the lines.
+
 6. Extract the role entry-point filename from a path. Run: `echo "roles/nginx/tasks/main.yml" | awk -F/ '{print $NF}'`
 
 ```expected_output
 main.yml
 ```
+
+hint: Think about how awk can split a string into fields using a custom delimiter, then access the last field.
+hint: Use awk with -F/ to set the slash as the field separator, and reference $NF to print the last field in the record.

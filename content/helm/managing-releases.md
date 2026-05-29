@@ -724,8 +724,14 @@ Write a shell script (not a one-liner) that:
 deployed
 ```
 
+hint: Think about how you can filter lines by a specific field value and then print only the column you need using a text processing tool.
+hint: Use awk with a regex pattern to match lines starting with 'myapp', then reference the second whitespace-separated field using $2.
+
 6. Calculate the next revision number after three upgrades. Run: `python3 -c "current=3; print(current + 1)"`
 
 ```expected_output
 4
 ```
+
+hint: Think about how Helm tracks release history and increments revision numbers with each upgrade.
+hint: Use a simple arithmetic expression in Python where you add 1 to the current revision count stored in a variable.

@@ -775,8 +775,13 @@ awk 'BEGIN {
 100
 ```
 
+hint: Think about how awk can accumulate a running total across all input lines using a variable.
+hint: Use an awk pattern with a variable like `sum += $1` in the main block and an END rule to print the accumulated total.
+
 6. Using `sed`, replace every space in the string `"the quick brown fox"` with a hyphen and print the result. Write a one-liner: `echo "the quick brown fox" | sed ...`
 
 ```expected_output
 the-quick-brown-fox
 ```
+hint: Think about how sed can be used to find and replace characters using a substitution pattern.
+hint: Use sed's substitution command in the form s/old/new/g, where the g flag applies the replacement to every occurrence on the line.

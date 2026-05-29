@@ -848,6 +848,9 @@ Exit with code 0 if only warnings, code 1 if any errors.
    {"name": "devops", "version": 3}
    ```
 
+hint: Think about which Python standard library module handles conversion between Python objects and JSON format.
+hint: Use json.dumps() with a dictionary argument to produce a JSON-formatted string from your Python dict.
+
 2. Detect Python types after JSON parsing.
 
    ```python
@@ -857,3 +860,5 @@ Exit with code 0 if only warnings, code 1 if any errors.
    ```expected_output
    bool int
    ```
+hint: Think about how Python's json module parses JSON values and what built-in function reveals the type of any parsed object.
+hint: Use json.loads() to parse your JSON string, then call type() on each value and print the resulting type names using their __name__ attribute.

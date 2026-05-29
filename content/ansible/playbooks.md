@@ -303,8 +303,14 @@ handlers:
 3
 ```
 
+hint: Think about how you can search for a specific pattern in text output and count how many times it appears.
+hint: Use grep with the -c flag to count lines matching the pattern '^- name:' from the piped printf output.
+
 6. Extract the target hosts value from a play. Run: `printf '---\n- name: Deploy\n  hosts: webservers\n  become: true\n' | awk '/hosts:/{print $2}'`
 
 ```expected_output
 webservers
 ```
+
+hint: Think about how you can parse specific lines from text by matching a keyword pattern and printing a particular field.
+hint: Use awk with a pattern match like /hosts:/ combined with print $2 to extract the second whitespace-separated field from the matching line.

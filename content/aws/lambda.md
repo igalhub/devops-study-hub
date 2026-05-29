@@ -866,8 +866,14 @@ Build a pipeline: EventBridge rule (rate 1 minute) → Lambda → intentional fa
 handler
 ```
 
+hint: Think about how awk can match a specific line and then split a field on a delimiter to isolate one part of it.
+hint: Use awk's pattern /^Handler:/ to select the right line, then apply split($2, a, ".") to break the value on the dot and print the second element a[2].
+
 7. Calculate Lambda memory after doubling from 512 MB. Run: `python3 -c "print(512 * 2)"`
 
 ```expected_output
 1024
 ```
+
+hint: Think about how Python's print function can evaluate a mathematical expression directly from the command line using the -c flag.
+hint: Use python3 -c with print() and the multiplication operator * to calculate the result of 512 doubled.

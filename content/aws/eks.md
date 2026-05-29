@@ -855,8 +855,14 @@ Deploy the AWS Load Balancer Controller to your cluster, create an Ingress resou
 workers
 ```
 
+hint: Think about how you can filter lines from the input and extract a specific field from the first match.
+hint: Use awk with a pattern like /name:/ to match relevant lines, print the second field with $2, and stop after the first match using exit.
+
 6. Calculate the maximum pod count for a 3-node cluster at 10 pods per node. Run: `python3 -c "print(3 * 10)"`
 
 ```expected_output
 30
 ```
+
+hint: Think about how you can use Python inline arithmetic to calculate cluster capacity directly from the terminal.
+hint: Use python3 -c with the print() function to multiply the number of nodes by the pods-per-node value as a simple expression.

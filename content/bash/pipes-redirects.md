@@ -671,6 +671,9 @@ echo "fake-pod	registry.example.com/old-image:v0.9" >> baseline-production.txt
 3
 ```
 
+hint: Think about how you can split the string into individual words, remove duplicates, and then count what remains using a pipeline.
+hint: Use `tr ' ' '\n'` to put each word on its own line, then pipe through `sort -u` to deduplicate, and finally `wc -l` to count the lines.
+
 4. Extract the second column from each row of this CSV using `awk -F,`. Pipe from: `printf 'alice,30,engineer\nbob,25,designer\ncarol,35,manager\n'`
 
 ```expected_output
@@ -678,3 +681,5 @@ echo "fake-pod	registry.example.com/old-image:v0.9" >> baseline-production.txt
 25
 35
 ```
+hint: Think about how awk uses field separators to split each line into numbered columns you can reference.
+hint: Use awk -F, '{print $2}' to tell awk the comma is the delimiter and to print the second field of each line.

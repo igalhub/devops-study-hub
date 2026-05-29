@@ -267,8 +267,14 @@ spec:
 5
 ```
 
+hint: Think about how you can filter lines by a pattern and have the tool count the matches for you automatically.
+hint: Use grep with the -c flag, which counts matching lines directly, and match on the .yaml file extension pattern at the end of each line.
+
 6. Extract the chart type from a library Chart.yaml stub. Run: `printf 'apiVersion: v2\nname: mylib\ntype: library\n' | awk '/^type:/{print $2}'`
 
 ```expected_output
 library
 ```
+
+hint: Think about how awk can match lines by a pattern and then print a specific field from those lines.
+hint: Use awk with a regex pattern like '/^type:/' to match the line, then reference the second whitespace-separated field with '$2'.

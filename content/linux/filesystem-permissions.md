@@ -450,6 +450,9 @@ ls -la /tmp/ | head -20
    -rw-r--r--
    ```
 
+hint: Think about which command displays detailed file metadata, including permissions, in a long-format listing.
+hint: Use ls with the -l flag on the target file, then consider how to isolate just the first field showing the permission bits.
+
 2. Print the permission bits of `/tmp` (sticky bit expected).
 
    ```bash
@@ -459,3 +462,6 @@ ls -la /tmp/ | head -20
    ```expected_output
    drwxrwxrwt
    ```
+
+hint: Think about which Linux command displays file and directory metadata, including permission bits.
+hint: Use ls with the -ld flags targeting /tmp, which shows the directory entry itself along with its permission string.

@@ -441,8 +441,14 @@ curl -s http://localhost:9600/_node/stats/pipelines | \
 3
 ```
 
+hint: Think about how you can use grep to count only the lines that represent the three main Logstash pipeline stages.
+hint: Use grep's -c flag with the pattern '^[a-z]' to count lines that start with a lowercase letter, piped from a printf command that generates the three-stage config.
+
 5. Extract the codec type from a Logstash input plugin stub. Run: `printf 'input {\n  beats {\n    port => 5044\n    codec => "json"\n  }\n}\n' | awk '/codec =>/{gsub(/"/, ""); print $3}'`
 
 ```expected_output
 json
 ```
+
+hint: Think about how to filter lines containing a specific keyword and then clean up unwanted characters from the output.
+hint: Use awk to match lines with 'codec =>', then apply gsub() to remove quote characters and print the third whitespace-delimited field.

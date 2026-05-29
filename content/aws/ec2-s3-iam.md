@@ -290,8 +290,14 @@ aws iam put-role-policy \
 my-app-bucket-prod
 ```
 
+hint: Think about how you can split a colon-delimited string and select a specific field from it.
+hint: Use the cut command with the -d: flag to set colon as the delimiter, then use -f6 to select the sixth field from the ARN.
+
 6. Extract the account ID from an IAM ARN. Run: `echo "arn:aws:iam::123456789012:role/MyRole" | cut -d: -f5`
 
 ```expected_output
 123456789012
 ```
+
+hint: Think about how to split a string by a delimiter and select a specific field from the result.
+hint: Use the cut command with the -d: flag to set the colon as a delimiter, then use -f5 to select the fifth field from the piped input.

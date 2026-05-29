@@ -791,8 +791,14 @@ Run a compute job on a Spot VM and demonstrate that preemption and restart produ
 us-central1-a
 ```
 
+hint: Think about how you can split a string by a delimiter and select a specific field from the result.
+hint: Use the cut command with the -d flag to set '/' as the delimiter and the -f flag to select the 4th field.
+
 7. Convert a GCS URI to its bucket name. Run: `echo "gs://my-data-bucket/path/to/object.csv" | cut -d/ -f3`
 
 ```expected_output
 my-data-bucket
 ```
+
+hint: Think about how you can split a string by a specific delimiter and extract just one segment of it.
+hint: Use the cut command with the -d flag to set '/' as the delimiter, and -f3 to select the third field from the piped input.

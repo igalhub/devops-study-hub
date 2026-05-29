@@ -420,8 +420,14 @@ predict_linear(node_filesystem_free_bytes{fstype!="tmpfs"}[6h], 4 * 3600) < 0
 rate
 ```
 
+hint: Think about how you can split a string on a specific character and keep only the first segment.
+hint: Use the cut command with the -d flag to set '(' as the delimiter, then use -f1 to select the first field from the piped input.
+
 6. Extract the time window from a PromQL range vector selector. Run: `echo "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[10m]))" | grep -o '\[[0-9]*m\]'`
 
 ```expected_output
 [10m]
 ```
+
+hint: Think about how grep can extract just the matching portion of a string rather than the whole line.
+hint: Use grep with the -o flag and a regex pattern like '\[[0-9]*m\]' to capture only the bracketed time window.

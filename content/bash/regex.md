@@ -721,8 +721,13 @@ For each: name the specific rule or concept it violates, then write the correcte
 John Smith
 ```
 
+hint: Think about how regular expressions can capture different parts of a string and rearrange them in the replacement.
+hint: Use sed -E with two capture groups separated by a comma and space, like '([A-Za-z]+), ([A-Za-z]+)', then reference them in reverse order with \2 and \1 in the replacement string.
+
 6. Extract just the IPv4 address from the string `"Connected to 10.0.1.42 successfully"` using `grep -oE` and an ERE pattern. Write a one-liner.
 
 ```expected_output
 10.0.1.42
 ```
+hint: Think about how to use grep to extract only the matching portion of a line rather than the whole line, combined with a pattern that matches the structure of an IP address.
+hint: Use grep -oE with the Extended Regular Expression pattern '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' applied to the string via echo piping.

@@ -623,8 +623,13 @@ builder
 runtime
 ```
 
+hint: Think about how you can filter lines containing a specific keyword and then extract the last word from those lines.
+hint: Use awk with a pattern match for 'AS' and print $NF to grab the final field on each matching line.
+
 6. Count `FROM` instructions in a multi-stage Dockerfile stub. Run: `printf 'FROM node:20 AS deps\nFROM node:20 AS build\nFROM nginx:alpine\n' | grep -c '^FROM'`
 
 ```expected_output
 3
 ```
+hint: Think about how you can filter lines that match a specific pattern and have the shell count those matches automatically.
+hint: Use grep with the -c flag to count lines matching the anchored pattern ^FROM in the piped input.

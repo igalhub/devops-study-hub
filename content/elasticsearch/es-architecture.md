@@ -677,8 +677,14 @@ Write your configuration as valid `elasticsearch.yml` snippets — one per node 
 6
 ```
 
+hint: Think about how total shards relate to primary shards and the number of copies (replicas) of each.
+hint: Use Python to evaluate the formula where total shards equal primary multiplied by the quantity of one plus the replica count.
+
 6. Extract the cluster name from an elasticsearch.yml stub. Run: `printf 'cluster.name: my-es-cluster\nnode.name: es-node-1\n' | awk '/^cluster.name:/{print $2}'`
 
 ```expected_output
 my-es-cluster
 ```
+
+hint: Think about how you can filter lines from structured text and extract a specific field value using a pattern-matching tool.
+hint: Use awk with a pattern like /^cluster.name:/ to match the target line, then print the second whitespace-separated field with {print $2}.

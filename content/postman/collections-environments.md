@@ -263,8 +263,14 @@ if (!token || Date.now() / 1000 >= parseInt(expiry || 0)) {
 4
 ```
 
+hint: Think about how you can count the number of lines produced by a command's output.
+hint: Use the pipe operator to send the output of printf into wc -l, which counts newline characters.
+
 6. Extract the base URL from an environment variable file. Run: `printf 'base_url=https://api.example.com\napi_key=secret123\n' | awk -F= '/^base_url/{print $2}'`
 
 ```expected_output
 https://api.example.com
 ```
+
+hint: Think about how you can filter lines in a stream by a specific key name and then extract the value after a delimiter.
+hint: Use awk with -F= to set the equals sign as the field separator, then match lines starting with your target key using a regex anchor like /^base_url/ and print the second field with $2.
