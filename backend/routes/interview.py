@@ -27,11 +27,11 @@ def _fetch_questions(module_id: int) -> list[dict]:
     conn = get_conn()
     try:
         rows = conn.execute(
-            "SELECT id, question FROM interview_questions WHERE module_id = ?", (module_id,)
+            "SELECT id, question, hints FROM interview_questions WHERE module_id = ?", (module_id,)
         ).fetchall()
     finally:
         conn.close()
-    return [{"id": r["id"], "question": r["question"]} for r in rows]
+    return [{"id": r["id"], "question": r["question"], "hints": json.loads(r["hints"] or "[]")} for r in rows]
 
 
 def _generate_and_store(module_id: int, title: str) -> None:
@@ -195,7 +195,7 @@ def get_interview_review_queue():
     conn = get_conn()
     try:
         rows = conn.execute("""
-            SELECT iq.id, iq.question, m.title AS module_title, m.slug AS module_slug
+            SELECT iq.id, iq.question, iq.hints, m.title AS module_title, m.slug AS module_slug
             FROM interview_srs_schedule s
             JOIN interview_questions iq ON s.question_id = iq.id
             JOIN modules m ON iq.module_id = m.id
@@ -205,6 +205,7 @@ def get_interview_review_queue():
         """).fetchall()
         return [
             {'id': r['id'], 'question': r['question'],
+             'hints': json.loads(r['hints'] or '[]'),
              'module_title': r['module_title'], 'module_slug': r['module_slug']}
             for r in rows
         ]

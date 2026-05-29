@@ -145,11 +145,15 @@ def init_db():
       conn.close()
 
     # Schema migrations — add columns that may not exist on older DBs
-    conn = get_conn()
-    try:
-        conn.execute("ALTER TABLE project_steps ADD COLUMN hints TEXT DEFAULT '[]'")
-        conn.commit()
-    except Exception:
-        pass  # column already exists
-    finally:
-        conn.close()
+    for migration in [
+        "ALTER TABLE project_steps ADD COLUMN hints TEXT DEFAULT '[]'",
+        "ALTER TABLE interview_questions ADD COLUMN hints TEXT DEFAULT '[]'",
+    ]:
+        conn = get_conn()
+        try:
+            conn.execute(migration)
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+        finally:
+            conn.close()

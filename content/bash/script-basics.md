@@ -901,8 +901,14 @@ Test with a sample log file you generate using a loop that writes fake log lines
 nginx_backup
 ```
 
+hint: Use `${VAR}` brace expansion — brace syntax lets you append a suffix directly without a space.
+hint: Try `NAME="nginx"; echo "${NAME}_backup"`.
+
 6. Print the result of 2 raised to the power of 10 using bash arithmetic expansion.
 
 ```expected_output
 1024
 ```
+
+hint: Bash arithmetic expansion uses `$(( ))` — look for the exponentiation operator `**` inside it.
+hint: Try `echo $((2**10))`.

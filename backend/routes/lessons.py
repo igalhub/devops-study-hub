@@ -28,6 +28,7 @@ def _parse_exercises(body: str) -> list[dict]:
     items = []
     current_text = None
     current_expected = None
+    current_hints: list[str] = []
     in_fence = False
     fence_tag = ''
     fence_lines: list[str] = []
@@ -61,16 +62,21 @@ def _parse_exercises(body: str) -> list[dict]:
         m = re.match(r'^\d+\.\s+(.+)$', stripped)
         if m:
             if current_text is not None:
-                items.append({'text': current_text.strip(), 'expected_output': current_expected})
+                items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
             current_text = m.group(1)
             current_expected = None
+            current_hints = []
+            continue
+
+        if current_text is not None and stripped.lower().startswith('hint:'):
+            current_hints.append(stripped[5:].strip())
             continue
 
         if current_text is not None and stripped:
             current_text += ' ' + stripped
 
     if current_text is not None:
-        items.append({'text': current_text.strip(), 'expected_output': current_expected})
+        items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
 
     return items
 
