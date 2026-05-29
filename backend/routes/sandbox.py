@@ -3,9 +3,13 @@ import resource
 import subprocess
 import sys
 import tempfile
-from fastapi import APIRouter
+from pathlib import Path
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from db import get_conn
+from ai_client import generate, AITimeoutError
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 router = APIRouter()
 
@@ -169,3 +173,50 @@ def check_code(request: CheckRequest):
         'xp_earned': xp_earned,
         'xp_total': _xp_total(),
     }
+
+
+class AnswerRequest(BaseModel):
+    lesson_slug: str
+    exercise_text: str
+
+
+@router.post('/sandbox/answer')
+def get_exercise_answer(request: AnswerRequest):
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            'SELECT l.title, l.md_path FROM lessons l WHERE l.slug = ?',
+            (request.lesson_slug,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    title = row['title'] if row else request.lesson_slug
+    lesson_context = ''
+    if row:
+        md_file = PROJECT_ROOT / row['md_path']
+        if md_file.exists():
+            text = md_file.read_text()
+            if text.startswith('---'):
+                try:
+                    end = text.index('---', 3)
+                    text = text[end + 3:].strip()
+                except ValueError:
+                    pass
+            lesson_context = f'\n\nLesson content (excerpt):\n{text[:2000]}'
+
+    prompt = (
+        f'You are a DevOps instructor. A student is stuck on this exercise.\n\n'
+        f'Lesson: {title}{lesson_context}\n\n'
+        f'Exercise: {request.exercise_text}\n\n'
+        f'Provide a correct, complete solution. Show the exact YAML manifest, '
+        f'bash commands, or configuration to write. Lead with the solution, '
+        f'then add a 1-2 sentence explanation of the key idea.'
+    )
+
+    try:
+        answer = generate(prompt, max_tokens=600)
+    except AITimeoutError:
+        raise HTTPException(status_code=504, detail='Request timed out — please try again')
+
+    return {'answer': answer}

@@ -274,6 +274,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                     expectedOutput={ex.expected_output ?? null}
                     exerciseSlug={lessonSlug}
                     exerciseIndex={i}
+                    exerciseText={ex.text}
                     hints={ex.hints ?? []}
                   />
                 )}
