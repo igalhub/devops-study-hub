@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { checkExercise } from '../store/curriculumStore'
 
 const API = 'http://localhost:8000'
@@ -43,7 +45,7 @@ function HintBox({ hints }) {
   )
 }
 
-export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex, hints }) {
+export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex, exerciseText, hints }) {
   const dark = useDarkMode()
   const [language, setLanguage] = useState(initialLanguage ?? 'bash')
   const [code, setCode] = useState(initialCode ?? STARTER[initialLanguage ?? 'bash'])
@@ -51,6 +53,8 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
   const [running, setRunning] = useState(false)
   const [checkResult, setCheckResult] = useState(null)
   const [checking, setChecking] = useState(false)
+  const [answer, setAnswer] = useState(null)
+  const [fetchingAnswer, setFetchingAnswer] = useState(false)
 
   const switchLanguage = (lang) => {
     setLanguage(lang)
@@ -94,7 +98,26 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') run()
   }
 
+  const showAnswer = async () => {
+    if (answer !== null) { setAnswer(null); return }
+    setFetchingAnswer(true)
+    try {
+      const res = await fetch(`${API}/sandbox/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_slug: exerciseSlug, exercise_text: exerciseText }),
+      })
+      const data = await res.json()
+      setAnswer(res.ok ? data.answer : `Error: ${data.detail ?? 'Request failed'}`)
+    } catch (e) {
+      setAnswer(`Error: ${e.message}`)
+    } finally {
+      setFetchingAnswer(false)
+    }
+  }
+
   const hasCheck = Boolean(expectedOutput)
+  const hasAnswer = Boolean(!hasCheck && exerciseSlug && exerciseText)
 
   return (
     <div
@@ -119,6 +142,15 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
           ))}
         </div>
         <div className="flex items-center gap-2">
+          {hasAnswer && (
+            <button
+              onClick={showAnswer}
+              disabled={fetchingAnswer}
+              className="text-xs px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-50 rounded-full transition-colors"
+            >
+              {fetchingAnswer ? 'Loading…' : answer !== null ? 'Hide answer' : 'Show answer'}
+            </button>
+          )}
           {hasCheck && (
             <button
               onClick={check}
@@ -143,6 +175,20 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
 
       {/* Hints */}
       {hints && hints.length > 0 && <HintBox hints={hints} />}
+
+      {/* Answer */}
+      {answer !== null && (
+        <div className="px-4 py-3 bg-blue-950/40 border-b border-blue-800/50">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-blue-400 mb-2">Solution</div>
+          <div className="text-xs text-blue-100 prose prose-xs prose-invert max-w-none
+            prose-headings:text-blue-200 prose-headings:font-semibold prose-headings:text-sm
+            prose-p:text-blue-100 prose-p:leading-relaxed
+            prose-code:text-emerald-300 prose-code:before:content-none prose-code:after:content-none
+            prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700 prose-pre:text-xs">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer}</ReactMarkdown>
+          </div>
+        </div>
+      )}
 
       {/* Editor */}
       <Editor
