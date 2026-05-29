@@ -34,6 +34,7 @@ app.add_middleware(
     allow_origins=[o.strip() for o in _cors_origins],
     allow_methods=['*'],
     allow_headers=['*'],
+    max_age=3600,
 )
 
 
