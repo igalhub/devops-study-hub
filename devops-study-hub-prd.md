@@ -386,6 +386,7 @@ exercises: 3
 
 ### Phase 4 — Job Readiness ✅
 - Interview Prep Mode with AI-generated questions and AI feedback (score: Weak/Adequate/Strong)
+- Quick Review flashcard mode — pre-seeded model answers, self-grade Weak/Adequate/Strong, no live Claude call; `POST /interview/self-grade`; seeded via `seed_interview.py --model-answers` (184 answers across all 23 modules)
 - Interview SRS review queue (SM-2 algorithm; amber badge in sidebar when reviews due)
 - XP awards for interview answers (Strong=5, Adequate=2)
 
