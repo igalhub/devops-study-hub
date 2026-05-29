@@ -7,6 +7,27 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson, addBookmark, removeBookmark, isBookmarked } from '../store/curriculumStore'
 import CodePlayground from '../components/CodePlayground'
 
+function HintBox({ hints }) {
+  const [hintCount, setHintCount] = useState(0)
+  if (!hints || hints.length === 0) return null
+  return (
+    <div className="px-4 py-2 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 space-y-2">
+      {hints.slice(0, hintCount).map((hint, i) => (
+        <div key={i} className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+          <span className="font-semibold">Hint {i + 1}:</span> {hint}
+        </div>
+      ))}
+      <button
+        onClick={() => setHintCount(c => Math.min(c + 1, hints.length))}
+        disabled={hintCount >= hints.length}
+        className="text-xs text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {hintCount === 0 ? 'Hint' : hintCount >= hints.length ? 'No more hints' : 'Next hint'}
+      </button>
+    </div>
+  )
+}
+
 const slugify = (text) =>
   text.toLowerCase().trim().replace(/[`*_[\]#]/g, '').replace(/\s+/g, '-').replace(/[^\w-]/g, '')
 
@@ -267,16 +288,18 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                   </button>
                 </div>
                 {activeExercise === i && (
-                  <CodePlayground
-                    key={i}
-                    initialLanguage={exerciseLang(ex)}
-                    initialCode={makeStarter(ex.text, exerciseLang(ex))}
-                    expectedOutput={ex.expected_output ?? null}
-                    exerciseSlug={lessonSlug}
-                    exerciseIndex={i}
-                    exerciseText={ex.text}
-                    hints={ex.hints ?? []}
-                  />
+                  <>
+                    <HintBox key={`hint-${i}`} hints={ex.hints ?? []} />
+                    <CodePlayground
+                      key={i}
+                      initialLanguage={exerciseLang(ex)}
+                      initialCode={makeStarter(ex.text, exerciseLang(ex))}
+                      expectedOutput={ex.expected_output ?? null}
+                      exerciseSlug={lessonSlug}
+                      exerciseIndex={i}
+                      exerciseText={ex.text}
+                    />
+                  </>
                 )}
               </div>
             ))}

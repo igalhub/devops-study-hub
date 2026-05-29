@@ -24,28 +24,7 @@ function useDarkMode() {
   return dark
 }
 
-function HintBox({ hints }) {
-  const [hintCount, setHintCount] = useState(0)
-  if (!hints || hints.length === 0) return null
-  return (
-    <div className="px-3 pt-2 pb-1 space-y-2 bg-white dark:bg-gray-900">
-      {hints.slice(0, hintCount).map((hint, i) => (
-        <div key={i} className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-          <span className="font-semibold">Hint {i + 1}:</span> {hint}
-        </div>
-      ))}
-      <button
-        onClick={() => setHintCount(c => Math.min(c + 1, hints.length))}
-        disabled={hintCount >= hints.length}
-        className="text-xs text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        {hintCount === 0 ? 'Hint' : hintCount >= hints.length ? 'No more hints' : 'Next hint'}
-      </button>
-    </div>
-  )
-}
-
-export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex, exerciseText, hints }) {
+export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex, exerciseText }) {
   const dark = useDarkMode()
   const [language, setLanguage] = useState(initialLanguage ?? 'bash')
   const [code, setCode] = useState(initialCode ?? STARTER[initialLanguage ?? 'bash'])
@@ -178,9 +157,6 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
           </button>
         </div>
       </div>
-
-      {/* Hints */}
-      {hints && hints.length > 0 && <HintBox hints={hints} />}
 
       {/* Answer */}
       {answer !== null && (

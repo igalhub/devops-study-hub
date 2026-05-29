@@ -34,15 +34,10 @@ const SCORE_STYLE = {
 export default function InterviewPrep({ modules, progress, onXpEarned, onInterviewDueChange, interviewQueue: queueProp = null }) {
   const { moduleSlug: urlSlug } = useParams()
 
-  const studiedModules = modules.filter(
-    m => (m.lessons || []).some(l => progress[String(l.id)])
-  )
-  const availableModules = studiedModules.length ? studiedModules : modules
-
   const initialSlug = urlSlug && modules.find(m => m.slug === urlSlug)
     ? urlSlug
-    : availableModules.length
-      ? availableModules[Math.floor(Math.random() * availableModules.length)].slug
+    : modules.length
+      ? modules[Math.floor(Math.random() * modules.length)].slug
       : ''
 
   // Main session state
@@ -393,7 +388,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
         </div>
       )}
 
-      {availableModules.length === 0 ? (
+      {modules.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No modules available yet.</p>
       ) : (
         <>
@@ -407,7 +402,7 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
               disabled={phase === 'loading'}
               className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
-              {availableModules.map(m => (
+              {modules.map(m => (
                 <option key={m.slug} value={m.slug}>{m.title}</option>
               ))}
             </select>
