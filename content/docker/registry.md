@@ -789,3 +789,19 @@ Extend the tagging pipeline from Exercise 1 to add a vulnerability scan step:
 5. Write the scan results to a JSON file (`scan-results-${GIT_SHA}.json`) using `trivy image --format json`
 
 Test your script against a known vulnerable image (e.g., `python:3.6-slim`) to verify the blocking behavior, then test against a recent minimal base image to verify the happy path.
+
+---
+
+### Quick Checks
+
+5. Extract the registry hostname from a fully qualified image reference. Run: `echo "ghcr.io/myorg/myapp:v1.2.3" | cut -d/ -f1`
+
+```expected_output
+ghcr.io
+```
+
+6. Parse the major version number from a semver image tag. Run: `python3 -c "tag = 'v1.23.4'; print(tag.lstrip('v').split('.')[0])"`
+
+```expected_output
+1
+```

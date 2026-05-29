@@ -328,3 +328,20 @@ If the API key is rotated or the Logstash instance is compromised, you invalidat
 2. Create a role `tenant-a-role` that applies document-level security filtering documents where `tenant: "tenant-a"`, and field-level security that grants all fields except `internal_cost` and `vendor_margin`. Index 5 documents mixing two tenants and one document with sensitive fields. Authenticate as a user with `tenant-a-role` and verify: (a) only tenant-a documents are returned, (b) the excluded fields are absent from responses.
 
 3. Generate an API key scoped to write access on `metrics-*` with a 7-day expiration. Use `curl` with the base64 `Authorization: ApiKey` header to index a test document. Then invalidate the key using `DELETE /_security/api_key` and confirm subsequent requests return 401. List the audit log entries for the invalidation event.
+
+
+---
+
+### Quick Checks
+
+4. Verify transport TLS is enabled from a config stub. Run: `printf 'xpack.security.enabled: true\nxpack.security.transport.ssl.enabled: true\n' | awk '/transport.ssl.enabled:/{print $2}'`
+
+```expected_output
+true
+```
+
+5. Count privileges in an index role definition. Run: `printf 'privileges: ["read", "write", "delete", "index"]\n' | tr ',' '\n' | grep -c '"'`
+
+```expected_output
+4
+```

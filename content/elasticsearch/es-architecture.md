@@ -666,3 +666,19 @@ Then answer the following:
 4. If one data node fails and contains primaries with no replicas (`number_of_replicas: 0`), what is the cluster status and what is your recovery path?
 
 Write your configuration as valid `elasticsearch.yml` snippets — one per node type.
+
+---
+
+### Quick Checks
+
+5. Calculate total shards for 3 primary shards with 1 replica each. Run: `python3 -c "primary=3; replicas=1; print(primary * (1 + replicas))"`
+
+```expected_output
+6
+```
+
+6. Extract the cluster name from an elasticsearch.yml stub. Run: `printf 'cluster.name: my-es-cluster\nnode.name: es-node-1\n' | awk '/^cluster.name:/{print $2}'`
+
+```expected_output
+my-es-cluster
+```

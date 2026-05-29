@@ -554,3 +554,19 @@ This exercise builds the habit of looking before and after an error, not just at
 5. Based only on the surrounding document sequence, write a one-sentence hypothesis about the root cause. This mimics the postmortem skill of forming an initial hypothesis from logs before correlating with metrics.
 
 **Goal:** practice the "zoom out before zooming in" approach to log investigation — errors rarely appear in isolation, and the events surrounding them carry more diagnostic information than the error itself.
+
+---
+
+### Quick Checks
+
+6. Extract the index pattern from a Discover config stub. Run: `printf 'index: logs-*\ntime_field: @timestamp\n' | awk '/^index:/{print $2}'`
+
+```expected_output
+logs-*
+```
+
+7. Count active field filters in a search stub. Run: `printf 'filters:\n- field: level\n  value: error\n- field: service\n  value: api\n- field: env\n  value: prod\n' | grep -c '^- field:'`
+
+```expected_output
+3
+```

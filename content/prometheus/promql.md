@@ -408,3 +408,20 @@ predict_linear(node_filesystem_free_bytes{fstype!="tmpfs"}[6h], 4 * 3600) < 0
 3. Write a recording rule group that pre-computes: (a) per-service request rate over 5m, (b) per-service error ratio over 5m, (c) p99 latency per service. Follow the `level:metric:operations` naming convention.
 
 4. Write a PromQL expression that alerts when a disk is predicted to fill up within 4 hours, using `node_filesystem_free_bytes` with a 6-hour linear regression window. Exclude `tmpfs` filesystems.
+
+
+---
+
+### Quick Checks
+
+5. Extract the function name from a PromQL expression. Run: `echo "rate(http_requests_total[5m])" | cut -d'(' -f1`
+
+```expected_output
+rate
+```
+
+6. Extract the time window from a PromQL range vector selector. Run: `echo "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[10m]))" | grep -o '\[[0-9]*m\]'`
+
+```expected_output
+[10m]
+```

@@ -261,3 +261,20 @@ module "vpc" {
 2. Create two security groups: `web-sg` (allows 443 from 0.0.0.0/0) and `app-sg` (allows port 8080 only from `web-sg`). Demonstrate that restricting the app security group to the web security group source prevents direct internet access.
 3. Set up Route 53 with a public hosted zone. Create an A record and verify DNS resolution with `dig`. Then set up weighted routing — 80% to one IP, 20% to another — and verify with repeated `dig` queries.
 4. Configure a failover routing policy in Route 53: a primary record pointing to an active server with a health check, and a secondary pointing to a standby. Simulate failure by making the health check fail and verify Route 53 switches to the secondary.
+
+
+---
+
+### Quick Checks
+
+5. Calculate the number of usable host addresses in a /24 subnet. Run: `python3 -c "print(2**(32-24) - 2)"`
+
+```expected_output
+254
+```
+
+6. Count the octets in an IPv4 address. Run: `echo "192.168.10.5" | tr '.' '\n' | wc -l`
+
+```expected_output
+4
+```

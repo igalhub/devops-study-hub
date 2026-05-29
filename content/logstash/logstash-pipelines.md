@@ -429,3 +429,20 @@ curl -s http://localhost:9600/_node/stats/pipelines | \
 2. Create a pipeline config at `/etc/logstash/conf.d/enrich.conf` that: reads from `/tmp/test.log` with `start_position => "beginning"` and `sincedb_path => "/dev/null"`; adds three fields via `mutate`: `env` = `"production"`, `datacenter` = `"eu-west-1"`, and `pipeline_version` = `"2"`; outputs to stdout with the `rubydebug` codec. Run it with `--config.test_and_exit` to verify, then show what the `rubydebug` output would look like for the input line `hello world`.
 
 3. Using the monitoring API on a running Logstash instance, write the exact curl commands to: (a) retrieve the `events.in` and `events.out` for the `main` pipeline; (b) find the filter plugin with the highest `duration_in_millis`; (c) check the persistent queue depth. For each command, explain what a bad value would look like and what you would investigate first.
+
+
+---
+
+### Quick Checks
+
+4. Count the three pipeline stages in a Logstash config. Run: `printf 'input { }\nfilter { }\noutput { }\n' | grep -c '^[a-z]'`
+
+```expected_output
+3
+```
+
+5. Extract the codec type from a Logstash input plugin stub. Run: `printf 'input {\n  beats {\n    port => 5044\n    codec => "json"\n  }\n}\n' | awk '/codec =>/{gsub(/"/, ""); print $3}'`
+
+```expected_output
+json
+```

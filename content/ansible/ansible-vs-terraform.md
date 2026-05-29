@@ -798,3 +798,19 @@ This exercise builds intuition for the state gap between the two tools.
 6. Run `terraform destroy` — observe that it cleanly removes both instances (recreating the missing one first if you didn't run apply, or just destroying the remaining one).
 
 Write a one-paragraph explanation of what you observed about how each tool handles external state changes, and what that means for which tool should own the lifecycle of cloud resources.
+
+---
+
+### Quick Checks
+
+7. Identify which tool uses declarative state management. Run: `printf 'ansible:stateless\nterraform:declarative-state\n' | awk -F: '/declarative-state/{print $1}'`
+
+```expected_output
+terraform
+```
+
+8. Count YAML playbook files in a directory listing. Run: `printf 'main.yml\ninventory.ini\nplaybook.yml\nrequirements.yml\n' | grep -c '\.yml$'`
+
+```expected_output
+3
+```

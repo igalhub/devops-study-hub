@@ -844,3 +844,19 @@ Deploy the AWS Load Balancer Controller to your cluster, create an Ingress resou
 - Misconfiguration 1: Set `alb.ingress.kubernetes.io/scheme` to an invalid value and observe what error the controller logs in `kubectl logs -n kube-system deploy/aws-load-balancer-controller`.
 - Misconfiguration 2: Delete the IRSA service account annotation from the controller's service account and observe the resulting AWS API error (`AccessDenied`). Restore the annotation and confirm the controller recovers without restart.
 - Final verification: Use `curl -v` against the ALB DNS name and confirm a 200 response. Then use the AWS Console to inspect the ALB target group and verify targets are in `healthy` state with `target-type: ip`, showing pod IPs rather than node IPs.
+
+---
+
+### Quick Checks
+
+5. Extract the node group name from a config stub. Run: `printf 'nodeGroups:\n- name: workers\n  instanceType: t3.medium\n- name: spot-workers\n  instanceType: t3.large\n' | awk '/name:/{print $2; exit}'`
+
+```expected_output
+workers
+```
+
+6. Calculate the maximum pod count for a 3-node cluster at 10 pods per node. Run: `python3 -c "print(3 * 10)"`
+
+```expected_output
+30
+```

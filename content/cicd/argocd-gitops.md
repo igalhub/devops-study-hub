@@ -717,3 +717,19 @@ argocd app get payments-api
 3. Create an Application via the CLI (`argocd app create`) pointing at your repo's `guestbook` directory (or your own manifest directory). Set `--sync-policy automated`.
 4. Verify the sync status with `argocd app get` and confirm the pods are running with `kubectl get pods`.
 5. Manually edit the
+
+---
+
+### Quick Checks
+
+6. Extract the destination namespace from an ArgoCD Application stub. Run: `printf 'destination:\n  server: https://kubernetes.default.svc\n  namespace: production\n' | awk '/namespace:/{print $2}'`
+
+```expected_output
+production
+```
+
+7. Extract the automated sync prune setting. Run: `printf 'syncPolicy:\n  automated:\n    prune: true\n    selfHeal: true\n' | awk '/prune:/{print $2}'`
+
+```expected_output
+true
+```

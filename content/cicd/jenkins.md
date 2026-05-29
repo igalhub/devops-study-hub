@@ -287,3 +287,20 @@ pipeline {
 2. Add parallel stages to run unit tests and linting simultaneously. Verify both run in parallel by checking the Blue Ocean UI timeline.
 3. Configure a `Deploy to Prod` stage that only runs on the `main` branch and requires a manual `input` approval. Use `withCredentials` to inject a deploy SSH key.
 4. Create a shared library function `notifySlack(message)` that POSTs to a Slack webhook. Call it from `post { failure { ... } }` in a Jenkinsfile.
+
+
+---
+
+### Quick Checks
+
+5. Count pipeline stages in a Jenkinsfile stub. Run: `printf 'stage("Build") {}\nstage("Test") {}\nstage("Deploy") {}\n' | grep -c 'stage('`
+
+```expected_output
+3
+```
+
+6. Count `post` condition blocks in a Jenkinsfile. Run: `printf 'post {\n  always {}\n  success {}\n  failure {}\n}\n' | grep -c '  [a-z]* {}'`
+
+```expected_output
+3
+```

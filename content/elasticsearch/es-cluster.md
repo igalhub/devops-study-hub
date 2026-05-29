@@ -291,3 +291,20 @@ PUT /_cluster/settings
 2. Create an index `products-v1` with 2 shards and index 100 documents. Change the mapping by adding a new `sku` (keyword) field — without reindex. Then add a `price_float` field that should have been `float` but was indexed as `keyword`. Perform a reindex to `products-v2` with the corrected mapping. Flip the alias `products` from `products-v1` to `products-v2` atomically with a single `_aliases` call. Verify the old index is no longer the write target.
 
 3. Set up an S3-compatible snapshot repository using MinIO in Docker (or a real S3 bucket). Take a snapshot of all indices, delete one index, then restore only that index using `rename_replacement` to restore it under a different name. Verify document counts match before and after using `_cat/indices`.
+
+
+---
+
+### Quick Checks
+
+4. Calculate the minimum master-eligible nodes for quorum in a 5-node cluster. Run: `python3 -c "nodes=5; print(nodes // 2 + 1)"`
+
+```expected_output
+3
+```
+
+5. Count green-status clusters in a health summary. Run: `printf 'cluster_1: green\ncluster_2: yellow\ncluster_3: green\ncluster_4: green\n' | awk '{count[$2]++} END{print count["green"]}'`
+
+```expected_output
+3
+```

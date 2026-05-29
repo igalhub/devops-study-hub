@@ -581,3 +581,19 @@ kubectl patch serviceaccount default -n hardened \
 5. Delete and recreate the Pod. Exec in again and verify the token directory is no longer present.
 
 6. As a follow-up: what happens if you set `automountServiceAccountToken: false` on the ServiceAccount but `automountServiceAccountToken: true` on the Pod spec? Check the Kubernetes documentation to confirm which takes precedence, then verify your answer by testing it.
+
+---
+
+### Quick Checks
+
+7. Count verbs in an RBAC rule. Run: `printf 'verbs: ["get", "list", "watch"]\n' | tr ',' '\n' | grep -c '"'`
+
+```expected_output
+3
+```
+
+8. Extract the subject kind from a RoleBinding stub. Run: `printf 'subjects:\n- kind: ServiceAccount\n  name: myapp\n' | awk '/kind:/{print $2; exit}'`
+
+```expected_output
+ServiceAccount
+```

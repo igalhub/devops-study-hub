@@ -782,3 +782,19 @@ done
 
 5. Identify the single largest gap between your data and the benchmark. Write a 3–5 sentence diagnosis: what process or tooling failure is most likely causing this gap, and what one change would you propose to address it?
 6. **Challenge:** In Reports → Alerts, find the alert source (integration) responsible for the highest number of P1 alerts. Determine whether those alerts have a consistently high or low MTTA. Form a hypothesis: is this a notification policy issue, a routing rule issue, or an on-call scheduling issue? Write the hypothesis in one paragraph with supporting data from the report.
+
+---
+
+### Quick Checks
+
+7. Calculate MTTR from an incident duration. Run: `python3 -c "print(47 - 0)"`
+
+```expected_output
+47
+```
+
+8. Count Opsgenie alert priority levels. Run: `printf 'P1: Critical\nP2: High\nP3: Medium\nP4: Low\nP5: Informational\n' | wc -l`
+
+```expected_output
+5
+```

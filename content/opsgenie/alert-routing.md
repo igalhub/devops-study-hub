@@ -281,3 +281,20 @@ Rule 5 (default): route to platform-team, keep priority from source
 2. Design the integration rules for a scenario where your Opsgenie integration receives alerts from three sources: Prometheus, Datadog, and a custom app. Rules required: (a) any alert tagged `security` goes to the security team at P1 regardless of source; (b) Datadog alerts tagged `staging` are suppressed entirely; (c) custom app alerts with `error_type: transient` are acknowledged automatically. Write each rule as a condition + action pair.
 
 3. A batch job runs every 6 hours and must be monitored for silent failures. The job doesn't emit alerts when it fails — it just stops running. Explain how to use Opsgenie heartbeat monitoring for this: what the job must do, how to configure the heartbeat, what happens when the job fails, and how to test that the alerting works without actually failing the job.
+
+
+---
+
+### Quick Checks
+
+4. Extract the routing condition field from a policy stub. Run: `printf 'conditions:\n- field: priority\n  operation: equals\n  value: P1\n' | awk '/field:/{print $2}'`
+
+```expected_output
+priority
+```
+
+5. Count routing rules in a policy. Run: `printf 'rules:\n- name: critical-rule\n  priority: P1\n- name: high-rule\n  priority: P2\n- name: default-rule\n  priority: P3\n' | grep -c '^- name:'`
+
+```expected_output
+3
+```

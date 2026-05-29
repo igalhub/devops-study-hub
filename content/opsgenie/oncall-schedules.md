@@ -785,3 +785,19 @@ Your team has an SLA that states: *"P1 alerts must reach an engineer within 5 mi
 4. In the Opsgenie UI, find the alert and confirm it was routed to `High-Priority`. Check the alert's **Activity Log** tab to see which escalation steps fired.
 5. Create a second alert *without* the `env:production` tag and verify it routes to `Low-Priority`.
 6. **Reflection question:** What would happen if you reversed the order of your routing rules (catch-all first, specific rule second)? Test it and explain the result.
+
+---
+
+### Quick Checks
+
+7. Calculate hours in a 7-day on-call rotation. Run: `python3 -c "print(7 * 24)"`
+
+```expected_output
+168
+```
+
+8. Count participants in an on-call schedule stub. Run: `printf 'participants:\n- user: alice\n- user: bob\n- user: carol\n- user: dave\n' | grep -c '^- user:'`
+
+```expected_output
+4
+```

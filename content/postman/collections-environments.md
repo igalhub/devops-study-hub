@@ -251,3 +251,20 @@ if (!token || Date.now() / 1000 >= parseInt(expiry || 0)) {
 2. Write a pre-request script on a collection that: checks if `access_token` is set and less than 30 seconds from expiry; if so, calls the refresh endpoint and updates the environment variable. Test by artificially setting a past expiry timestamp.
 3. Chain three requests: (1) POST to create a user, saving the `id` from the response; (2) POST to create an order for that user, using `{{user_id}}`; (3) GET the order by the `id` from step 2. Verify the full chain works end-to-end in the Collection Runner.
 4. Export your collection to a JSON file. Write a README explaining the variables that need to be set before running. Commit both to a git repo. Import the collection from the file on a fresh Postman install and verify it works.
+
+
+---
+
+### Quick Checks
+
+5. Count environment variables in a stub file. Run: `printf 'base_url=https://api.example.com\napi_key=secret123\ntimeout=30\nenv=prod\n' | wc -l`
+
+```expected_output
+4
+```
+
+6. Extract the base URL from an environment variable file. Run: `printf 'base_url=https://api.example.com\napi_key=secret123\n' | awk -F= '/^base_url/{print $2}'`
+
+```expected_output
+https://api.example.com
+```

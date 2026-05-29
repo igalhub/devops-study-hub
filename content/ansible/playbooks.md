@@ -291,3 +291,20 @@ handlers:
 2. Write a playbook that installs `nginx` on the `webservers` group, ensures it's started and enabled, and creates a simple `index.html` file. Use `--check` mode first to preview changes.
 3. Add a `template` task that generates an nginx config from a Jinja2 template file using an inventory variable as the `server_name`. Use a handler to reload nginx when the config changes.
 4. Add a conditional task that installs `htop` on Debian-based systems and `htop` on RedHat-based systems (same package, different package managers) using the `when: ansible_facts.os_family` condition.
+
+
+---
+
+### Quick Checks
+
+5. Count tasks in an Ansible play stub. Run: `printf '- name: Install nginx\n  apt:\n- name: Start nginx\n  service:\n- name: Copy config\n  template:\n' | grep -c '^- name:'`
+
+```expected_output
+3
+```
+
+6. Extract the target hosts value from a play. Run: `printf '---\n- name: Deploy\n  hosts: webservers\n  become: true\n' | awk '/hosts:/{print $2}'`
+
+```expected_output
+webservers
+```

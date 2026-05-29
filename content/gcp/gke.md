@@ -819,3 +819,19 @@ Observe the Cluster Autoscaler scaling up and down in response to load.
 5. Set a `PodDisruptionBudget` with `minAvailable: 1` and attempt to trigger scale-down again. Confirm CA respects the PDB.
 
 **What to think about:** Why does scale-down take so much longer than scale-up? What is the `--scale-down-unneeded-time` flag for, and what problem does it prevent?
+
+---
+
+### Quick Checks
+
+6. Extract the cluster name from a GKE kubectl context string. Run: `echo "gke_my-project_us-central1_my-cluster" | cut -d_ -f4`
+
+```expected_output
+my-cluster
+```
+
+7. Count node pools in a GKE config stub. Run: `printf 'nodePools:\n- name: default-pool\n- name: gpu-pool\n- name: spot-pool\n' | grep -c '^- name:'`
+
+```expected_output
+3
+```

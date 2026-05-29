@@ -811,3 +811,19 @@ Configure this using `DatadogSampler` with `SamplingRule`. Then:
 2. In Datadog APM, filter traces by `error:true` — confirm all errors appear (none sampled away).
 3. Filter by `resource:"POST /checkout"` — confirm 100% retention.
 4. Check the overall ingestion rate in Datadog's Ingestion Control page and confirm it is significantly below 100% of total traffic, demonstrating that the 1% default rule is in effect.
+
+---
+
+### Quick Checks
+
+5. Extract the service name from a trace stub. Run: `printf 'service: payment-api\nversion: 2.1.0\nenv: prod\n' | awk '/^service:/{print $2}'`
+
+```expected_output
+payment-api
+```
+
+6. Count spans in a distributed trace. Run: `printf 'span_id: 1\nspan_id: 2\nspan_id: 3\nspan_id: 4\n' | wc -l`
+
+```expected_output
+4
+```

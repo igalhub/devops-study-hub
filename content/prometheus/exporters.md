@@ -376,3 +376,20 @@ curl -s http://localhost:9090/api/v1/targets?state=dropped | jq '.data.droppedTa
 2. Write a blackbox_exporter probe configuration and matching Prometheus scrape job that checks the HTTPS health endpoint of three services: `api.example.com/health`, `auth.example.com/health`, `payments.example.com/health`. The probe should fail if the SSL certificate is not valid, and the `instance` label should be the probed URL (not the blackbox exporter address). Write an alerting rule that fires if `probe_success == 0` for 2 minutes OR if `probe_ssl_earliest_cert_expiry - time() < 86400 * 14` (cert expires within 14 days).
 
 3. Write `metric_relabel_configs` rules to: (a) drop all `go_*` runtime metrics from all targets, (b) drop all metrics where `container="POD"`, (c) for the metric `http_request_duration_seconds_bucket`, drop all buckets where `le` is greater than `10` (the `le` label value is a string; use regex matching). Explain why dropping high-cardinality or unused metrics at the scrape layer is preferable to dropping them in PromQL.
+
+
+---
+
+### Quick Checks
+
+4. Identify the Node Exporter's default port. Run: `python3 -c "ports={'node': 9100, 'blackbox': 9115, 'mysqld': 9104}; print(ports['node'])"`
+
+```expected_output
+9100
+```
+
+5. Count metric families in a Prometheus `/metrics` stub. Run: `printf '# HELP http_requests_total Total requests\n# TYPE http_requests_total counter\n# HELP process_cpu_seconds_total CPU seconds\n# TYPE process_cpu_seconds_total counter\n' | grep -c '^# HELP'`
+
+```expected_output
+2
+```

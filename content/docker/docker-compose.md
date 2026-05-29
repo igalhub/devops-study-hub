@@ -265,3 +265,19 @@ volumes:
 2. Add a Redis service to the stack above. Use `depends_on` with `condition: service_started` for Redis and `condition: service_healthy` for the database.
 3. Add a healthcheck to the PostgreSQL service using `pg_isready`. Verify it works by running `docker compose ps` and checking the health status column.
 4. Use an `.env` file to store the database password and reference it in `compose.yaml` with `${DB_PASSWORD}`. Confirm the container receives it by running `docker compose exec db env | grep POSTGRES_PASSWORD`.
+
+---
+
+### Quick Checks
+
+5. Count service definitions in a Compose YAML stub. Run: `printf 'services:\n  web:\n    image: nginx\n  db:\n    image: postgres\n  cache:\n    image: redis\n' | awk '/^  [a-z]/ && !/^    /{c++} END{print c}'`
+
+```expected_output
+3
+```
+
+6. Extract the container port from a port mapping string. Run: `echo "8080:80" | cut -d: -f2`
+
+```expected_output
+80
+```

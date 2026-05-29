@@ -398,3 +398,20 @@ curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job:
 2. Add a second scrape job to your `prometheus.yml` that scrapes `node_exporter` running on `localhost:9100` (run it with `docker run -d --net=host prom/node-exporter`). Reload Prometheus config with `curl -X POST http://localhost:9090/-/reload` and confirm the new target appears.
 
 3. Instrument a small Python HTTP server with the `prometheus_client` library. Create a counter (`http_requests_total` with labels `method` and `status`), a gauge (`in_flight_requests`), and a histogram (`request_duration_seconds` with buckets `[0.01, 0.05, 0.1, 0.5, 1.0]`). Verify all three appear on `/metrics` and increment as you make requests.
+
+
+---
+
+### Quick Checks
+
+4. Classify a metric by its name convention. Run: `python3 -c "name='http_requests_total'; print('counter' if name.endswith('_total') else 'gauge')"`
+
+```expected_output
+counter
+```
+
+5. Count label-value pairs in a metric label set. Run: `echo '{method="GET",code="200",handler="/api"}' | tr ',' '\n' | wc -l`
+
+```expected_output
+3
+```

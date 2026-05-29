@@ -583,3 +583,19 @@ watch -n 5 "curl -s http://localhost:9600/_node/stats/pipelines/main | \
 ```
 
 3. Observe the queue
+
+---
+
+### Quick Checks
+
+4. Calculate events per second for a batch size of 125 at a 50 ms interval. Run: `python3 -c "print(125 * int(1000/50))"`
+
+```expected_output
+2500
+```
+
+5. Determine pipeline worker count for 4 CPUs at 75% utilization. Run: `python3 -c "print(int(4 * 0.75))"`
+
+```expected_output
+3
+```

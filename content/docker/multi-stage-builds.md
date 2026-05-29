@@ -611,3 +611,20 @@ docker stop frontend && docker rm frontend
 4. Run both scripts. Then modify `ci-publish.sh` to skip re-running tests (assume they passed in a prior job) and observe that the shared cache means the production build is near-instant.
 
 **Deliverable:** Both shell scripts. Be prepared to explain how `--target` avoids rebuilding layers that were already built in the test job, and what the implications are for CI cache warming.
+
+---
+
+### Quick Checks
+
+5. Extract stage aliases from a multi-stage Dockerfile. Run: `printf 'FROM golang:1.21 AS builder\nFROM gcr.io/distroless/static AS runtime\n' | awk '/AS/{print $NF}'`
+
+```expected_output
+builder
+runtime
+```
+
+6. Count `FROM` instructions in a multi-stage Dockerfile stub. Run: `printf 'FROM node:20 AS deps\nFROM node:20 AS build\nFROM nginx:alpine\n' | grep -c '^FROM'`
+
+```expected_output
+3
+```

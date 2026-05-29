@@ -627,3 +627,19 @@ curl -sI \
 1. Run all three requests and record the status code and the `WWW-Authenticate` or `X-GitHub-Media-Type` response headers.
 2. Write a one-paragraph explanation of why each request failed differently, referencing the specific HTTP semantics of `401` vs `403`.
 3. Write a `curl` command that correctly authenticates and retrieves your own user profile (`GET /user`), then extracts your `login`, `public_repos`, and `created_at` fields using `jq`.
+
+---
+
+### Quick Checks
+
+4. Extract the HTTP method from a `curl` command. Run: `echo "curl -X POST https://api.example.com/users" | awk '{for(i=1;i<=NF;i++) if ($i=="-X") print $(i+1)}'`
+
+```expected_output
+POST
+```
+
+5. Classify an HTTP status code by family. Run: `python3 -c "code=201; print('2xx' if 200 <= code < 300 else '4xx')"`
+
+```expected_output
+2xx
+```

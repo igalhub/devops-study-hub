@@ -733,3 +733,19 @@ Given an existing workflow file that has a `deploy` job, add an `api-tests` job 
 5. Uploads the XML as an artifact using `actions/upload-artifact@v4` using `if: always()`
 
 Push a commit that intentionally fails a test (e.g., assert a field name that does not exist). Verify in the GitHub Actions UI that: the job is red, the test report appears in the PR checks tab, and the artifact is still present despite the failure.
+
+---
+
+### Quick Checks
+
+6. Count test assertions in a Postman script stub. Run: `printf 'pm.test("Status 200", fn1);\npm.test("Has id", fn2);\npm.test("Content-Type", fn3);\n' | grep -c 'pm.test'`
+
+```expected_output
+3
+```
+
+7. Extract the expected status code from a test snippet. Run: `echo 'pm.response.to.have.status(201);' | sed 's/.*status(\([0-9]*\)).*/\1/'`
+
+```expected_output
+201
+```

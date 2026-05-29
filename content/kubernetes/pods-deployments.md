@@ -735,3 +735,19 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 4. Correct the resource request to a value that fits, apply the fix, and confirm the pod reaches `Running`.
 
 5. **Extension:** deliberately set `requests.memory` to a value that fits on the node but set `limits.memory` to 10Mi. Deploy a pod that allocates 50Mi of memory (use a stress container or a simple Python script). Observe the OOMKill and confirm the exit code is 137.
+
+---
+
+### Quick Checks
+
+6. Extract replica count from a Deployment spec stub. Run: `printf 'spec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: web\n' | awk '/replicas:/{print $2}'`
+
+```expected_output
+3
+```
+
+7. Extract the resource kind from a Kubernetes manifest stub. Run: `printf 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n' | awk '/^kind:/{print $2}'`
+
+```expected_output
+Deployment
+```

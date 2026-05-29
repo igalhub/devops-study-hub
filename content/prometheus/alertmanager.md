@@ -458,3 +458,20 @@ receivers:
 2. Write three alerting rules in a Prometheus rule file: (a) `InstanceDown` — any target with `up == 0` for 2 minutes, severity critical; (b) `HighMemoryUsage` — `node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10` for 5 minutes, severity warning; (c) `DiskWillFillIn4Hours` — using `predict_linear`, 10 minute `for`, severity warning. Include meaningful annotations with Go template variable interpolation for `$labels.instance` and `$value | humanizePercentage` where applicable.
 
 3. Given a Kubernetes cluster that has an `InstanceDown` alert firing for a node, write the inhibition rule that would suppress `KubePodCrashLooping` and `KubeDeploymentReplicasMismatch` alerts for pods on that same node. Assume the alerts share an `instance` label identifying the node.
+
+
+---
+
+### Quick Checks
+
+4. Count receivers in an Alertmanager config stub. Run: `printf 'receivers:\n- name: team-slack\n- name: team-email\n- name: team-pagerduty\n' | grep -c '^- name:'`
+
+```expected_output
+3
+```
+
+5. Extract the `repeat_interval` from a route config stub. Run: `printf 'route:\n  receiver: team-slack\n  group_wait: 30s\n  repeat_interval: 4h\n' | awk '/repeat_interval:/{print $2}'`
+
+```expected_output
+4h
+```

@@ -923,3 +923,19 @@ You are given three workloads:
 4. Explain the difference between a Cost Anomaly Detection alert and a Budget alert. In what scenario would Anomaly Detection catch something that a Budget would not? Write a 3-5 sentence answer covering: how Anomaly Detection establishes a baseline, why it handles seasonal variation better than static thresholds, and one limitation compared to Budgets.
 
 **Requirement:** complete steps 1-3 in a real AWS account (free tier eligible — Cost Anomaly Detection has no charge for monitoring). Submit the output of step 3 as verification.
+
+---
+
+### Quick Checks
+
+5. Calculate monthly EC2 cost from an hourly rate. Run: `python3 -c "print(round(0.096 * 24 * 30, 2))"`
+
+```expected_output
+69.12
+```
+
+6. Find the most expensive service in a cost breakdown. Run: `printf 'EC2: 450\nS3: 45\nRDS: 280\nDataTransfer: 120\n' | sort -t: -k2 -rn | head -1 | cut -d: -f1`
+
+```expected_output
+EC2
+```

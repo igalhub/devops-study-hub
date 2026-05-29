@@ -262,3 +262,20 @@ output "instance_ips" {
 2. Add an `environment` variable (type: string, no default) and use it in the bucket name and tags. Apply with `-var="environment=dev"` and then with `staging` — observe the plan differences.
 3. Add an output that prints the bucket's ARN and website endpoint. Run `terraform output` after applying to view them.
 4. Use a data source to look up an existing resource (e.g. `data "aws_caller_identity"` to get your AWS account ID). Use it in a local variable to construct a globally unique bucket name.
+
+
+---
+
+### Quick Checks
+
+5. Count `resource` blocks in an HCL stub. Run: `printf 'resource "aws_instance" "web" {}\nresource "aws_s3_bucket" "logs" {}\n' | grep -c '^resource'`
+
+```expected_output
+2
+```
+
+6. Extract a variable default value from HCL. Run: `printf 'variable "instance_type" {\n  default = "t3.micro"\n}\n' | awk '/default =/{gsub(/"/, "", $3); print $3}'`
+
+```expected_output
+t3.micro
+```
