@@ -127,19 +127,25 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-1">
-          {['bash', 'python', 'yaml'].map(lang => (
-            <button
-              key={lang}
-              onClick={() => switchLanguage(lang)}
-              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-                language === lang
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-              }`}
-            >
-              {lang === 'bash' ? 'Bash' : lang === 'python' ? 'Python' : 'YAML'}
-            </button>
-          ))}
+          {exerciseSlug ? (
+            <span className="text-xs px-3 py-1 rounded-full font-medium bg-emerald-600 text-white">
+              {language === 'bash' ? 'Bash' : language === 'python' ? 'Python' : 'YAML'}
+            </span>
+          ) : (
+            ['bash', 'python', 'yaml'].map(lang => (
+              <button
+                key={lang}
+                onClick={() => switchLanguage(lang)}
+                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                  language === lang
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                }`}
+              >
+                {lang === 'bash' ? 'Bash' : lang === 'python' ? 'Python' : 'YAML'}
+              </button>
+            ))
+          )}
         </div>
         <div className="flex items-center gap-2">
           {hasAnswer && (
