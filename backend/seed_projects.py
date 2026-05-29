@@ -260,6 +260,356 @@ PROJECTS = [
         ],
     },
     {
+        "slug": "gitops-argocd",
+        "title": "GitOps Pipeline with ArgoCD",
+        "description": "Implement a GitOps deployment model using ArgoCD: write Application manifests, configure sync strategies, and design a multi-environment promotion workflow.",
+        "modules": ["Git & VCS", "Kubernetes", "CI/CD Pipelines"],
+        "difficulty": "advanced",
+        "steps": [
+            {
+                "order_index": 1,
+                "title": "Count merge commits",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a bash one-liner that counts the number of merge commits in this "
+                    "`git log --oneline` output and prints just the count:\n\n"
+                    "```\nabc1234 Merge pull request #12 from org/feature/login\n"
+                    "def5678 feat: add user dashboard\n"
+                    "ghi9012 Merge pull request #11 from org/feature/signup\n"
+                    "jkl3456 fix: typo in README\n```"
+                ),
+                "language": "bash",
+                "expected_output": "2",
+            },
+            {
+                "order_index": 2,
+                "title": "Parse ArgoCD application status",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a Python one-liner that parses this ArgoCD Application status JSON "
+                    "and prints the sync status:\n\n"
+                    '`{"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}`'
+                ),
+                "language": "python",
+                "expected_output": "Synced",
+            },
+            {
+                "order_index": 3,
+                "title": "Write an ArgoCD Application manifest",
+                "type": "ai",
+                "prompt": (
+                    "Write a complete ArgoCD `Application` manifest that:\n"
+                    "- Deploys from a Git repo `https://github.com/org/k8s-manifests` path `apps/api-server`\n"
+                    "- Targets the `staging` namespace on the local cluster\n"
+                    "- Uses `automated` sync policy with self-healing and pruning enabled\n"
+                    "- Tracks the `main` branch\n\n"
+                    "Explain the difference between ArgoCD's `Synced` and `Healthy` status fields, "
+                    "and what it means when a resource is `OutOfSync` but `Healthy`."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+            {
+                "order_index": 4,
+                "title": "Design environment promotion strategy",
+                "type": "ai",
+                "prompt": (
+                    "Design a GitOps multi-environment promotion workflow for dev → staging → production "
+                    "using a single Git repository.\n\n"
+                    "Cover:\n"
+                    "1. Directory structure for environment-specific manifests\n"
+                    "2. How image version promotion is triggered (manual PR vs automated image updater)\n"
+                    "3. How to prevent dev changes from accidentally reaching production\n"
+                    "4. What a rollback looks like in a GitOps model vs `kubectl rollout undo`\n\n"
+                    "Be specific: name files, branches, or tools where relevant."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+        ],
+    },
+    {
+        "slug": "ansible-config",
+        "title": "Ansible Server Configuration",
+        "description": "Automate Linux server provisioning with Ansible: write playbooks, define roles, manage inventory, and enforce idempotent configuration across a fleet.",
+        "modules": ["Ansible", "Linux"],
+        "difficulty": "intermediate",
+        "steps": [
+            {
+                "order_index": 1,
+                "title": "Count tasks in a playbook",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a bash one-liner that counts the number of tasks in this Ansible playbook "
+                    "snippet and prints just the count:\n\n"
+                    "```\n- hosts: webservers\n  tasks:\n"
+                    "    - name: Install nginx\n      apt:\n        name: nginx\n"
+                    "    - name: Enable nginx\n      service:\n        name: nginx\n        state: started\n"
+                    "    - name: Copy config\n      copy:\n        src: nginx.conf\n        dest: /etc/nginx/nginx.conf\n```"
+                ),
+                "language": "bash",
+                "expected_output": "3",
+            },
+            {
+                "order_index": 2,
+                "title": "Count hosts in an inventory group",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a Python one-liner that counts the number of hosts in the `[webservers]` group "
+                    "of this Ansible inventory and prints just the count:\n\n"
+                    "`[webservers]\\nweb1.example.com\\nweb2.example.com\\nweb3.example.com\\n"
+                    "[dbservers]\\ndb1.example.com`"
+                ),
+                "language": "python",
+                "expected_output": "3",
+            },
+            {
+                "order_index": 3,
+                "title": "Write an Nginx Ansible role",
+                "type": "ai",
+                "prompt": (
+                    "Write an Ansible role called `nginx` that:\n"
+                    "1. Installs Nginx via the OS package manager\n"
+                    "2. Deploys a Jinja2 template for `nginx.conf` with variables for `worker_processes` and `server_name`\n"
+                    "3. Ensures Nginx is enabled and started\n"
+                    "4. Uses a `handler` to reload Nginx only when the config changes\n\n"
+                    "Show the full role directory structure with content for: `tasks/main.yml`, "
+                    "`handlers/main.yml`, `templates/nginx.conf.j2`, and `defaults/main.yml`.\n\n"
+                    "Explain why using a handler for config reload is preferable to an unconditional service restart."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+            {
+                "order_index": 4,
+                "title": "Design idempotent user management",
+                "type": "ai",
+                "prompt": (
+                    "Write an Ansible playbook that manages a team of engineers across a fleet of servers. "
+                    "The playbook should:\n"
+                    "1. Create user accounts from a `users` list variable (each with name, groups, and SSH public key)\n"
+                    "2. Remove users who appear in a `removed_users` list\n"
+                    "3. Ensure sudo access for users in the `admins` group\n"
+                    "4. Deploy each user's SSH authorized key\n\n"
+                    "The playbook must be fully idempotent — running it twice must produce no changes on the second run. "
+                    "Show the playbook YAML and a sample `group_vars/all.yml`. "
+                    "Explain how Ansible's `user` module achieves idempotency for account management."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+        ],
+    },
+    {
+        "slug": "elk-log-pipeline",
+        "title": "ELK Stack Log Analysis",
+        "description": "Build a full log ingestion pipeline with Logstash and Elasticsearch, write Query DSL searches, and design a Kibana dashboard with alerting.",
+        "modules": ["Elasticsearch", "Logstash", "Kibana"],
+        "difficulty": "advanced",
+        "steps": [
+            {
+                "order_index": 1,
+                "title": "Extract HTTP status from an access log",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a Python one-liner that extracts the HTTP status code from this Apache access log line "
+                    "and prints it:\n\n"
+                    '`192.168.1.100 - admin [29/May/2026:14:22:31 +0000] "POST /api/users HTTP/1.1" 201 412`'
+                ),
+                "language": "python",
+                "expected_output": "201",
+            },
+            {
+                "order_index": 2,
+                "title": "Parse an Elasticsearch query response",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a Python one-liner that parses this Elasticsearch query response and "
+                    "prints the total number of matching documents:\n\n"
+                    '`{"hits":{"total":{"value":247,"relation":"eq"},"hits":[]}}`'
+                ),
+                "language": "python",
+                "expected_output": "247",
+            },
+            {
+                "order_index": 3,
+                "title": "Write a Logstash pipeline for Apache logs",
+                "type": "ai",
+                "prompt": (
+                    "Write a complete Logstash pipeline configuration (`logstash.conf`) that:\n"
+                    "1. **Input**: reads from a file `/var/log/apache2/access.log` with `sincedb_path => /dev/null`\n"
+                    "2. **Filter**: uses `grok` to parse the Apache Combined Log Format, extracts `clientip`, `verb`, `request`, `response`, `bytes`; "
+                    "uses `date` to parse the timestamp into `@timestamp`; adds a `geoip` lookup on `clientip`; "
+                    "drops health-check requests where `request == '/health'`\n"
+                    "3. **Output**: sends to Elasticsearch index `apache-logs-%%{+YYYY.MM.dd}`\n\n"
+                    "Explain what the `sincedb_path => /dev/null` setting does and when you would remove it in production."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+            {
+                "order_index": 4,
+                "title": "Design index lifecycle and Kibana dashboard",
+                "type": "ai",
+                "prompt": (
+                    "Design an Elasticsearch Index Lifecycle Management (ILM) policy for the Apache log index that:\n"
+                    "- Rolls over at 50GB or 30 days (whichever comes first)\n"
+                    "- Moves to warm phase after 7 days (force merge to 1 segment, set replicas to 0)\n"
+                    "- Deletes after 90 days\n\n"
+                    "Then describe a Kibana dashboard for a web ops team — name the panels, "
+                    "the visualisation type for each (e.g. area chart, data table, metric), "
+                    "and what question each panel answers.\n\n"
+                    "Finally, write a Kibana alerting rule that fires when the 5xx error rate "
+                    "exceeds 5% over a 5-minute window."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+        ],
+    },
+    {
+        "slug": "helm-chart",
+        "title": "Helm Chart Development",
+        "description": "Build a production-grade Helm chart for a microservice with templating, values overrides, and a multi-environment deployment strategy using Helm upgrade and rollback.",
+        "modules": ["Helm", "Kubernetes"],
+        "difficulty": "intermediate",
+        "steps": [
+            {
+                "order_index": 1,
+                "title": "Scaffold a Helm chart directory",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a bash script that creates a minimal Helm chart directory at `/tmp/mychart` with "
+                    "exactly 3 template files (`deployment.yaml`, `service.yaml`, `ingress.yaml`) inside `templates/`, "
+                    "then prints the count of `.yaml` files in that directory."
+                ),
+                "language": "bash",
+                "expected_output": "3",
+            },
+            {
+                "order_index": 2,
+                "title": "Parse Helm values YAML",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a Python one-liner that parses this Helm `values.yaml` content and prints the replica count:\n\n"
+                    "`replicaCount: 3\\nimage:\\n  repository: nginx\\n  tag: \\\"1.24\\\"\\nservice:\\n  port: 80`"
+                ),
+                "language": "python",
+                "expected_output": "3",
+            },
+            {
+                "order_index": 3,
+                "title": "Write a Helm chart for a stateless service",
+                "type": "ai",
+                "prompt": (
+                    "Write a Helm chart for a stateless web service called `api-server`. "
+                    "Show the content of these files:\n\n"
+                    "1. `Chart.yaml` — with `apiVersion: v2`, name, version, and appVersion\n"
+                    "2. `values.yaml` — with defaults for replicaCount, image (repository + tag + pullPolicy), "
+                    "service (type + port), resources (requests + limits), and ingress (enabled flag, host, tls)\n"
+                    "3. `templates/deployment.yaml` — templated with `{{ .Values.* }}` references, "
+                    "including resource limits and a liveness probe\n"
+                    "4. `templates/service.yaml` — ClusterIP service using `{{ .Values.service.port }}`\n\n"
+                    "Use `{{ include \"api-server.fullname\" . }}` for naming and show the `_helpers.tpl` snippet "
+                    "that defines it."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+            {
+                "order_index": 4,
+                "title": "Multi-environment values and release management",
+                "type": "ai",
+                "prompt": (
+                    "Describe a strategy for deploying the same Helm chart to dev, staging, and production "
+                    "environments with different values.\n\n"
+                    "1. Show the file structure for per-environment values files\n"
+                    "2. Write the `helm upgrade --install` commands for each environment, "
+                    "explaining the flags used\n"
+                    "3. Explain what `helm rollback` does vs manually reverting the values file in Git — "
+                    "when would you use each?\n"
+                    "4. What does `helm diff upgrade` (from the helm-diff plugin) tell you, "
+                    "and why should it be part of every CI pipeline that deploys via Helm?"
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+        ],
+    },
+    {
+        "slug": "api-security-testing",
+        "title": "API Security & Testing",
+        "description": "Design and execute a comprehensive API testing strategy: validate authentication flows, test for OWASP API vulnerabilities, and automate security checks in CI.",
+        "modules": ["Postman / API Testing", "DevSecOps"],
+        "difficulty": "intermediate",
+        "steps": [
+            {
+                "order_index": 1,
+                "title": "Validate JWT structure",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a bash one-liner that prints the number of parts in this JWT "
+                    "(a valid JWT has exactly 3 parts separated by dots):\n\n"
+                    "`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+                    ".eyJzdWIiOiJ1c2VyMTIzIn0"
+                    ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c`"
+                ),
+                "language": "bash",
+                "expected_output": "3",
+            },
+            {
+                "order_index": 2,
+                "title": "Decode a JWT payload",
+                "type": "sandbox",
+                "prompt": (
+                    "Write a Python one-liner that base64-decodes the middle segment of this JWT "
+                    "and prints the value of the `sub` field:\n\n"
+                    "`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+                    ".eyJzdWIiOiJ1c2VyMTIzIn0"
+                    ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c`\n\n"
+                    "Hint: split on `.`, take index 1, use `base64.urlsafe_b64decode` — "
+                    "add `'=' * (-len(payload) % 4)` to fix padding."
+                ),
+                "language": "python",
+                "expected_output": "user123",
+            },
+            {
+                "order_index": 3,
+                "title": "Write a Postman collection for an auth API",
+                "type": "ai",
+                "prompt": (
+                    "Write a Postman collection (JSON) for an authentication API with these three requests:\n\n"
+                    "1. **POST /auth/login** — body `{email, password}`, test that response status is 200 "
+                    "and response body contains a `token` field; save the token to a collection variable\n"
+                    "2. **GET /api/profile** — uses the saved token as a Bearer header; "
+                    "test that status is 200 and response body contains `email`\n"
+                    "3. **POST /auth/login (invalid)** — wrong password; test that status is 401 "
+                    "and error message is present\n\n"
+                    "Show the pre-request scripts and test scripts for each request. "
+                    "Explain why you'd put the token in a collection variable rather than hardcoding it."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+            {
+                "order_index": 4,
+                "title": "Design an API security testing strategy",
+                "type": "ai",
+                "prompt": (
+                    "Design an API security testing strategy covering these OWASP API Security Top 10 risks:\n\n"
+                    "- **API1** (Broken Object Level Authorization): describe a test scenario and how to automate it\n"
+                    "- **API3** (Broken Object Property Level Authorization): give a concrete example using a PATCH endpoint\n"
+                    "- **API5** (Broken Function Level Authorization): explain how to find and test admin-only endpoints\n"
+                    "- **API8** (Security Misconfiguration): list 5 headers or settings to check in every response\n\n"
+                    "Then describe how you would integrate these checks into a CI pipeline using Newman "
+                    "(the Postman CLI runner), so that a failing security test blocks the PR."
+                ),
+                "language": None,
+                "expected_output": None,
+            },
+        ],
+    },
+    {
         "slug": "iac-aws-vpc",
         "title": "Infrastructure as Code: AWS VPC",
         "description": "Write Terraform to provision a production-grade AWS VPC with subnets, security groups, and extract it into a reusable module.",
