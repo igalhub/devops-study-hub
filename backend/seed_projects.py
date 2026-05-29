@@ -24,6 +24,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "2",
+                "hints": [
+                    "Use `printf` or `echo -e` with `\\n` to write both lines to the file at once.",
+                    "Count lines with `wc -l` and pipe through `awk '{print $1}'` to strip the filename from the count.",
+                ],
             },
             {
                 "order_index": 2,
@@ -36,6 +40,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "8080",
+                "hints": [
+                    "Call `yaml.safe_load()` on the string — the `\\n` characters in the string are real newlines that YAML will parse correctly.",
+                    "Access the result like a Python dict: `yaml.safe_load('name: my-app\\nport: 8080\\ndebug: false')['port']`.",
+                ],
             },
             {
                 "order_index": 3,
@@ -50,6 +58,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Cover the two-stage pattern: stage 1 installs deps into a virtualenv, stage 2 copies only the venv. Add a non-root user with `useradd` or `adduser`.",
+                    "Key directives to include: `COPY --from=builder /opt/venv /opt/venv`, `ENV PATH=/opt/venv/bin:$PATH`, `USER`, `EXPOSE`, and `HEALTHCHECK CMD curl -f http://localhost/ || exit 1`.",
+                ],
             },
             {
                 "order_index": 4,
@@ -65,6 +77,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Split into two jobs: `test` (runs on all events) and `publish` (runs only on push to `main`, with `needs: test` so it only fires after tests pass).",
+                    "Key actions: `actions/cache` for pip, `docker/login-action` with `${{ secrets.GITHUB_TOKEN }}` for GHCR, `docker/build-push-action` with `cache-from: type=gha` for Docker layer caching.",
+                ],
             },
         ],
     },
@@ -688,30 +704,40 @@ def seed_projects():
             existing = conn.execute(
                 "SELECT id FROM projects WHERE slug = ?", (p["slug"],)
             ).fetchone()
-            if existing:
-                continue
-            conn.execute(
-                "INSERT INTO projects (slug, title, description, modules, difficulty) VALUES (?, ?, ?, ?, ?)",
-                (p["slug"], p["title"], p["description"], json.dumps(p["modules"]), p["difficulty"]),
-            )
-            project_id = conn.execute(
-                "SELECT id FROM projects WHERE slug = ?", (p["slug"],)
-            ).fetchone()["id"]
+            if not existing:
+                conn.execute(
+                    "INSERT INTO projects (slug, title, description, modules, difficulty) VALUES (?, ?, ?, ?, ?)",
+                    (p["slug"], p["title"], p["description"], json.dumps(p["modules"]), p["difficulty"]),
+                )
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE slug = ?", (p["slug"],)
+                ).fetchone()["id"]
+                for step in p["steps"]:
+                    conn.execute(
+                        "INSERT INTO project_steps "
+                        "(project_id, order_index, title, type, prompt, language, expected_output, hints) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            project_id,
+                            step["order_index"],
+                            step["title"],
+                            step["type"],
+                            step["prompt"],
+                            step.get("language"),
+                            step.get("expected_output"),
+                            json.dumps(step.get("hints", [])),
+                        ),
+                    )
+            else:
+                project_id = existing["id"]
+
+            # Always apply hint updates (idempotent — safe to re-run)
             for step in p["steps"]:
                 conn.execute(
-                    "INSERT INTO project_steps "
-                    "(project_id, order_index, title, type, prompt, language, expected_output) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        project_id,
-                        step["order_index"],
-                        step["title"],
-                        step["type"],
-                        step["prompt"],
-                        step.get("language"),
-                        step.get("expected_output"),
-                    ),
+                    "UPDATE project_steps SET hints = ? WHERE project_id = ? AND order_index = ?",
+                    (json.dumps(step.get("hints", [])), project_id, step["order_index"]),
                 )
+
         conn.commit()
     finally:
         conn.close()

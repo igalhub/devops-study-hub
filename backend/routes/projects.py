@@ -144,6 +144,7 @@ def get_project(slug: str):
                 "prompt": s["prompt"],
                 "language": s["language"],
                 "expected_output": s["expected_output"],
+                "hints": json.loads(s["hints"] or "[]"),
                 "status": prog.get("status", "not_started"),
                 "score": prog.get("score"),
                 "answer": prog.get("answer"),

@@ -17,6 +17,27 @@ const SCORE_STYLES = {
   Weak: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 }
 
+function HintBox({ hints }) {
+  const [hintCount, setHintCount] = useState(0)
+  if (!hints || hints.length === 0) return null
+  return (
+    <div className="space-y-2">
+      {hints.slice(0, hintCount).map((hint, i) => (
+        <div key={i} className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+          <span className="font-semibold">Hint {i + 1}:</span> {hint}
+        </div>
+      ))}
+      <button
+        onClick={() => setHintCount(c => Math.min(c + 1, hints.length))}
+        disabled={hintCount >= hints.length}
+        className="text-xs text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {hintCount === 0 ? 'Hint' : hintCount >= hints.length ? 'No more hints' : 'Next hint'}
+      </button>
+    </div>
+  )
+}
+
 function SandboxStep({ step, projectSlug, onComplete, onXpEarned }) {
   const { dark } = useTheme()
   const [code, setCode] = useState(step.answer || '')
@@ -61,6 +82,7 @@ function SandboxStep({ step, projectSlug, onComplete, onXpEarned }) {
 
   return (
     <div className="space-y-3">
+      <HintBox hints={step.hints} />
       <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
         <Editor
           height="160px"
@@ -158,6 +180,7 @@ function AiStep({ step, projectSlug, onComplete, onXpEarned }) {
 
   return (
     <div className="space-y-3">
+      <HintBox hints={step.hints} />
       <textarea
         value={answer}
         onChange={e => setAnswer(e.target.value)}
