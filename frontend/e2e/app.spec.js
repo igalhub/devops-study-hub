@@ -1,293 +1,246 @@
 import { test, expect } from '@playwright/test'
 
 const BASE = 'http://localhost:5173'
-const API = 'http://localhost:8000'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function clearLocalStorage(page) {
-  await page.evaluate(() => {
+  await page.evaluate(() =>
     ['devops_bookmarks', 'devops_recent', 'playground-editor-height'].forEach(k =>
       localStorage.removeItem(k)
     )
-  })
+  )
 }
 
+// Returns current XP value, or 0 if the XP badge is not rendered (fresh DB).
 async function getXP(page) {
-  const text = await page.locator('text=/\\d+ XP/').first().textContent()
+  const el = page.locator('text=/\\d+ XP/').first()
+  if (await el.count() === 0) return 0
+  const text = await el.textContent()
   return parseInt(text.replace(/\D/g, ''), 10)
+}
+
+// Returns the index of the first exercise with expected_output for a given lesson slug.
+async function firstCheckableExercise(page, lessonSlug) {
+  const data = await page.evaluate(async (slug) => {
+    const r = await fetch(`http://localhost:8000/lessons/${slug}`)
+    return r.json()
+  }, lessonSlug)
+  const idx = data.exercises.findIndex(ex => ex.expected_output)
+  if (idx === -1) throw new Error(`No checkable exercise found in ${lessonSlug}`)
+  return { index: idx, expectedOutput: data.exercises[idx].expected_output }
+}
+
+// Opens a Monaco editor exercise card by index, waits for editor to mount.
+async function openExercise(page, index) {
+  const card = page.locator(`[data-exercise-index="${index}"]`)
+  const tryIt = card.locator('button:has-text("Try it")')
+  await expect(tryIt).toBeVisible()
+  await tryIt.click()
+  await page.waitForSelector('.monaco-editor', { timeout: 8000 })
+}
+
+// Replaces all editor content with the given text.
+async function typeInEditor(page, text) {
+  const textarea = page.locator('.monaco-editor textarea').first()
+  await textarea.focus()
+  await page.keyboard.press('Control+a')
+  await page.keyboard.press('Delete')
+  await page.keyboard.type(text)
 }
 
 // ── 1. Core navigation ────────────────────────────────────────────────────────
 
 test('sidebar renders all 23 modules', async ({ page }) => {
   await page.goto(BASE)
-  const links = page.locator('nav a[href^="/module/"]')
-  await expect(links).toHaveCount(23)
+  await expect(page.locator('nav a[href^="/module/"]')).toHaveCount(23)
 })
 
 test('roadmap page loads with module cards', async ({ page }) => {
   await page.goto(`${BASE}/roadmap`)
   await expect(page.locator('text=Roadmap')).toBeVisible()
-  // At least one module card with a progress indicator
   await expect(page.locator('text=Linux')).toBeVisible()
+})
+
+test('roadmap module card links to module page', async ({ page }) => {
+  await page.goto(`${BASE}/roadmap`)
+  await page.locator('a[href="/module/bash"]').first().click()
+  await expect(page).toHaveURL(/\/module\/bash/)
 })
 
 // ── 2. Lesson viewer ─────────────────────────────────────────────────────────
 
-test('lesson loads with title and content', async ({ page }) => {
+test('lesson loads with title, content, and exercises', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
   await expect(page.locator('h1, h2').first()).toBeVisible()
-  // Exercises section
   await expect(page.locator('button:has-text("Try it")').first()).toBeVisible()
 })
 
 test('mark lesson complete awards XP', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
   const xpBefore = await getXP(page)
-  const markDone = page.locator('button:has-text("Mark done"), button:has-text("Done")')
-  if (await markDone.count() > 0) {
-    await markDone.first().click()
-    await page.waitForTimeout(500)
-    const xpAfter = await getXP(page)
-    expect(xpAfter).toBeGreaterThan(xpBefore)
-  }
+  // Button says "Mark done" when not complete, "Done" when complete
+  const markDone = page.locator('button:has-text("Mark done")')
+  await expect(markDone).toBeVisible({ timeout: 3000 })
+  await markDone.click()
+  await page.waitForTimeout(600)
+  const xpAfter = await getXP(page)
+  expect(xpAfter).toBeGreaterThan(xpBefore)
 })
 
 test('lesson completion persists after reload', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  const markDone = page.locator('button:has-text("Mark done"), button:has-text("Done")')
-  if (await markDone.count() > 0) {
-    await markDone.first().click()
-    await page.waitForTimeout(500)
-    await page.reload()
-    await expect(page.locator('button:has-text("Done"), [class*="emerald"]').first()).toBeVisible()
-  }
+  const markDone = page.locator('button:has-text("Mark done")')
+  if (await markDone.count() > 0) await markDone.click()
+  await page.waitForTimeout(600)
+  await page.reload()
+  // After reload the lesson should show as done — no "Mark done" button
+  await expect(page.locator('button:has-text("Mark done")')).toHaveCount(0)
 })
 
 // ── 3. Code sandbox ───────────────────────────────────────────────────────────
 
 test('Run button executes code and shows output', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  // Open first exercise
-  await page.locator('button:has-text("Try it")').first().click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
-  // Clear editor and type a simple command
-  const textarea = page.locator('.monaco-editor textarea').first()
-  await textarea.focus()
-  await page.keyboard.press('Control+a')
-  await page.keyboard.type('echo "e2e-test-output"')
-
+  await openExercise(page, 0)
+  await typeInEditor(page, 'echo "e2e-run-test"')
   await page.locator('button:has-text("Run")').first().click()
-  await expect(page.locator('text=e2e-test-output')).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('text=e2e-run-test')).toBeVisible({ timeout: 15000 })
 })
 
-test('Ctrl+Enter keyboard shortcut fires Run', async ({ page }) => {
+test('Ctrl+Enter fires Run from inside Monaco', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  await page.locator('button:has-text("Try it")').first().click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
-  // Patch fetch to detect /sandbox/run call
+  await openExercise(page, 0)
   await page.evaluate(() => {
     window.__runCalled = false
     const orig = window.fetch
-    window.fetch = (...args) => {
-      if (args[0]?.includes('/sandbox/run')) window.__runCalled = true
-      return orig.apply(window, args)
-    }
+    window.fetch = (...a) => { if (a[0]?.includes('/sandbox/run')) window.__runCalled = true; return orig.apply(window, a) }
   })
-
-  const textarea = page.locator('.monaco-editor textarea').first()
-  await textarea.focus()
+  await page.locator('.monaco-editor textarea').first().focus()
   await page.keyboard.press('Control+Enter')
   await page.waitForTimeout(500)
-
-  const called = await page.evaluate(() => window.__runCalled)
-  expect(called).toBe(true)
+  expect(await page.evaluate(() => window.__runCalled)).toBe(true)
 })
 
 test('Check button validates correct answer and awards XP', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-
-  // Find exercise 14 which has expected_output
-  const card = page.locator('[data-exercise-index="14"]')
-  await card.locator('button:has-text("Try it")').click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
-  // Get expected output from API
-  const lesson = await page.evaluate(async () => {
-    const r = await fetch('http://localhost:8000/lessons/script-basics')
-    return r.json()
-  })
-  const ex = lesson.exercises[14]
-
-  const textarea = page.locator('.monaco-editor textarea').first()
-  await textarea.focus()
-  await page.keyboard.press('Control+a')
-  // Type the solution code that produces the expected output
-  await textarea.fill('')
-  await page.keyboard.type(`echo "${ex.expected_output}"`)
-
+  const { index, expectedOutput } = await firstCheckableExercise(page, 'script-basics')
+  await openExercise(page, index)
+  await typeInEditor(page, `echo "${expectedOutput}"`)
   const xpBefore = await getXP(page)
   await page.locator('button:has-text("Check")').first().click()
   await expect(page.locator('text=Correct')).toBeVisible({ timeout: 15000 })
-  const xpAfter = await getXP(page)
-  expect(xpAfter).toBeGreaterThanOrEqual(xpBefore)
+  expect(await getXP(page)).toBeGreaterThan(xpBefore)
 })
 
 test('Ctrl+Shift+Enter fires Check from inside Monaco', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  const card = page.locator('[data-exercise-index="14"]')
-  await card.locator('button:has-text("Try it")').click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
+  const { index } = await firstCheckableExercise(page, 'script-basics')
+  await openExercise(page, index)
   await page.evaluate(() => {
     window.__checkCalled = false
     const orig = window.fetch
-    window.fetch = (...args) => {
-      if (args[0]?.includes('/sandbox/check')) window.__checkCalled = true
-      return orig.apply(window, args)
-    }
+    window.fetch = (...a) => { if (a[0]?.includes('/sandbox/check')) window.__checkCalled = true; return orig.apply(window, a) }
   })
-
-  const textarea = page.locator('.monaco-editor textarea').first()
-  await textarea.focus()
+  await page.locator('.monaco-editor textarea').first().focus()
   await page.keyboard.press('Control+Shift+Enter')
   await page.waitForTimeout(500)
-
-  const called = await page.evaluate(() => window.__checkCalled)
-  expect(called).toBe(true)
+  expect(await page.evaluate(() => window.__checkCalled)).toBe(true)
 })
 
-test('completed exercise shows checkmark badge after passing', async ({ page }) => {
+test('passed exercise shows checkmark badge and persists after close', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  const card = page.locator('[data-exercise-index="14"]')
-  await card.locator('button:has-text("Try it")').click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
-  const lesson = await page.evaluate(async () => {
-    const r = await fetch('http://localhost:8000/lessons/script-basics')
-    return r.json()
-  })
-  const ex = lesson.exercises[14]
-
-  const textarea = page.locator('.monaco-editor textarea').first()
-  await textarea.focus()
-  await page.keyboard.press('Control+a')
-  await page.keyboard.type(`echo "${ex.expected_output}"`)
+  const { index, expectedOutput } = await firstCheckableExercise(page, 'script-basics')
+  const card = page.locator(`[data-exercise-index="${index}"]`)
+  await openExercise(page, index)
+  await typeInEditor(page, `echo "${expectedOutput}"`)
   await page.locator('button:has-text("Check")').first().click()
   await expect(page.locator('text=Correct')).toBeVisible({ timeout: 15000 })
-
-  // Close and reopen — badge should persist
   await card.locator('button:has-text("Close")').click()
   await expect(card.locator('text=✓')).toBeVisible()
 })
 
-test('editor height persists across exercise open/close', async ({ page }) => {
+test('editor height persists in localStorage across reloads', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  await page.locator('button:has-text("Try it")').first().click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
-  // Set a custom height via localStorage
+  await openExercise(page, 0)
   await page.evaluate(() => localStorage.setItem('playground-editor-height', '350'))
   await page.reload()
-  await page.locator('button:has-text("Try it")').first().click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
-
-  const height = await page.evaluate(() => localStorage.getItem('playground-editor-height'))
-  expect(height).toBe('350')
+  await openExercise(page, 0)
+  expect(await page.evaluate(() => localStorage.getItem('playground-editor-height'))).toBe('350')
 })
 
 // ── 4. Hints ─────────────────────────────────────────────────────────────────
 
-test('Hint button reveals hints one at a time', async ({ page }) => {
+test('Hint button reveals first hint, Next hint reveals second', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  // Find an exercise that has hints (expected_output exercises)
-  const card = page.locator('[data-exercise-index="14"]')
-  await card.locator('button:has-text("Try it")').click()
-  await page.waitForSelector('.monaco-editor', { timeout: 5000 })
+  const { index } = await firstCheckableExercise(page, 'script-basics')
+  await openExercise(page, index)
 
-  const hintBtn = page.locator('button:has-text("Hint"), button:has-text("hint")').first()
-  if (await hintBtn.count() === 0) {
-    test.skip()
-    return
-  }
+  const hintBtn = page.locator('button:has-text("Hint")').first()
+  if (await hintBtn.count() === 0) return test.skip()
 
   await hintBtn.click()
   await expect(page.locator('text=/Hint 1:/i')).toBeVisible()
 
-  const nextHint = page.locator('button:has-text("Next hint")')
-  if (await nextHint.count() > 0) {
-    await nextHint.click()
+  const nextBtn = page.locator('button:has-text("Next hint")')
+  if (await nextBtn.count() > 0) {
+    await nextBtn.click()
     await expect(page.locator('text=/Hint 2:/i')).toBeVisible()
   }
 })
 
 // ── 5. Quiz ───────────────────────────────────────────────────────────────────
 
-test('quiz loads 5 questions for a lesson', async ({ page }) => {
+test('quiz panel loads and Start Quiz shows questions', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  await page.locator('button:has-text("Quiz"), [role="tab"]:has-text("Quiz")').first().click()
+  await page.locator('button:has-text("Quiz")').first().click()
   await expect(page.locator('button:has-text("Start Quiz")')).toBeVisible({ timeout: 3000 })
   await page.locator('button:has-text("Start Quiz")').click()
-  await expect(page.locator('text=/Question 1/i')).toBeVisible({ timeout: 3000 })
+  await expect(page.locator('text=/Question 1/i')).toBeVisible({ timeout: 5000 })
 })
 
-test('answering a quiz question shows feedback', async ({ page }) => {
+test('selecting a quiz answer shows feedback', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  await page.locator('button:has-text("Quiz"), [role="tab"]:has-text("Quiz")').first().click()
+  await page.locator('button:has-text("Quiz")').first().click()
   await page.locator('button:has-text("Start Quiz")').click()
-  await page.waitForSelector('button[class*="rounded"]:not(:has-text("Start"))', { timeout: 3000 })
-
-  // Click the first answer option
+  await expect(page.locator('text=/Question 1/i')).toBeVisible({ timeout: 5000 })
   const options = page.locator('button').filter({ hasText: /^[A-D]\./ })
-  if (await options.count() > 0) {
-    await options.first().click()
-    // Should show correct/incorrect feedback
-    await expect(page.locator('text=/correct|incorrect|Next/i').first()).toBeVisible({ timeout: 3000 })
-  }
+  await expect(options.first()).toBeVisible({ timeout: 3000 })
+  await options.first().click()
+  await expect(page.locator('text=/correct|incorrect|Next/i').first()).toBeVisible({ timeout: 3000 })
 })
 
 // ── 6. AI Tutor ───────────────────────────────────────────────────────────────
 
-test('AI tutor panel is present on lesson page', async ({ page }) => {
+test('AI Tutor panel and input are present on lesson page', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  await expect(page.locator('text=Tutor')).toBeVisible()
-  await expect(page.locator('placeholder=Ask a question')).toBeVisible()
+  await expect(page.locator('button:has-text("Tutor")')).toBeVisible()
+  await expect(page.getByPlaceholder('Ask a question… (Enter to send)')).toBeVisible()
 })
 
 // ── 7. Notes ─────────────────────────────────────────────────────────────────
 
-test('notes tab saves and reloads content', async ({ page }) => {
+test('notes save and reload after navigation', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  await page.locator('[role="tab"]:has-text("Notes"), button:has-text("Notes")').first().click()
-
-  const noteText = `e2e-note-${Date.now()}`
-  const editor = page.locator('textarea[placeholder*="notes"], .notes-editor, [contenteditable]').first()
-  if (await editor.count() > 0) {
-    await editor.fill(noteText)
-    await page.waitForTimeout(1500) // auto-save debounce
-    await page.reload()
-    await page.locator('[role="tab"]:has-text("Notes"), button:has-text("Notes")').first().click()
-    await expect(page.locator(`text=${noteText}`)).toBeVisible({ timeout: 3000 })
-  }
+  await page.locator('button:has-text("Notes")').first().click()
+  const noteText = `e2e-${Date.now()}`
+  await page.getByPlaceholder('Your notes for this lesson…').fill(noteText)
+  await page.waitForTimeout(1500) // auto-save debounce
+  await page.reload()
+  await page.locator('button:has-text("Notes")').first().click()
+  await expect(page.locator(`text=${noteText}`)).toBeVisible({ timeout: 3000 })
 })
 
 // ── 8. Bookmarks ─────────────────────────────────────────────────────────────
 
-test('bookmarking a lesson appears in header dropdown', async ({ page }) => {
-  await clearLocalStorage(page)
+test('bookmarking a lesson appears in Saved dropdown', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-
-  await page.locator('button[title*="Bookmark"], button:has-text("☆")').first().click()
+  await clearLocalStorage(page)
+  await page.reload()
+  await page.locator('button:has-text("☆")').first().click()
   await page.waitForTimeout(300)
-
-  // Open bookmarks dropdown
   await page.locator('button:has-text("Saved")').click()
   await expect(page.locator('text=Script Writing Basics')).toBeVisible({ timeout: 2000 })
-
-  // Cleanup
   await clearLocalStorage(page)
 })
 
@@ -295,43 +248,38 @@ test('bookmarking a lesson appears in header dropdown', async ({ page }) => {
 
 test('search returns results for a known term', async ({ page }) => {
   await page.goto(BASE)
-  await page.locator('button:has-text("Search"), button[aria-label*="Search"]').first().click()
-  await page.waitForTimeout(200)
-
-  const searchInput = page.locator('input[placeholder*="Search"], input[type="search"]').first()
-  await searchInput.fill('docker')
-  await page.waitForTimeout(500)
-  await expect(page.locator('[class*="result"], [role="option"]').first()).toBeVisible({ timeout: 3000 })
+  await page.locator('button:has-text("Search")').first().click()
+  const input = page.getByPlaceholder(/search/i)
+  await expect(input).toBeVisible({ timeout: 2000 })
+  await input.fill('docker')
+  await page.waitForTimeout(400)
+  // At least one result row should appear
+  const results = page.locator('[class*="result"], [role="option"], [class*="SearchResult"]')
+  await expect(results.first()).toBeVisible({ timeout: 3000 })
 })
 
 // ── 10. Interview Prep ────────────────────────────────────────────────────────
 
-test('InterviewPrep loads and shows a question', async ({ page }) => {
+test('InterviewPrep page loads with a question', async ({ page }) => {
   await page.goto(`${BASE}/interview`)
-  await expect(page.locator('text=/interview|question/i').first()).toBeVisible()
-  // Module selector should be present
-  await expect(page.locator('select, [role="combobox"]').first()).toBeVisible()
+  await expect(page.locator('select').first()).toBeVisible({ timeout: 3000 })
 })
 
-test('InterviewPrep shows all modules in dropdown', async ({ page }) => {
+test('InterviewPrep module dropdown includes all 23 modules', async ({ page }) => {
   await page.goto(`${BASE}/interview`)
   const select = page.locator('select').first()
-  const options = await select.locator('option').count()
-  expect(options).toBeGreaterThanOrEqual(23)
+  await expect(select).toBeVisible({ timeout: 3000 })
+  expect(await select.locator('option').count()).toBeGreaterThanOrEqual(23)
 })
 
-test('self-grading an interview answer awards XP for Strong', async ({ page }) => {
+test('grading Strong on an interview question awards XP', async ({ page }) => {
   await page.goto(`${BASE}/interview/bash`)
-  await page.waitForSelector('text=/Strong|Adequate|Weak/i', { timeout: 5000 }).catch(() => {})
-
-  const xpBefore = await getXP(page)
   const strongBtn = page.locator('button:has-text("Strong")')
-  if (await strongBtn.count() > 0) {
-    await strongBtn.first().click()
-    await page.waitForTimeout(1000)
-    const xpAfter = await getXP(page)
-    expect(xpAfter).toBeGreaterThanOrEqual(xpBefore)
-  }
+  await expect(strongBtn.first()).toBeVisible({ timeout: 8000 })
+  const xpBefore = await getXP(page)
+  await strongBtn.first().click()
+  await page.waitForTimeout(1000)
+  expect(await getXP(page)).toBeGreaterThanOrEqual(xpBefore)
 })
 
 // ── 11. Stats ─────────────────────────────────────────────────────────────────
@@ -342,84 +290,62 @@ test('stats page renders XP and streak sections', async ({ page }) => {
   await expect(page.locator('text=/streak/i').first()).toBeVisible()
 })
 
-// ── 12. Projects ─────────────────────────────────────────────────────────────
-
-test('projects page lists 10 projects', async ({ page }) => {
-  await page.goto(`${BASE}/projects`)
-  await expect(page.locator('text=/project/i').first()).toBeVisible()
-  const cards = page.locator('[class*="card"], article, [class*="project"]')
-  await expect(cards.first()).toBeVisible()
+test('export button downloads a JSON file', async ({ page }) => {
+  await page.goto(`${BASE}/stats`)
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 10000 }),
+    page.locator('button:has-text("Export")').first().click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(/\.json$/)
 })
 
-test('project detail page loads with steps', async ({ page }) => {
+// ── 12. Projects ─────────────────────────────────────────────────────────────
+
+test('projects page lists projects', async ({ page }) => {
   await page.goto(`${BASE}/projects`)
-  // Click first project
-  const firstProject = page.locator('a[href^="/projects/"]').first()
-  if (await firstProject.count() > 0) {
-    await firstProject.click()
-    await expect(page.locator('text=/Step|step/i').first()).toBeVisible({ timeout: 3000 })
-  }
+  await expect(page.locator('a[href^="/projects/"]').first()).toBeVisible({ timeout: 3000 })
+})
+
+test('project detail page shows steps', async ({ page }) => {
+  await page.goto(`${BASE}/projects`)
+  await page.locator('a[href^="/projects/"]').first().click()
+  await expect(page.locator('text=/Step/').first()).toBeVisible({ timeout: 3000 })
 })
 
 // ── 13. Spaced Review ────────────────────────────────────────────────────────
 
 test('spaced review page loads', async ({ page }) => {
   await page.goto(`${BASE}/review`)
-  await expect(page.locator('text=/review|flashcard|queue/i').first()).toBeVisible()
+  // Either shows a queue or an empty-state message
+  await expect(page.locator('text=/review|queue|nothing|caught up/i').first()).toBeVisible({ timeout: 3000 })
 })
 
-// ── 14. Export ───────────────────────────────────────────────────────────────
-
-test('export button triggers file download', async ({ page }) => {
-  await page.goto(`${BASE}/stats`)
-  const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 10000 }).catch(() => null),
-    page.locator('button:has-text("Export")').first().click(),
-  ])
-  if (download) {
-    expect(download.suggestedFilename()).toMatch(/\.json$/)
-  }
-})
-
-// ── 15. Dark mode ─────────────────────────────────────────────────────────────
-
-test('dark mode toggle switches theme', async ({ page }) => {
-  await page.goto(BASE)
-  await page.locator('button:has-text("Light"), button:has-text("Dark")').first().click()
-  await page.waitForTimeout(200)
-  const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
-  // Toggle again to restore
-  await page.locator('button:has-text("Light"), button:has-text("Dark")').first().click()
-  // Either state is valid — we just confirm the toggle fires without errors
-  expect(typeof isDark).toBe('boolean')
-})
-
-// ── 16. Focus mode ────────────────────────────────────────────────────────────
-
-test('Focus mode hides the right panel', async ({ page }) => {
-  await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  const focusBtn = page.locator('button:has-text("Focus")')
-  await focusBtn.click()
-  await page.waitForTimeout(200)
-  // Tutor/Quiz/Notes panel should be hidden
-  const panel = page.locator('text=Tutor')
-  const visible = await panel.isVisible()
-  // Click again to restore
-  await focusBtn.click()
-  expect(visible).toBe(false)
-})
-
-// ── 17. Module quiz page ──────────────────────────────────────────────────────
+// ── 14. Module quiz page ──────────────────────────────────────────────────────
 
 test('module quiz page loads for bash', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/quiz`)
-  await expect(page.locator('text=/quiz/i').first()).toBeVisible()
+  await expect(page.locator('text=/quiz/i').first()).toBeVisible({ timeout: 3000 })
 })
 
-// ── 18. Roadmap links to modules ──────────────────────────────────────────────
+// ── 15. Focus mode ────────────────────────────────────────────────────────────
 
-test('roadmap module card links to module page', async ({ page }) => {
-  await page.goto(`${BASE}/roadmap`)
-  await page.locator('a[href="/module/bash"]').first().click()
-  await expect(page).toHaveURL(/\/module\/bash/)
+test('Focus mode hides right panel, Side panel restores it', async ({ page }) => {
+  await page.goto(`${BASE}/module/bash/lesson/script-basics`)
+  await expect(page.locator('button:has-text("Tutor")')).toBeVisible()
+  await page.locator('button:has-text("Focus")').click()
+  await expect(page.locator('button:has-text("Tutor")')).not.toBeVisible()
+  await page.locator('button:has-text("Side panel")').click()
+  await expect(page.locator('button:has-text("Tutor")')).toBeVisible()
+})
+
+// ── 16. Dark mode ─────────────────────────────────────────────────────────────
+
+test('dark mode toggle adds and removes dark class', async ({ page }) => {
+  await page.goto(BASE)
+  // Ensure we start in light mode
+  await page.evaluate(() => { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light') })
+  await page.locator('button:has-text("Dark")').click()
+  expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true)
+  await page.locator('button:has-text("Light")').click()
+  expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(false)
 })
