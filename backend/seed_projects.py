@@ -102,6 +102,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "nginx:1.24",
+                "hints": [
+                    "Think about which field in the space-delimited output corresponds to the image name.",
+                    "Use `awk '{print $NF}'` to print the last field from the input line.",
+                ],
             },
             {
                 "order_index": 2,
@@ -113,6 +117,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "Running",
+                "hints": [
+                    "Pipe the JSON string into a Python one-liner that reads from stdin and navigates the parsed dict.",
+                    "Try `echo '{...}' | python3 -c \"import sys,json; print(json.loads(sys.stdin.read())['status']['phase'])\"`.",
+                ],
             },
             {
                 "order_index": 3,
@@ -129,6 +137,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Cover three key sections: `spec.strategy.rollingUpdate`, container `readinessProbe`, and container `livenessProbe`, each with `httpGet` on `/health` port 8080.",
+                    "For zero-downtime: set `maxUnavailable: 0` so no pod is removed before a replacement is ready; set `initialDelaySeconds` on readiness to the actual app warmup time.",
+                ],
             },
             {
                 "order_index": 4,
@@ -143,6 +155,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Readiness controls traffic routing (pod removed from Service endpoints); liveness controls restarts — they have different consequences when they fail.",
+                    "Key scenario: a pod loading a large cache fails readiness (no traffic) but passes liveness (no restart) — traffic is withheld without killing the pod.",
+                ],
             },
         ],
     },
@@ -165,6 +181,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "danger.conf",
+                "hints": [
+                    "The `find` command has a `-perm` flag for matching file permissions — world-writable means the 'other' write bit is set.",
+                    "Use `find /tmp/audit_test -perm -o+w` to match world-writable files, then pipe to `xargs basename` to strip the directory path.",
+                ],
             },
             {
                 "order_index": 2,
@@ -179,6 +199,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "root\nadmin",
+                "hints": [
+                    "The `/etc/passwd` format uses `:` as a delimiter — the UID is the third field and the username is the first.",
+                    "Use `awk -F: '$3 == 0 {print $1}'` to filter lines where the third field is 0 and print the username.",
+                ],
             },
             {
                 "order_index": 3,
@@ -192,6 +216,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Focus on four attack surfaces: authentication method (keys only, no passwords), root access, idle session timeouts, and strong ciphers/algorithms.",
+                    "Key directives to include: `PermitRootLogin no`, `PasswordAuthentication no`, `PubkeyAuthentication yes`, `ClientAliveInterval`, `ClientAliveCountMax`, `AllowUsers`, and `KexAlgorithms`.",
+                ],
             },
             {
                 "order_index": 4,
@@ -207,6 +235,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Cover all three components: the cron schedule (minute, hour fields), the `find -mtime` commands for compression and deletion, and a `df` check piped to `awk` for disk usage.",
+                    "Cron expression for 2:30 AM daily is `30 2 * * *`; use `find /var/log/myapp -mtime +7 -exec gzip {} \\;` and `find ... -mtime +30 -delete`; send the webhook with `curl -X POST`.",
+                ],
             },
         ],
     },
@@ -229,6 +261,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "1234",
+                "hints": [
+                    "Split the string into lines, filter for the line containing `method=\"GET\"`, then extract the numeric value at the end.",
+                    "Use a list comprehension to find lines with `method=\"GET\"`, then split on space and convert the last element to int.",
+                ],
             },
             {
                 "order_index": 2,
@@ -242,6 +278,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "InstanceDown",
+                "hints": [
+                    "Use `yaml.safe_load()` to parse the YAML string, then navigate the nested structure to find the alert name.",
+                    "Access `yaml.safe_load(s)['groups'][0]['rules'][0]['alert']` after importing yaml.",
+                ],
             },
             {
                 "order_index": 3,
@@ -256,6 +296,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "For rate queries use `rate(metric[5m])` with `by (status_code)` aggregation; for histogram percentile use `histogram_quantile(0.95, sum(rate(..._bucket[5m])) by (le))`.",
+                    "`rate()` averages over the window (smoother, better for alerting); `irate()` uses the last two points (more reactive, better for real-time graphs) — prefer `rate()` for query 1.",
+                ],
             },
             {
                 "order_index": 4,
@@ -272,6 +316,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Define a shared network so services reach each other by name; each service needs `ports`, `volumes`, and `networks` sections.",
+                    "Grafana datasource auto-provisioning: set `GF_DATASOURCES_DEFAULT_URL=http://prometheus:9090` via environment, or mount a `provisioning/datasources/prometheus.yml` file.",
+                ],
             },
         ],
     },
@@ -296,6 +344,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "2",
+                "hints": [
+                    "Think about what text pattern uniquely identifies a merge commit in the git log output shown.",
+                    "Use `grep -c 'Merge'` to count lines containing the word 'Merge' in the input.",
+                ],
             },
             {
                 "order_index": 2,
@@ -308,6 +360,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "Synced",
+                "hints": [
+                    "Use `json.loads()` to parse the string, then navigate the nested dict to find the sync status field.",
+                    "Access `json.loads(s)['status']['sync']['status']` after `import json`.",
+                ],
             },
             {
                 "order_index": 3,
@@ -324,6 +380,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "The `Application` CRD has three main spec sections: `source` (repoURL, path, targetRevision), `destination` (server, namespace), and `syncPolicy`.",
+                    "Key fields: `spec.source.targetRevision: main`, `spec.syncPolicy.automated.selfHeal: true`, `spec.syncPolicy.automated.prune: true`.",
+                ],
             },
             {
                 "order_index": 4,
@@ -341,6 +401,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "The standard pattern is `apps/<service>/overlays/<env>` (Kustomize) or `values-<env>.yaml` (Helm); promotion means updating the image tag in the target env's config file via PR.",
+                    "GitOps rollback = revert the Git commit that changed the image tag (full audit trail); `kubectl rollout undo` bypasses Git and can cause drift — use it only for emergencies.",
+                ],
             },
         ],
     },
@@ -365,6 +429,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "3",
+                "hints": [
+                    "Think about what unique text pattern marks the start of each task definition in the playbook snippet.",
+                    "Use `grep -c '- name:'` to count lines matching the task name pattern in the input.",
+                ],
             },
             {
                 "order_index": 2,
@@ -378,6 +446,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "3",
+                "hints": [
+                    "Split the string on `\\n`, find the `[webservers]` line, then collect lines until the next group header.",
+                    "Split on `\\n`, slice from the index after `[webservers]` up to the first line starting with `[`, then count the non-empty lines in that slice.",
+                ],
             },
             {
                 "order_index": 3,
@@ -395,6 +467,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Cover the four required files: tasks/main.yml (install + template + service), handlers/main.yml (reload), templates/nginx.conf.j2 (with `{{ worker_processes }}`), defaults/main.yml (variable defaults).",
+                    "The handler is triggered by `notify: Reload nginx` on the template task; it uses `state: reloaded` (not restarted) to apply config changes without dropping connections.",
+                ],
             },
             {
                 "order_index": 4,
@@ -413,6 +489,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Use `ansible.builtin.user` (state: present/absent), `ansible.posix.authorized_key` for SSH keys, and `loop` over the `users` and `removed_users` variables.",
+                    "Idempotency comes from Ansible's declarative model — `user` checks existence before creating; verify with `--check` mode which shows `changed=0` when nothing has drifted.",
+                ],
             },
         ],
     },
@@ -434,6 +514,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "201",
+                "hints": [
+                    "The status code appears after the closing quote of the HTTP request string — think about how to split on `'\" '` to access that part.",
+                    "Use `re.search(r'\" (\\d{3}) ', line).group(1)` or split on `'\" '` and take the first token of the second part.",
+                ],
             },
             {
                 "order_index": 2,
@@ -446,6 +530,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "247",
+                "hints": [
+                    "Use `json.loads()` to parse the string, then navigate the nested dict to find the total hits count.",
+                    "Access `json.loads(s)['hits']['total']['value']` after `import json`.",
+                ],
             },
             {
                 "order_index": 3,
@@ -462,6 +550,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Cover the three pipeline sections: `input` (file plugin with sincedb), `filter` (grok with `%{COMBINEDAPACHELOG}` + date + geoip + conditional drop), `output` (elasticsearch plugin).",
+                    "`sincedb_path => /dev/null` makes Logstash re-read the file from the start on every restart (useful for testing); remove it in production so Logstash tracks its read position.",
+                ],
             },
             {
                 "order_index": 4,
@@ -480,6 +572,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "An ILM policy has phases: `hot` (rollover trigger), `warm` (force merge + replica reduction), `delete`; the rollover uses `max_size` and `max_age` on the hot phase.",
+                    "For the Kibana dashboard, key panels: a metric tile (total requests), an area chart (request rate over time), a data table (top URLs by 5xx count), and a bar chart (status code distribution).",
+                ],
             },
         ],
     },
@@ -501,6 +597,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "3",
+                "hints": [
+                    "Create the directory with `mkdir -p /tmp/mychart/templates`, create the three files with `touch`, then count with `find`.",
+                    "Use `find /tmp/mychart/templates -name '*.yaml' | wc -l` to count YAML files, stripping the trailing filename with `awk '{print $1}'` if needed.",
+                ],
             },
             {
                 "order_index": 2,
@@ -512,6 +612,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "3",
+                "hints": [
+                    "Use `yaml.safe_load()` on the string — the `\\n` sequences are real newlines that YAML parses into a nested dict.",
+                    "Access `yaml.safe_load(s)['replicaCount']` after `import yaml`, where `s` is the values string with `\\n` as actual newline characters.",
+                ],
             },
             {
                 "order_index": 3,
@@ -531,6 +635,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "The `_helpers.tpl` defines named templates with `{{- define \"api-server.fullname\" -}}`; the deployment uses `{{ include \"api-server.fullname\" . }}` for the name and `{{ include \"api-server.labels\" . | nindent 4 }}` for labels.",
+                    "In `values.yaml` set `replicaCount: 1` and `image.pullPolicy: IfNotPresent`; wrap the ingress section in `deployment.yaml` with `{{- if .Values.ingress.enabled }}` and add resources from `{{ toYaml .Values.resources | nindent 12 }}`.",
+                ],
             },
             {
                 "order_index": 4,
@@ -549,6 +657,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Standard pattern: `values.yaml` (base defaults), `values-dev.yaml`, `values-staging.yaml`, `values-prod.yaml`; override with `helm upgrade --install -f values-<env>.yaml`.",
+                    "`helm rollback` reverts cluster state using Helm's release history (fast, emergency use); reverting the Git values file is the GitOps approach with audit trail — prefer Git revert for planned rollbacks.",
+                ],
             },
         ],
     },
@@ -572,6 +684,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "3",
+                "hints": [
+                    "A JWT has 3 parts separated by `.` — think about counting the separators and adding 1, or counting fields directly.",
+                    "Use `echo 'JWT' | awk -F. '{print NF}'` to split on `.` and print the number of fields.",
+                ],
             },
             {
                 "order_index": 2,
@@ -588,6 +704,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "user123",
+                "hints": [
+                    "Split the JWT on `.`, take index 1 (the payload segment), and base64url-decode it — the standard `base64.urlsafe_b64decode` needs padding added first.",
+                    "Padding fix: `base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4))`; then `json.loads()` the result and access `['sub']`.",
+                ],
             },
             {
                 "order_index": 3,
@@ -606,6 +726,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "A Postman collection JSON has an `info` block (name, schema) and an `item` array; each item has `name`, `request`, and `event` arrays for pre-request and test scripts.",
+                    "In the login test script: `pm.collectionVariables.set('token', pm.response.json().token)`; reference it in the profile request `Authorization` header as `Bearer {{token}}`.",
+                ],
             },
             {
                 "order_index": 4,
@@ -622,6 +746,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "For BOLA (API1): substitute another user's resource ID in the URL and assert a 403 response — if you get 200, authorization is broken. Automate by parameterizing resource IDs in Postman.",
+                    "For Newman CI integration: `newman run collection.json -e env.json --bail` exits non-zero on test failure; add it as a CI step after deploying to staging so security failures block the PR.",
+                ],
             },
         ],
     },
@@ -645,6 +773,10 @@ PROJECTS = [
                 ),
                 "language": "bash",
                 "expected_output": "3",
+                "hints": [
+                    "Think about what unique keyword starts each variable block definition in HCL — you can count lines that begin with it.",
+                    "Use `grep -c '^variable'` to count lines where the word `variable` appears at the start.",
+                ],
             },
             {
                 "order_index": 2,
@@ -656,6 +788,10 @@ PROJECTS = [
                 ),
                 "language": "python",
                 "expected_output": "vpc-0abc1234",
+                "hints": [
+                    "Use `json.loads()` to parse the string, then navigate the nested dict to find the value field.",
+                    "Access `json.loads(s)['vpc_id']['value']` after `import json`.",
+                ],
             },
             {
                 "order_index": 3,
@@ -676,6 +812,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Use `count = length(var.azs)` on subnet resources; the NAT gateway requires an `aws_eip` first; route tables need separate `aws_route_table_association` resources to attach to subnets.",
+                    "Private subnets route `0.0.0.0/0` to `aws_nat_gateway.main.id`; public subnets route to `aws_internet_gateway.main.id`; both need `aws_route_table` + `aws_route_table_association`.",
+                ],
             },
             {
                 "order_index": 4,
@@ -691,6 +831,10 @@ PROJECTS = [
                 ),
                 "language": None,
                 "expected_output": None,
+                "hints": [
+                    "Define security groups in dependency order (web → app → db); use `source_security_group_id = aws_security_group.web.id` in the app tier ingress rule instead of `cidr_blocks`.",
+                    "Security group references are dynamic — they follow the group regardless of IP changes, so they're more robust than CIDR rules that break when instances are replaced or scaled.",
+                ],
             },
         ],
     },
