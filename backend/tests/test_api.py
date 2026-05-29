@@ -229,6 +229,33 @@ def test_sandbox_check_fail():
     assert data['actual'] == 'wrong'
 
 
+def test_sandbox_completed():
+    source = 'exercise_check:test-lesson:77'
+    conn = db_conn()
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.commit()
+    conn.close()
+
+    # No completions yet
+    r = client.get('/sandbox/completed/test-lesson')
+    assert r.status_code == 200
+    assert 77 not in r.json()['completed']
+
+    # Pass an exercise to log it
+    client.post('/sandbox/check', json={
+        'code': 'echo "done"', 'language': 'bash',
+        'expected_output': 'done', 'slug': 'test-lesson', 'index': 77,
+    })
+
+    r2 = client.get('/sandbox/completed/test-lesson')
+    assert 77 in r2.json()['completed']
+
+    conn = db_conn()
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.commit()
+    conn.close()
+
+
 # ── Interview self-grade ──────────────────────────────────────────────────────
 
 def _first_interview_question_id() -> int | None:
