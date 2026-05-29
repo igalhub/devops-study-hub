@@ -24,7 +24,7 @@ function useDarkMode() {
   return dark
 }
 
-export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex, exerciseText }) {
+export default function CodePlayground({ initialCode, initialLanguage, expectedOutput, exerciseSlug, exerciseIndex, exerciseText, onPass }) {
   const dark = useDarkMode()
   const [language, setLanguage] = useState(initialLanguage ?? 'bash')
   const [code, setCode] = useState(initialCode ?? STARTER[initialLanguage ?? 'bash'])
@@ -66,6 +66,7 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
     try {
       const result = await checkExercise(exerciseSlug, exerciseIndex, code, language, expectedOutput)
       setCheckResult(result)
+      if (result.passed && onPass) onPass()
     } catch (e) {
       setCheckResult({ passed: false, error: e.message })
     } finally {
