@@ -227,3 +227,90 @@ def test_sandbox_check_fail():
     assert data['xp_earned'] == 0
     assert data['expected'] == 'right'
     assert data['actual'] == 'wrong'
+
+
+# ── Interview self-grade ──────────────────────────────────────────────────────
+
+def _first_interview_question_id() -> int | None:
+    conn = db_conn()
+    try:
+        row = conn.execute("SELECT id FROM interview_questions LIMIT 1").fetchone()
+        return row['id'] if row else None
+    finally:
+        conn.close()
+
+
+def _first_module_slug() -> str | None:
+    conn = db_conn()
+    try:
+        row = conn.execute(
+            "SELECT m.slug FROM modules m "
+            "JOIN interview_questions iq ON iq.module_id = m.id "
+            "LIMIT 1"
+        ).fetchone()
+        return row['slug'] if row else None
+    finally:
+        conn.close()
+
+
+def test_self_grade_invalid_score():
+    r = client.post('/interview/self-grade', json={
+        'question_id': 1,
+        'module_slug': 'linux',
+        'score': 'Bad',
+    })
+    assert r.status_code == 400
+
+
+def test_self_grade_unknown_module():
+    r = client.post('/interview/self-grade', json={
+        'question_id': 1,
+        'module_slug': 'does-not-exist',
+        'score': 'Strong',
+    })
+    assert r.status_code == 404
+
+
+def test_self_grade_strong_awards_xp():
+    question_id = _first_interview_question_id()
+    module_slug = _first_module_slug()
+    if question_id is None or module_slug is None:
+        pytest.skip("no interview questions in DB")
+
+    conn = db_conn()
+    xp_before = conn.execute("SELECT COALESCE(SUM(points),0) as t FROM xp_log").fetchone()['t']
+    conn.close()
+
+    r = client.post('/interview/self-grade', json={
+        'question_id': question_id,
+        'module_slug': module_slug,
+        'score': 'Strong',
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['score'] == 'Strong'
+    assert data['xp_earned'] == 5
+    assert data['xp_total'] == xp_before + 5
+    assert 'model_answer' in data
+
+
+def test_self_grade_weak_awards_no_xp():
+    question_id = _first_interview_question_id()
+    module_slug = _first_module_slug()
+    if question_id is None or module_slug is None:
+        pytest.skip("no interview questions in DB")
+
+    conn = db_conn()
+    xp_before = conn.execute("SELECT COALESCE(SUM(points),0) as t FROM xp_log").fetchone()['t']
+    conn.close()
+
+    r = client.post('/interview/self-grade', json={
+        'question_id': question_id,
+        'module_slug': module_slug,
+        'score': 'Weak',
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['score'] == 'Weak'
+    assert data['xp_earned'] == 0
+    assert data['xp_total'] == xp_before

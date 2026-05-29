@@ -26,7 +26,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Code Sandbox** — write and run Bash/Python exercises inline
 - **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson
 - **Roadmap View** — visual skill tree showing what to learn next
-- **Interview Prep Mode** — AI-generated interview questions with feedback, SRS review queue, and XP awards
+- **Interview Prep Mode** — AI-generated questions with AI feedback (score: Weak/Adequate/Strong) + Quick Review flashcard mode (pre-seeded model answers, self-grade, no Claude call); SRS review queue; XP awards
 - **Content Search** — full-text search across lesson titles and body content
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
@@ -47,7 +47,7 @@ Always reference `devops-study-hub-prd.md` at the project root for authoritative
 ## Content Expansion
 Use `/expand-content` to expand thin lesson content. The skill enforces code-review after patches and a single-module smoke test before the full run — do not bypass it by running `seed_curriculum.py` directly for a full batch.
 
-To seed exercise hints: `python3 seed_exercise_hints.py [--dry-run] [--module <slug>]` — adds `hint:` lines to lesson markdown files for any Quick Check that has `expected_output` but no hints yet. To seed interview hints: `python3 seed_interview.py --hints-only [--module <slug>]`.
+To seed exercise hints: `python3 seed_exercise_hints.py [--dry-run] [--module <slug>]` — adds `hint:` lines to lesson markdown files for any Quick Check that has `expected_output` but no hints yet. To seed interview hints: `python3 seed_interview.py --hints-only [--module <slug>]`. To seed model answers for Quick Review flashcard mode: `python3 seed_interview.py --model-answers [--module <slug>]` — idempotent, skips already-answered questions.
 
 ## Documentation Currency
 Run `/update-docs` after any significant change (new skill, schema change, lesson count change, new feature). It audits CLAUDE.md, the PRD, skill files, and memory against ground truth from `.claude/docs-manifest.sh` and proposes edits before committing.
