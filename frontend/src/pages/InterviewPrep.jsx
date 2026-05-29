@@ -589,6 +589,12 @@ export default function InterviewPrep({ modules, progress, onXpEarned, onIntervi
             {evaluation.xp_earned > 0 && (
               <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">+{evaluation.xp_earned} XP</span>
             )}
+            <button
+              onClick={() => { setEvaluation(null); setPhase('active') }}
+              className="ml-auto text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 underline"
+            >
+              Edit answer
+            </button>
           </div>
 
           <div>
