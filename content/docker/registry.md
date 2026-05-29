@@ -800,8 +800,13 @@ Test your script against a known vulnerable image (e.g., `python:3.6-slim`) to v
 ghcr.io
 ```
 
+hint: Think about how you can split a string by a delimiter character and select only the first segment.
+hint: Use the cut command with the -d flag to set '/' as the delimiter and -f1 to extract the first field from the piped input.
+
 6. Parse the major version number from a semver image tag. Run: `python3 -c "tag = 'v1.23.4'; print(tag.lstrip('v').split('.')[0])"`
 
 ```expected_output
 1
 ```
+hint: Think about how Python string methods can clean up a version tag and then isolate just the first numeric segment.
+hint: Use lstrip('v') to remove the leading 'v' character, then chain split('.') and index [0] to extract the major version segment.

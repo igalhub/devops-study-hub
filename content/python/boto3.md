@@ -847,6 +847,9 @@ aws ssm get-parameters-by-path --path /myapp/prod/ --with-decryption \
    ['i-1']
    ```
 
+hint: Think about how you can loop through or filter a list of dictionaries by checking the value of a specific key in each dict.
+hint: Use a list comprehension with a condition like `if instance['state'] == 'running'` to select only the matching instances, then extract the instance id.
+
 2. Build a flat dict from a list of AWS-style tag records.
 
    ```python
@@ -856,3 +859,5 @@ aws ssm get-parameters-by-path --path /myapp/prod/ --with-decryption \
    ```expected_output
    {'Env': 'prod', 'Team': 'ops'}
    ```
+hint: Think about how you can iterate over a list of dictionaries and extract specific key-value pairs to build a new dictionary.
+hint: Use a dict comprehension with the pattern {item['Key']: item['Value'] for item in tags} to map each tag record into a flat dictionary.

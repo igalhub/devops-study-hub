@@ -787,6 +787,9 @@ python3 audit_cidrs.py 192.168.10.0/24 10.244.0.0/16 10.96.0.0/12
    4094
    ```
 
+hint: Think about how the subnet mask's prefix length determines how many bits are left for host addresses.
+hint: With a /20 prefix, calculate 2 raised to the power of (32 minus 20), then subtract 2 to account for the network and broadcast addresses.
+
 2. Check whether two CIDRs overlap — the first step in validating a VPC or Kubernetes network plan.
 
    ```python
@@ -796,3 +799,5 @@ python3 audit_cidrs.py 192.168.10.0/24 10.244.0.0/16 10.96.0.0/12
    ```expected_output
    no overlap
    ```
+hint: Think about how Python or a CLI tool can parse and compare CIDR ranges to determine if their address spaces intersect.
+hint: Use Python's built-in ipaddress module and call network_a.overlaps(network_b) on two IPv4Network objects constructed from your CIDR strings.

@@ -837,6 +837,9 @@ steps = [
    3
    ```
 
+hint: Think about how Python lets you aggregate all the values in a dictionary with a single built-in function.
+hint: Use the sum() function combined with the .values() method on your dictionary, like sum(d.values()).
+
 2. Deduplicate a list and sort it.
 
    ```python
@@ -846,3 +849,5 @@ steps = [
    ```expected_output
    [1, 3, 4, 5]
    ```
+hint: Think about how Python's built-in data structures can automatically eliminate duplicate values from a collection.
+hint: Convert the list to a set() to remove duplicates, then wrap it with sorted() to return an ordered list.

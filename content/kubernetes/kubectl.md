@@ -770,8 +770,14 @@ Without reading the YAML above after applying it:
 3
 ```
 
+hint: Think about how awk can conditionally track a count by checking the value of a specific field in each line.
+hint: Use awk with a condition like '$2=="Running"{c++}' to increment a counter, then print it in the END block.
+
 7. Extract a pod status field using simulated jsonpath. Run: `printf 'name: nginx\nstatus: Running\nready: 1/1\n' | awk '/^status:/{print $2}'`
 
 ```expected_output
 Running
 ```
+
+hint: Think about how you can filter lines from text output by matching a pattern at the start of a line.
+hint: Use awk with a regex pattern like /^status:/ to match the status line, then print the second field with {print $2}.

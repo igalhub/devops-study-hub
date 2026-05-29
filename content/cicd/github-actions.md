@@ -301,8 +301,14 @@ jobs:
 3
 ```
 
+hint: Think about how you can use a pattern-matching tool to identify lines that look like top-level job names and increment a counter for each one.
+hint: Use awk with a regex like /^  [a-z]/ to match indented job-name lines, exclude deeper-indented lines with && !/^    /, increment a counter c++, and print it in the END block.
+
 6. Count steps in a workflow job. Run: `printf 'steps:\n  - uses: actions/checkout@v4\n  - run: npm ci\n  - run: npm test\n  - run: npm run build\n' | grep -c '  - '`
 
 ```expected_output
 4
 ```
+
+hint: Think about how you can filter lines that match a specific pattern and have the shell count those matches automatically.
+hint: Use grep with the -c flag to count occurrences of the step prefix pattern '  - ' from the piped input.

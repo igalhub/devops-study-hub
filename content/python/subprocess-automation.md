@@ -920,6 +920,9 @@ Write a script that:
    hello
    ```
 
+hint: Think about how subprocess.run can be told to capture what a command prints to the terminal instead of letting it go directly to the screen.
+hint: Use the capture_output=True argument (or stdout=subprocess.PIPE) and access the result via the .stdout attribute, decoding it with .decode() if needed.
+
 2. Capture the exit code of a failing command.
 
    ```python
@@ -929,3 +932,5 @@ Write a script that:
    ```expected_output
    42
    ```
+hint: Think about how Python's subprocess module can run a command and give you access to its return code.
+hint: Use subprocess.run() and check the .returncode attribute on the result object to capture what the process exited with.

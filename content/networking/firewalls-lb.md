@@ -766,6 +766,9 @@ This exercise is design and CLI-based. You need AWS CLI access and an AWS accoun
    DROP
    ```
 
+hint: Focus on how iptables displays chain policy information in the header line of its output and what text parsing tool can extract a specific field from that line.
+hint: Use grep to isolate the chain header line, then pipe it to awk and target the field inside the parentheses with a pattern like awk -F'[()]' '{print $2}' to pull out the policy word.
+
 2. Determine which backend a round-robin load balancer sends request #7 to (0-indexed, 3 backends).
 
    ```bash
@@ -775,3 +778,5 @@ This exercise is design and CLI-based. You need AWS CLI access and an AWS accoun
    ```expected_output
    1
    ```
+hint: Think about how round-robin distribution cycles through backends using the request index and the total number of backends.
+hint: Use the modulo operation: request_index % number_of_backends (i.e., 7 % 3) to find which backend index receives the request.

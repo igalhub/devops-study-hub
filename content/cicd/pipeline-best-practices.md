@@ -868,8 +868,14 @@ Tasks:
 3
 ```
 
+hint: Think about how you can search through piped input to count how many lines match a specific pattern.
+hint: Use grep with the -c flag to count occurrences of the pattern 'secrets\.' in the input stream.
+
 8. Calculate percentage of build time saved by caching. Run: `python3 -c "print(int((120-15)/120*100))"`
 
 ```expected_output
 87
 ```
+
+hint: Think about how you can use Python's inline execution to calculate the percentage difference between the original and cached build times.
+hint: Use python3 -c with the print and int functions, applying the formula (original - cached) / original * 100 to the two build time values.

@@ -822,8 +822,13 @@ This exercise connects base image choice directly to CVE counts.
 4
 ```
 
+hint: Think about how you can filter lines that match a specific pattern and then count how many matches exist.
+hint: Use grep with the -c flag to count lines matching the anchored pattern '^RUN' directly, without needing a separate wc -l.
+
 7. Count images tagged `:latest` in an image list. Run: `printf 'nginx:latest\nalpine:3.19\nubuntu:latest\npython:3.12-slim\n' | grep -c ':latest'`
 
 ```expected_output
 2
 ```
+hint: Think about how you can filter lines containing a specific pattern and have the tool report how many matches it found.
+hint: Use grep with the -c flag, which counts matching lines directly, searching for the ':latest' pattern in the piped input.

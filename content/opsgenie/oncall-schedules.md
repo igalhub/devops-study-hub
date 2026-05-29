@@ -796,8 +796,14 @@ Your team has an SLA that states: *"P1 alerts must reach an engineer within 5 mi
 168
 ```
 
+hint: Think about how you can use Python's inline execution flag to evaluate a mathematical expression directly from the terminal.
+hint: Use python3 -c to run a short print statement that multiplies the number of days by the number of hours in a day.
+
 8. Count participants in an on-call schedule stub. Run: `printf 'participants:\n- user: alice\n- user: bob\n- user: carol\n- user: dave\n' | grep -c '^- user:'`
 
 ```expected_output
 4
 ```
+
+hint: Think about how grep can be used not just to find matches, but also to report the number of matching lines directly.
+hint: Use grep with the -c flag, which counts the number of lines matching a given pattern, such as the line prefix '^- user:'.

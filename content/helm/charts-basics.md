@@ -831,8 +831,14 @@ This exercise simulates the real-world pattern of sharing templates across multi
 mywebapp
 ```
 
+hint: Think about how you can filter lines from structured text and extract a specific field using a text-processing tool.
+hint: Use awk with a pattern match like /^name:/ to select the relevant line, then print the second whitespace-separated field with {print $2}.
+
 8. Extract the chart API version. Run: `printf 'apiVersion: v2\nname: mywebapp\nversion: 1.0.0\n' | awk '/^apiVersion:/{print $2}'`
 
 ```expected_output
 v2
 ```
+
+hint: Think about how you can filter lines from text input and extract a specific field from matching lines.
+hint: Use awk with a pattern like /^apiVersion:/ to match the relevant line, then print the second field using $2.

@@ -741,6 +741,9 @@ This exercise requires `tcpdump` and root access (or a VM you control).
    16
    ```
 
+hint: Think about how you can split a string in the shell using a delimiter to isolate a specific part of it.
+hint: Use cut with the -d '/' flag and -f 2 to extract the portion of the network address that comes after the slash.
+
 2. Count the number of octets in an IP address.
 
    ```bash
@@ -750,3 +753,5 @@ This exercise requires `tcpdump` and root access (or a VM you control).
    ```expected_output
    4
    ```
+hint: Think about how you can split a string by a specific delimiter and count the resulting parts.
+hint: Use echo with the IP address and pipe it to awk, using -F'.' to set the dot as a field separator, then print NF to get the number of fields.

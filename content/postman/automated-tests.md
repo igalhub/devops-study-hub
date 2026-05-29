@@ -744,8 +744,14 @@ Push a commit that intentionally fails a test (e.g., assert a field name that do
 3
 ```
 
+hint: Think about how you can search for a specific pattern in text and count how many lines match it directly.
+hint: Use grep with the -c flag, which counts matching lines instead of printing them, to find occurrences of 'pm.test' in the piped input.
+
 7. Extract the expected status code from a test snippet. Run: `echo 'pm.response.to.have.status(201);' | sed 's/.*status(\([0-9]*\)).*/\1/'`
 
 ```expected_output
 201
 ```
+
+hint: Think about how you can use a stream editor to search for a pattern and extract just a portion of the matched text.
+hint: Use sed with a capturing group in the regex — the pattern \([0-9]*\) captures the digits inside status(), and \1 in the replacement refers back to that captured group.

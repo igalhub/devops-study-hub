@@ -857,6 +857,9 @@ python jsonfilter.py --field level --value ERROR test.jsonl --output errors.json
    ['grep', '-r', 'error log', '/var/log']
    ```
 
+hint: Think about Python's standard library module designed specifically for parsing shell-like syntax, which handles quoted strings and spaces correctly.
+hint: Look into the shlex module and its split() function, which treats quoted substrings like 'error log' as single tokens.
+
 2. Parse a flag with a default using `argparse`.
 
    ```python
@@ -866,3 +869,5 @@ python jsonfilter.py --field level --value ERROR test.jsonl --output errors.json
    ```expected_output
    5
    ```
+hint: Think about how argparse lets you define optional arguments that fall back to a preset value when not provided by the user.
+hint: Use parser.add_argument('--number', type=int, default=5) to register a flag that returns a specific integer when the flag is omitted from the command line.

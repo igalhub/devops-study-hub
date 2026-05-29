@@ -628,6 +628,9 @@ On any Linux system you have access to (your laptop, a VM, a container):
    bash
    ```
 
+hint: Think about which low-level package management tool (not apt or yum) lets you query information about installed packages directly from the package database.
+hint: Use dpkg -l or rpm -q depending on your distro, filtering or querying specifically for the bash package name.
+
 2. Confirm `coreutils` is installed using the low-level package tool.
 
    ```bash
@@ -637,3 +640,5 @@ On any Linux system you have access to (your laptop, a VM, a container):
    ```expected_output
    coreutils
    ```
+hint: Think about which low-level package tool on Debian/Ubuntu systems lets you query installed packages directly.
+hint: Use dpkg with the -l flag followed by the package name, and pipe the output through grep to filter for the installed package line.

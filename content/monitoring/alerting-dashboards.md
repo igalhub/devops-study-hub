@@ -993,8 +993,14 @@ resource "datadog_monitor" "broken_alert" {
 7.5
 ```
 
+hint: Think about how to express a fraction as a percentage using basic arithmetic in a Python one-liner.
+hint: Use python3 -c with variables for errors and total, then print the result of dividing errors by total, multiplying by 100, and rounding to one decimal place with round().
+
 7. Count monitors in a config stub. Run: `printf 'monitors:\n- name: CPU High\n- name: Error Rate\n- name: API Latency\n' | grep -c '^- name:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can filter lines matching a specific pattern and have the tool count those matches directly.
+hint: Use grep with the -c flag to count lines matching the pattern '^- name:' from the piped input.

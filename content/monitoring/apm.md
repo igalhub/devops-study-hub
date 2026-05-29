@@ -822,8 +822,14 @@ Configure this using `DatadogSampler` with `SamplingRule`. Then:
 payment-api
 ```
 
+hint: Think about how you can filter and extract specific fields from structured text using a pattern-matching tool.
+hint: Use awk with a regex pattern like /^service:/ to match the relevant line, then print the second field with print $2.
+
 6. Count spans in a distributed trace. Run: `printf 'span_id: 1\nspan_id: 2\nspan_id: 3\nspan_id: 4\n' | wc -l`
 
 ```expected_output
 4
 ```
+
+hint: Think about how you can generate structured span data and pipe it into a line-counting utility.
+hint: Use printf to produce newline-separated span_id lines and pipe the output into wc with the -l flag to count the total number of lines.

@@ -482,8 +482,14 @@ The `${datasource}` placeholder works with the `Export for sharing externally` f
 4
 ```
 
+hint: Think about how you can filter lines that match a specific pattern and count how many times that pattern appears.
+hint: Use grep with the -c flag to count lines matching the pattern '^- title:' directly, without needing a separate counting command.
+
 5. Extract the panel type from a JSON panel stub. Run: `printf '{"title":"Error Rate","type":"graph","datasource":"Prometheus"}\n' | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['type'])"`
 
 ```expected_output
 graph
 ```
+
+hint: Think about how Python's json module can parse stdin and let you access specific fields by key name.
+hint: Use json.load(sys.stdin) to deserialize the input, then access the value with d['type'] and pass it to print().

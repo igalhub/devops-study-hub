@@ -813,8 +813,14 @@ kubectl exec -n production postgres -- df -h /var/lib/postgresql/data
 ReadWriteOnce
 ```
 
+hint: Think about how awk can match a specific line pattern and then print a particular field from that line.
+hint: Use awk with a pattern like '/- Read/{print $2}' to match lines containing '- Read' and extract the second whitespace-separated field.
+
 8. Parse the storage request size from a PVC. Run: `printf 'resources:\n  requests:\n    storage: 10Gi\n' | awk '/storage:/{print $2}'`
 
 ```expected_output
 10Gi
 ```
+
+hint: Think about how you can filter lines in a stream and then extract a specific field from a matching line.
+hint: Use awk with a pattern match like /storage:/ to select the relevant line, then print the second field using print $2.

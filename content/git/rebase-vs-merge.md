@@ -549,6 +549,9 @@ git commit --allow-empty -m "chore: main advanced again"
    Fast-forward
    ```
 
+hint: Think about how Git merges branches when there are no diverging commits and the target branch is directly ahead in history.
+hint: Use git merge with the --ff-only flag to ensure Git performs only a fast-forward merge, e.g. git merge --ff-only <branch-name>.
+
 2. Count commits on a feature branch after rebasing onto an advanced main.
 
    ```bash
@@ -568,3 +571,5 @@ git commit --allow-empty -m "chore: main advanced again"
    ```expected_output
    3
    ```
+hint: Think about how Git lets you compare commit ranges between two branches to see only the commits unique to one side.
+hint: Use `git log main..feature-branch --oneline | wc -l` to count only the commits that exist on your feature branch and not on main.

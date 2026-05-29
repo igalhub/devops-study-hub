@@ -739,8 +739,13 @@ Run the script four times, setting `FAIL_AT_STAGE` to 1, 2, 3, and 4 in turn, an
 42
 ```
 
+hint: Think about how to capture and display the exit status of the previous command right after it runs.
+hint: Use $? immediately after the command to access its exit code, and separate the two commands with a semicolon on the same line.
+
 6. Use `grep -q` to search for `"needle"` in `"haystack"` via a here-string (`<<<`). Use `||` so that if grep finds no match, `"not found"` is printed instead. Write a one-liner.
 
 ```expected_output
 not found
 ```
+hint: Think about how grep's quiet mode combined with a logical OR operator can trigger a fallback action when no match is found.
+hint: Use `grep -q 'needle' <<< 'haystack'` and chain `|| echo` to print your fallback message if the exit code indicates no match.

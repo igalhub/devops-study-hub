@@ -728,8 +728,14 @@ argocd app get payments-api
 production
 ```
 
+hint: Think about how you can filter lines from text input by matching a specific keyword pattern.
+hint: Use awk with a pattern match like /namespace:/ to select only that line, then print the second field using {print $2}.
+
 7. Extract the automated sync prune setting. Run: `printf 'syncPolicy:\n  automated:\n    prune: true\n    selfHeal: true\n' | awk '/prune:/{print $2}'`
 
 ```expected_output
 true
 ```
+
+hint: Think about how you can filter lines in a stream of text and then extract a specific field from the matching line.
+hint: Use awk with a pattern match on 'prune:' and print the second field using $2 to isolate the value.

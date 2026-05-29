@@ -771,8 +771,14 @@ A new checkout service has the following raw data from the last 7 days:
 3
 ```
 
+hint: Think about how you can combine a command that generates multiple lines of text with a tool that counts lines.
+hint: Use printf to print each pillar on its own line with '\n' separators, then pipe the output into wc with the -l flag to count lines.
+
 6. Classify a metric by name convention. Run: `python3 -c "name='http_requests_total'; print('counter' if name.endswith('_total') else 'gauge')"`
 
 ```expected_output
 counter
 ```
+
+hint: Think about how metric naming conventions can be used to classify metric types programmatically.
+hint: Use Python's string method that checks if a string ends with a specific suffix, like `endswith('_total')`, inside a conditional expression to determine the metric type.

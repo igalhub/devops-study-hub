@@ -684,6 +684,9 @@ For each failure, run `ssh -v user@host` before fixing it and identify the exact
    ssh-ed25519
    ```
 
+hint: Look into the SSH key generation tool that comes with OpenSSH and supports modern key types like Ed25519.
+hint: Use ssh-keygen -t ed25519 with a temporary output file, then extract the first field from the public key file using awk '{print $1}'.
+
 2. Parse a `HostName` value from a formatted SSH config block.
 
    ```bash
@@ -693,3 +696,5 @@ For each failure, run `ssh -v user@host` before fixing it and identify the exact
    ```expected_output
    10.0.0.1
    ```
+hint: Think about how you can search for a specific keyword in a file and then isolate just the value that follows it.
+hint: Use grep to find the HostName line, then pipe it to awk '{print $2}' to extract the second field.

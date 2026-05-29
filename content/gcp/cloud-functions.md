@@ -279,8 +279,14 @@ def resize_image(cloud_event):
 http
 ```
 
+hint: Think about how you can filter lines from structured text by matching a specific pattern and then extracting a particular field.
+hint: Use awk with a regex pattern like /^  type:/ to match the indented 'type:' line, then print the second whitespace-delimited field using {print $2}.
+
 6. Calculate the maximum function timeout (9 minutes) in seconds. Run: `python3 -c "print(9 * 60)"`
 
 ```expected_output
 540
 ```
+
+hint: Think about how you can use Python's command-line evaluation flag to perform a quick arithmetic calculation directly in your terminal.
+hint: Use python3 -c with a print statement that multiplies two integers together using the * operator.

@@ -303,8 +303,14 @@ PUT /_cluster/settings
 3
 ```
 
+hint: Think about how quorum is calculated mathematically in a distributed cluster to prevent split-brain scenarios.
+hint: Use Python's integer floor division operator (//) with the formula (total_nodes // 2 + 1) to find the minimum master-eligible node count.
+
 5. Count green-status clusters in a health summary. Run: `printf 'cluster_1: green\ncluster_2: yellow\ncluster_3: green\ncluster_4: green\n' | awk '{count[$2]++} END{print count["green"]}'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can use awk to build a frequency map by storing counts in an associative array keyed by a field value.
+hint: In awk, use '{count[$2]++}' to tally occurrences of each status word, then access the specific key in the END block with 'count["green"]'.

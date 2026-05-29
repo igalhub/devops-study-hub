@@ -470,8 +470,14 @@ receivers:
 3
 ```
 
+hint: Think about how you can filter lines that match a specific pattern and have the shell count those matches for you.
+hint: Use grep with the -c flag to count lines matching the pattern '^- name:' from the piped printf output.
+
 5. Extract the `repeat_interval` from a route config stub. Run: `printf 'route:\n  receiver: team-slack\n  group_wait: 30s\n  repeat_interval: 4h\n' | awk '/repeat_interval:/{print $2}'`
 
 ```expected_output
 4h
 ```
+
+hint: Consider using a text processing tool that can match a specific line by pattern and then print a particular field from that line.
+hint: Use awk with a pattern match like /repeat_interval:/ combined with {print $2} to extract the second whitespace-separated field from the matching line.

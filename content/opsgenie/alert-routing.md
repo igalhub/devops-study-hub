@@ -293,8 +293,14 @@ Rule 5 (default): route to platform-team, keep priority from source
 priority
 ```
 
+hint: Think about how awk can be used to match lines containing a specific keyword and then print a particular field from those lines.
+hint: Use awk with a pattern like '/field:/{print $2}' to match lines containing 'field:' and extract the second whitespace-separated token.
+
 5. Count routing rules in a policy. Run: `printf 'rules:\n- name: critical-rule\n  priority: P1\n- name: high-rule\n  priority: P2\n- name: default-rule\n  priority: P3\n' | grep -c '^- name:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how you can count specific patterns within a stream of text using grep.
+hint: Use grep with the -c flag to directly count lines matching the pattern '^- name:' from the piped input.

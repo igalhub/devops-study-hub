@@ -703,8 +703,14 @@ watch -n5 "zabbix_server -R config_cache_reload 2>&1; \
 10050
 ```
 
+hint: Think about how Python dictionaries can store port mappings and how you can access a specific value by its key.
+hint: Use python3 -c to run an inline script that defines a dictionary with named port entries and prints the value associated with the 'agent' key.
+
 7. Count Zabbix architecture components. Run: `printf 'server\nproxy\nagent\nfrontend\ndatabase\n' | wc -l`
 
 ```expected_output
 5
 ```
+
+hint: Think about how you can combine a command that generates a list of items with a command that counts lines.
+hint: Use printf to print each component on its own line with \n separators, then pipe the output to wc -l to count the total number of lines.

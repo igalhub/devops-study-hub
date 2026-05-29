@@ -278,8 +278,14 @@ curl -s -X POST http://zabbix-server/api_jsonrpc.php \
 PROBLEM
 ```
 
+hint: Think about how Python can be used directly from the command line to evaluate conditional logic.
+hint: Use python3 -c to run an inline script that compares a cpu variable against a threshold value using an if/else expression with print().
+
 5. Count Zabbix trigger severity levels. Run: `printf 'Not classified\nInformation\nWarning\nAverage\nHigh\nDisaster\n' | wc -l`
 
 ```expected_output
 6
 ```
+
+hint: Think about how you can count the number of lines produced by a command's output.
+hint: Use a pipe to send the printed lines into `wc -l`, which counts the total number of newline-terminated lines.

@@ -736,6 +736,9 @@ Resolve the conflict deliberately — choose `60` as the final value and explain
    main
    ```
 
+hint: Think about how git init allows you to specify the default branch name at the time of initialization.
+hint: Use git init with the -b flag followed by your desired branch name, then run git branch to verify.
+
 2. Validate a Gitflow-style branch name against the team's naming convention.
 
    ```bash
@@ -745,3 +748,5 @@ Resolve the conflict deliberately — choose `60` as the final value and explain
    ```expected_output
    valid
    ```
+hint: Think about how you can use pattern matching to check whether a branch name conforms to a specific naming structure.
+hint: Use a regular expression with grep or a bash conditional like [[ "$branch" =~ ^(feature|release|hotfix|bugfix)\/[a-z0-9._-]+$ ]] to test the branch name format.

@@ -793,8 +793,14 @@ done
 47
 ```
 
+hint: Think about how MTTR can be calculated by subtracting the incident start time from the resolution time in minutes.
+hint: Use Python's print() function with a simple arithmetic expression that subtracts the start value from the end value of the incident duration.
+
 8. Count Opsgenie alert priority levels. Run: `printf 'P1: Critical\nP2: High\nP3: Medium\nP4: Low\nP5: Informational\n' | wc -l`
 
 ```expected_output
 5
 ```
+
+hint: Think about how you can pipe text output into a command that counts lines.
+hint: Use `wc -l` after a pipe to count the number of lines produced by the `printf` command.

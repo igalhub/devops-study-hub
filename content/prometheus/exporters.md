@@ -388,8 +388,14 @@ curl -s http://localhost:9090/api/v1/targets?state=dropped | jq '.data.droppedTa
 9100
 ```
 
+hint: Think about how Python dictionaries map exporter names to their default port numbers.
+hint: Use python3 -c to run an inline script that defines a dictionary named ports and prints the value associated with the 'node' key.
+
 5. Count metric families in a Prometheus `/metrics` stub. Run: `printf '# HELP http_requests_total Total requests\n# TYPE http_requests_total counter\n# HELP process_cpu_seconds_total CPU seconds\n# TYPE process_cpu_seconds_total counter\n' | grep -c '^# HELP'`
 
 ```expected_output
 2
 ```
+
+hint: Think about how to filter lines that mark the beginning of a metric family and count how many there are.
+hint: Use grep with the -c flag to count lines matching the pattern '^# HELP' from the piped input.

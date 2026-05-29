@@ -731,8 +731,14 @@ You have been handed a dashboard that "takes forever to load." It has 15 panels 
 4
 ```
 
+hint: Think about how to count the number of lines that match a specific pattern in the piped output.
+hint: Use grep with the -c flag and the pattern '^- title:' to count only lines that start with '- title:'.
+
 7. Extract the auto-refresh interval value from a dashboard config. Run: `printf 'refreshInterval:\n  display: 30 seconds\n  value: 30\n' | awk '/  value:/{print $2}'`
 
 ```expected_output
 30
 ```
+
+hint: Think about how you can filter lines in a stream and extract a specific field from matching lines.
+hint: Use awk with a pattern like /  value:/ to match the indented value line, then print the second field with print $2.

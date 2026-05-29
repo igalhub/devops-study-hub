@@ -702,6 +702,9 @@ No special tools required — use `ip` and a calculator or your own mental arith
    well-known
    ```
 
+hint: Think about the standardized ranges that divide port numbers into categories based on their assigned purpose.
+hint: Look up the IANA port number ranges: well-known ports span 0–1023, registered ports 1024–49151, and ephemeral ports 49152–65535, then check which range 443 falls into.
+
 2. Extract the gateway IP from a mock `ip route` default route line.
 
    ```bash
@@ -711,3 +714,5 @@ No special tools required — use `ip` and a calculator or your own mental arith
    ```expected_output
    192.168.1.1
    ```
+hint: Think about how you can isolate a specific field from a line of text using a text-processing tool.
+hint: Use awk with the pattern '/^default/' and print the third field with {print $3} to extract the gateway address.

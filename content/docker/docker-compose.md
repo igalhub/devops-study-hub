@@ -276,8 +276,14 @@ volumes:
 3
 ```
 
+hint: Think about how to filter lines by indentation level to identify top-level service names, then count those matches.
+hint: Use awk with a regex pattern like /^  [a-z]/ combined with a negation of deeper indentation !/^    / to increment a counter, printing it in the END block.
+
 6. Extract the container port from a port mapping string. Run: `echo "8080:80" | cut -d: -f2`
 
 ```expected_output
 80
 ```
+
+hint: Think about how you can split a string by a delimiter to isolate a specific field.
+hint: Use the cut command with the -d flag to set ':' as the delimiter and the -f flag to select the second field.

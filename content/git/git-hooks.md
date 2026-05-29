@@ -632,6 +632,9 @@ eslint .
    valid
    ```
 
+hint: Think about how you can use a shell command to test whether a string matches a regular expression pattern.
+hint: Use grep with the -E flag and a conventional commit regex pattern like '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .+' against the commit message string, checking the exit code to determine validity.
+
 2. Count how many `.py` files are in a staged-file list — the same check a pre-commit hook uses to decide whether to run a Python linter.
 
    ```bash
@@ -641,3 +644,5 @@ eslint .
    ```expected_output
    2
    ```
+hint: Think about how you can filter a list of filenames by extension and then count the results.
+hint: Use grep '\.py$' to match only Python files from the staged list, then pipe the output to wc -l to get the total count.

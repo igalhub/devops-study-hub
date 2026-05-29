@@ -746,8 +746,14 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 3
 ```
 
+hint: Think about how you can filter lines in a stream and extract a specific field from the matching line.
+hint: Use awk with a pattern match on 'replicas:' and print the second field using print $2.
+
 7. Extract the resource kind from a Kubernetes manifest stub. Run: `printf 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n' | awk '/^kind:/{print $2}'`
 
 ```expected_output
 Deployment
 ```
+
+hint: Think about how you can filter lines from text input by matching a specific pattern at the start of a line.
+hint: Use awk with a regex pattern like /^kind:/ to match the kind line, then print the second field using print $2.

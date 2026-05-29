@@ -668,6 +668,9 @@ Pick a domain you control, or use a public domain for read-only analysis (e.g., 
    60
    ```
 
+hint: Think about how DNS record fields are structured and which position in a typical A record line holds the TTL value.
+hint: Use awk to parse the record and print the second field with `awk '{print $2}'`, since TTL occupies that column in standard dig-style output.
+
 2. Detect whether an FQDN has a trailing dot (which bypasses `ndots` search-domain expansion).
 
    ```bash
@@ -677,3 +680,5 @@ Pick a domain you control, or use a public domain for read-only analysis (e.g., 
    ```expected_output
    FQDN (no expansion)
    ```
+hint: Consider how DNS resolution behaves differently when a hostname ends with a dot, and think about what string pattern you would check for.
+hint: Use a conditional test in bash with a case statement or parameter expansion like [[ "$fqdn" == *. ]] to detect the trailing dot character.

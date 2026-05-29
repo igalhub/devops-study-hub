@@ -721,8 +721,14 @@ curl -s "https://alertmanager.internal:9093/api/v2/alerts" | \
 100
 ```
 
+hint: Think about how you can filter lines in a stream and extract a specific field from matching lines using a text-processing tool.
+hint: Use awk with a pattern like /^  value:/ to match the indented threshold line, then print the second field with {print $2}.
+
 7. Count notification actions in an alert rule. Run: `printf 'actions:\n- id: email-action\n- id: slack-action\n- id: pagerduty-action\n' | grep -c '^- id:'`
 
 ```expected_output
 3
 ```
+
+hint: Think about how grep can directly count the number of lines that match a specific pattern.
+hint: Use grep with the -c flag and the pattern '^- id:' to count lines beginning with that exact prefix.

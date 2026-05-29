@@ -856,8 +856,14 @@ Use `_explain` on `svc-debug` with this query to identify **both** bugs. Fix the
 match
 ```
 
+hint: Think about how Python's json module can parse stdin and how dictionary keys reveal the structure of an Elasticsearch query object.
+hint: Use json.load(sys.stdin) to parse the input, access the 'query' key, then call .keys() on the nested dict and grab the first element with list(...)[0].
+
 6. Calculate index size in GB from MB. Run: `python3 -c "mb=2048; print(round(mb/1024, 1))"`
 
 ```expected_output
 2.0
 ```
+
+hint: Think about how to use Python's inline execution to perform a unit conversion calculation.
+hint: Use python3 -c to run a one-liner that divides a megabyte value by 1024 and rounds the result to one decimal place with round().

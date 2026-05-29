@@ -749,6 +749,9 @@ systemctl start broken.service || true
    on-failure
    ```
 
+hint: Think about which command-line tool can search for a specific pattern and extract matching text from a file.
+hint: Use grep with a pattern like 'Restart=' to filter the line, then pipe it to cut -d'=' -f2 (or awk -F'=' '{print $2}') to isolate the value after the equals sign.
+
 2. Extract the `WantedBy` value from a unit file snippet.
 
    ```bash
@@ -758,3 +761,5 @@ systemctl start broken.service || true
    ```expected_output
    multi-user.target
    ```
+hint: Think about which command-line tool can search for and extract specific patterns from text files.
+hint: Use grep with the pattern 'WantedBy=' on the unit file, then pipe to cut or awk to isolate just the value after the equals sign.
