@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useMatch } from 'react-router-dom'
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar'
 import SearchModal from './components/SearchModal'
 import ThemeToggle from './components/ThemeToggle'
@@ -28,8 +28,30 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
   const [searchOpen, setSearchOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [readingMode, setReadingMode] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const s = localStorage.getItem('sidebar-width'); return s ? Math.max(150, Math.min(400, Number(s))) : 220
+  })
+  const [rightWidth, setRightWidth] = useState(() => {
+    const s = localStorage.getItem('right-panel-width'); return s ? Math.max(280, Math.min(700, Number(s))) : 440
+  })
 
   useEffect(() => { if (!lessonMatch) setReadingMode(false) }, [lessonMatch])
+
+  const startSidebarResize = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX, startW = sidebarWidth
+    const onMove = (ev) => { const w = Math.max(150, Math.min(400, startW + ev.clientX - startX)); setSidebarWidth(w); localStorage.setItem('sidebar-width', w) }
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }, [sidebarWidth])
+
+  const startRightResize = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX, startW = rightWidth
+    const onMove = (ev) => { const w = Math.max(280, Math.min(700, startW - ev.clientX + startX)); setRightWidth(w); localStorage.setItem('right-panel-width', w) }
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }, [rightWidth])
 
   useEffect(() => {
     const handler = (e) => {
@@ -54,9 +76,12 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
     <div className={dark ? 'dark' : ''}>
       {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
       <div className="flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900">
-        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 ${sidebarOpen ? 'w-[220px]' : 'w-0'}`}>
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-200`} style={{ width: sidebarOpen ? sidebarWidth : 0 }}>
           <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} interviewDue={interviewDue} />
         </div>
+        {sidebarOpen && (
+          <div onMouseDown={startSidebarResize} className="w-1 shrink-0 cursor-col-resize hover:bg-emerald-400 dark:hover:bg-emerald-600 bg-transparent transition-colors" title="Drag to resize sidebar" />
+        )}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -123,7 +148,9 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               </Routes>
             </main>
             {lessonMatch && !readingMode && (
-              <aside className="w-[440px] shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-stone-200 dark:bg-gray-900">
+              <>
+              <div onMouseDown={startRightResize} className="w-1 shrink-0 cursor-col-resize hover:bg-emerald-400 dark:hover:bg-emerald-600 bg-transparent transition-colors" title="Drag to resize panel" />
+              <aside className="shrink-0 border-l border-gray-200 dark:border-gray-700 flex flex-col bg-stone-200 dark:bg-gray-900" style={{ width: rightWidth }}>
                 <div className="flex shrink-0 border-b border-gray-200 dark:border-gray-700">
                   {['tutor', 'quiz', 'notes'].map(tab => (
                     <button
@@ -149,6 +176,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                   <Notes lessonSlug={lessonMatch.params.lessonSlug} />
                 </div>
               </aside>
+              </>
             )}
           </div>
         </div>
