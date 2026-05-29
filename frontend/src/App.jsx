@@ -139,12 +139,15 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                     </button>
                   ))}
                 </div>
-                {rightTab === 'tutor'
-                  ? <AiTutor lessonSlug={lessonMatch.params.lessonSlug} />
-                  : rightTab === 'quiz'
-                  ? <Quiz lessonSlug={lessonMatch.params.lessonSlug} onXpEarned={onXpEarned} />
-                  : <Notes lessonSlug={lessonMatch.params.lessonSlug} />
-                }
+                <div className={`${rightTab === 'tutor' ? 'flex' : 'hidden'} flex-col flex-1 min-h-0`}>
+                  <AiTutor lessonSlug={lessonMatch.params.lessonSlug} />
+                </div>
+                <div className={`${rightTab === 'quiz' ? 'flex' : 'hidden'} flex-col flex-1 min-h-0`}>
+                  <Quiz lessonSlug={lessonMatch.params.lessonSlug} onXpEarned={onXpEarned} />
+                </div>
+                <div className={`${rightTab === 'notes' ? 'flex' : 'hidden'} flex-col flex-1 min-h-0`}>
+                  <Notes lessonSlug={lessonMatch.params.lessonSlug} />
+                </div>
               </aside>
             )}
           </div>
