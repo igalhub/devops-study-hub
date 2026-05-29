@@ -91,6 +91,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeExercise, setActiveExercise] = useState(null)
+  const [completedExercises, setCompletedExercises] = useState(new Set())
   const [bookmarked, setBookmarked] = useState(false)
   const [moduleBanner, setModuleBanner] = useState(false)
   const currentSlugRef = useRef(lessonSlug)
@@ -101,6 +102,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     setLoading(true)
     setError(null)
     setActiveExercise(null)
+    setCompletedExercises(new Set())
     setModuleBanner(false)
     setBookmarked(isBookmarked(lessonSlug))
     fetchLesson(lessonSlug)
@@ -116,6 +118,10 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
       })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
+    fetch(`http://localhost:8000/sandbox/completed/${lessonSlug}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setCompletedExercises(new Set(d.completed)) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [lessonSlug])
 
@@ -284,16 +290,21 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{ex.text}</ReactMarkdown>
                     </div>
                   </div>
-                  <button
-                    onClick={() => toggleExercise(i)}
-                    className={`shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                      activeExercise === i
-                        ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
-                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    }`}
-                  >
-                    {activeExercise === i ? 'Close' : '▶ Try it'}
-                  </button>
+                  <div className="shrink-0 flex items-center gap-2">
+                    {completedExercises.has(i) && (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓</span>
+                    )}
+                    <button
+                      onClick={() => toggleExercise(i)}
+                      className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                        activeExercise === i
+                          ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      }`}
+                    >
+                      {activeExercise === i ? 'Close' : '▶ Try it'}
+                    </button>
+                  </div>
                 </div>
                 {activeExercise === i && (
                   <>
@@ -306,6 +317,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                       exerciseSlug={lessonSlug}
                       exerciseIndex={i}
                       exerciseText={ex.text}
+                      onPass={() => setCompletedExercises(prev => new Set([...prev, i]))}
                     />
                   </>
                 )}

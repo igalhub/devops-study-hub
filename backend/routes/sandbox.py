@@ -220,3 +220,24 @@ def get_exercise_answer(request: AnswerRequest):
         raise HTTPException(status_code=504, detail='Request timed out — please try again')
 
     return {'answer': answer}
+
+
+@router.get('/sandbox/completed/{lesson_slug}')
+def completed_exercises(lesson_slug: str):
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT source FROM xp_log WHERE source LIKE ?",
+            (f'exercise_check:{lesson_slug}:%',)
+        ).fetchall()
+    finally:
+        conn.close()
+    indices = []
+    for row in rows:
+        parts = row['source'].split(':')
+        if len(parts) == 3:
+            try:
+                indices.append(int(parts[2]))
+            except ValueError:
+                pass
+    return {'completed': indices}
