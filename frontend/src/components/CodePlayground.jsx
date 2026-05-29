@@ -93,7 +93,8 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
   }
 
   const handleKey = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') run()
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') { e.preventDefault(); check() }
+    else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') run()
   }
 
   const showAnswer = async () => {
@@ -163,6 +164,7 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
             >
               <span>{checking ? '…' : '✓'}</span>
               <span>{checking ? 'Checking' : 'Check'}</span>
+              {!checking && <span className="text-amber-200 text-[10px]">Ctrl+⇧+Enter</span>}
             </button>
           )}
           <button
