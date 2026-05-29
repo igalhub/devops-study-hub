@@ -109,9 +109,13 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   }, [nextLesson, prevLesson, moduleSlug, navigate])
 
   const YAML_MODULES = new Set(['kubernetes', 'ansible', 'helm'])
-  const exerciseLang = lesson?.module_slug === 'python' ? 'python'
-    : YAML_MODULES.has(lesson?.module_slug) ? 'yaml'
-    : 'bash'
+  const exerciseLang = (ex) => {
+    if (lesson?.module_slug === 'python') return 'python'
+    // YAML modules use bash for exercises with expected_output (bash command exercises)
+    // and yaml only for open-ended manifest-writing exercises
+    if (YAML_MODULES.has(lesson?.module_slug) && !ex.expected_output) return 'yaml'
+    return 'bash'
+  }
 
   const makeStarter = (text, lang) => {
     if (lang === 'yaml') return `# ${text}\n---\n`
@@ -265,8 +269,8 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                 {activeExercise === i && (
                   <CodePlayground
                     key={i}
-                    initialLanguage={exerciseLang}
-                    initialCode={makeStarter(ex.text, exerciseLang)}
+                    initialLanguage={exerciseLang(ex)}
+                    initialCode={makeStarter(ex.text, exerciseLang(ex))}
                     expectedOutput={ex.expected_output ?? null}
                     exerciseSlug={lessonSlug}
                     exerciseIndex={i}
