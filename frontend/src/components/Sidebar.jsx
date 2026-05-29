@@ -46,7 +46,7 @@ export default function Sidebar({ modules, progress, reviewDue = 0, interviewDue
     .find(l => progress[String(l.id)] !== 'complete')
 
   return (
-    <aside className="w-[220px] shrink-0 bg-stone-200 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0 overflow-y-auto">
+    <aside className="w-full shrink-0 bg-stone-200 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="text-sm font-semibold tracking-widest uppercase text-gray-800 dark:text-gray-100">
           DevOps <span className="text-emerald-500">Hub</span>
