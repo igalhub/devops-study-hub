@@ -400,7 +400,7 @@ exercises: 3
 - Lab exercise validation — `expected_output` fenced block in lesson markdown; amber Check button in CodePlayground; stdout match + exit 0 required; 5 XP awarded once per exercise (idempotent via xp_log source key); 182 exercises across all 23 modules
 
 ### Phase 6 — Projects ✅
-- 5 multi-step interview-ready projects mixing 2–3 modules each: Containerize a Python App, Zero-Downtime Kubernetes Deployment, Linux System Hardening, Observability Stack Setup, IaC: AWS VPC
+- 10 multi-step interview-ready projects mixing 2–3 modules each: Containerize a Python App, Zero-Downtime Kubernetes Deployment, Linux System Hardening, Observability Stack Setup, IaC: AWS VPC, GitOps Pipeline with ArgoCD, Ansible Server Configuration, ELK Stack Log Analysis, Helm Chart Development, API Security & Testing
 - Each project has 4 steps — Sandbox (Monaco editor + stdout check, 10 XP) or AI Review (Claude grading Weak/Adequate/Strong, 8/15 XP)
 - 75 XP completion bonus per project; all XP idempotent via xp_log source keys
 - Projects page (card grid with difficulty, module tags, step progress) + ProjectDetail page (expandable steps, server state restored on reload)
