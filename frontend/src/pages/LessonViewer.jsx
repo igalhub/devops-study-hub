@@ -108,7 +108,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     return () => window.removeEventListener('keydown', handler)
   }, [nextLesson, prevLesson, moduleSlug, navigate])
 
-  const YAML_MODULES = new Set(['kubernetes', 'ansible', 'terraform', 'helm', 'cicd', 'gcp', 'aws'])
+  const YAML_MODULES = new Set(['kubernetes', 'ansible', 'helm'])
   const exerciseLang = lesson?.module_slug === 'python' ? 'python'
     : YAML_MODULES.has(lesson?.module_slug) ? 'yaml'
     : 'bash'
