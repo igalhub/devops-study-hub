@@ -1191,3 +1191,39 @@ def test_quiz_module_caps_at_twenty():
         r = client.get(f'/quiz/module/{m["slug"]}')
         assert r.status_code == 200
         assert len(r.json()) <= 20, f"{m['slug']} returned more than 20 questions"
+
+
+# ── Layer 12: Full-curriculum data integrity ───────────────────────────────────
+
+def test_all_lessons_have_five_quiz_questions():
+    conn = db_conn()
+    rows = conn.execute("""
+        SELECT l.slug, COUNT(q.id) AS qcount
+        FROM lessons l
+        LEFT JOIN quiz_questions q ON q.lesson_id = l.id
+        GROUP BY l.id
+    """).fetchall()
+    conn.close()
+    bad = [(r['slug'], r['qcount']) for r in rows if r['qcount'] != 5]
+    assert bad == [], f"Lessons without exactly 5 quiz questions: {bad}"
+
+
+def test_all_modules_have_eight_interview_questions():
+    conn = db_conn()
+    rows = conn.execute("""
+        SELECT m.slug, COUNT(iq.id) AS qcount
+        FROM modules m
+        LEFT JOIN interview_questions iq ON iq.module_id = m.id
+        GROUP BY m.id
+    """).fetchall()
+    conn.close()
+    bad = [(r['slug'], r['qcount']) for r in rows if r['qcount'] != 8]
+    assert bad == [], f"Modules without exactly 8 interview questions: {bad}"
+
+
+def test_sandbox_run_python_syntax_error():
+    r = client.post('/sandbox/run', json={'code': 'def (', 'language': 'python'})
+    assert r.status_code == 200
+    data = r.json()
+    assert data['exit_code'] != 0
+    assert data['stderr']
