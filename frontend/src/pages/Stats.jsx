@@ -138,7 +138,7 @@ export default function Stats() {
           <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Quiz Weak Areas</div>
           {/* Threshold 70 must match WHERE accuracy < 70 in backend/routes/stats.py */}
           <div className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-            Lessons below 70% accuracy — sorted weakest first
+            Lessons below 70% accuracy (≥ 3 attempts) — sorted weakest first
           </div>
           {quiz_weak_lessons.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -153,13 +153,14 @@ export default function Stats() {
                     <th className="text-left px-4 py-2 text-gray-400 dark:text-gray-500 font-medium">Lesson</th>
                     <th className="text-left px-4 py-2 text-gray-400 dark:text-gray-500 font-medium">Module</th>
                     <th className="px-4 py-2 text-gray-400 dark:text-gray-500 font-medium">Accuracy</th>
+                    <th className="text-right px-4 py-2 text-gray-400 dark:text-gray-500 font-medium">Wrong</th>
                     <th className="text-right px-4 py-2 text-gray-400 dark:text-gray-500 font-medium">Attempts</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {quiz_weak_lessons.map(({ lesson_slug, lesson_title, module_slug, module_title, accuracy, attempt_count }, idx) => {
-                    const barColor = accuracy >= 60 ? 'bg-amber-400' : 'bg-red-400'
-                    const textColor = accuracy >= 60 ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'
+                  {quiz_weak_lessons.map(({ lesson_slug, lesson_title, module_slug, module_title, accuracy, attempt_count, wrong_count }, idx) => {
+                    const barColor = accuracy >= 50 ? 'bg-amber-400' : 'bg-red-400'
+                    const textColor = accuracy >= 50 ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'
                     return (
                       <tr key={`${module_slug}/${lesson_slug}`} className="border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-4 py-2.5 text-gray-400 dark:text-gray-600">{idx + 1}</td>
@@ -180,6 +181,7 @@ export default function Stats() {
                             <span className={`${textColor} font-medium w-8 text-right`}>{accuracy}%</span>
                           </div>
                         </td>
+                        <td className="px-4 py-2.5 text-right text-red-500 dark:text-red-400 font-medium">{wrong_count}</td>
                         <td className="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">{attempt_count}</td>
                       </tr>
                     )
