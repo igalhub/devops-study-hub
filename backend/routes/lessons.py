@@ -102,6 +102,8 @@ def _parse_exercises(body: str) -> list[dict]:
 
         if current_text is not None and stripped:
             if in_named_exercise:
+                # \n\n before bold keywords (**Task:**, **Setup:**, etc.) so ReactMarkdown
+                # renders them as a new paragraph rather than inline with the preceding text.
                 sep = '\n\n' if stripped.startswith('**') else '\n'
                 current_text += sep + stripped
             else:
