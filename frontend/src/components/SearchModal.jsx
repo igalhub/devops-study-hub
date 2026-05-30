@@ -2,14 +2,19 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchContent } from '../store/curriculumStore'
 
+const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs', 'Observability']
+
 export default function SearchModal({ modules, progress = {}, onClose }) {
   const [query, setQuery] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
   const [contentResults, setContentResults] = useState([])
   const [contentLoading, setContentLoading] = useState(false)
+  const [activeGroup, setActiveGroup] = useState(null)
   const inputRef = useRef(null)
   const debounceRef = useRef(null)
   const navigate = useNavigate()
+
+  const moduleGroupMap = Object.fromEntries(modules.map(m => [m.slug, m.group]))
 
   const items = modules.flatMap(m =>
     (m.lessons || []).map(l => ({
@@ -60,7 +65,12 @@ export default function SearchModal({ modules, progress = {}, onClose }) {
       })),
   ]
 
-  useEffect(() => { setActiveIdx(0) }, [query])
+  const filteredResults = activeGroup
+    ? allResults.filter(r => moduleGroupMap[r.moduleSlug] === activeGroup)
+    : allResults
+
+  useEffect(() => { setActiveGroup(null) }, [query])
+  useEffect(() => { setActiveIdx(0) }, [query, activeGroup])
   useEffect(() => { inputRef.current?.focus() }, [])
 
   const go = (item) => {
@@ -70,13 +80,13 @@ export default function SearchModal({ modules, progress = {}, onClose }) {
 
   const handleKey = (e) => {
     if (e.key === 'Escape') { onClose(); return }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, allResults.length - 1)); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, filteredResults.length - 1)); return }
     if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); return }
-    if (e.key === 'Enter' && allResults[activeIdx]) go(allResults[activeIdx])
+    if (e.key === 'Enter' && filteredResults[activeIdx]) go(filteredResults[activeIdx])
   }
 
-  const titleCount = titleResults.length
-  const showContentDivider = titleCount > 0 && contentResults.length > 0
+  const titleCount = filteredResults.filter(r => r.type === 'title').length
+  const showContentDivider = titleCount > 0 && filteredResults.some(r => r.type === 'content')
 
   return (
     <div
@@ -103,9 +113,37 @@ export default function SearchModal({ modules, progress = {}, onClose }) {
           <kbd className="text-[10px] text-gray-400 dark:text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">Esc</kbd>
         </div>
 
-        {allResults.length > 0 && (
+        {q && allResults.length > 0 && (
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex-wrap">
+            <button
+              onClick={() => setActiveGroup(null)}
+              className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors ${
+                activeGroup === null
+                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400'
+              }`}
+            >
+              All
+            </button>
+            {GROUP_ORDER.filter(g => allResults.some(r => moduleGroupMap[r.moduleSlug] === g)).map(g => (
+              <button
+                key={g}
+                onClick={() => setActiveGroup(activeGroup === g ? null : g)}
+                className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors ${
+                  activeGroup === g
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400'
+                }`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredResults.length > 0 && (
           <ul className="max-h-80 overflow-y-auto py-1">
-            {allResults.map((item, i) => (
+            {filteredResults.map((item, i) => (
               <li key={`${item.moduleSlug}/${item.lessonSlug}/${item.type}`}>
                 {i === titleCount && showContentDivider && (
                   <div className="px-4 py-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700 mt-1 pt-2">
