@@ -421,3 +421,301 @@ def test_awk_sed_exercise_count():
     """Regression: parser bug returned 14 items for awk-sed; correct count is 6 (4 named + 2 QC)."""
     exercises = client.get('/lessons/awk-sed').json()['exercises']
     assert len(exercises) == 6, f"Parser regression: got {len(exercises)}: {[e['text'][:40] for e in exercises]}"
+
+
+# ── Projects ──────────────────────────────────────────────────────────────────
+
+PROJECT_LIST_KEYS = {'id', 'slug', 'title', 'description', 'modules', 'difficulty', 'steps_total', 'steps_done'}
+PROJECT_DETAIL_KEYS = {'id', 'slug', 'title', 'description', 'modules', 'difficulty', 'steps'}
+STEP_KEYS = {'id', 'order_index', 'title', 'type', 'prompt', 'language', 'expected_output', 'hints', 'status'}
+
+
+def _first_sandbox_step() -> tuple[str, int, str] | None:
+    conn = db_conn()
+    try:
+        row = conn.execute(
+            "SELECT p.slug, s.id, s.expected_output "
+            "FROM project_steps s JOIN projects p ON s.project_id = p.id "
+            "WHERE s.type = 'sandbox' LIMIT 1"
+        ).fetchone()
+        return (row['slug'], row['id'], row['expected_output']) if row else None
+    finally:
+        conn.close()
+
+
+def _first_ai_step() -> tuple[str, int] | None:
+    conn = db_conn()
+    try:
+        row = conn.execute(
+            "SELECT p.slug, s.id "
+            "FROM project_steps s JOIN projects p ON s.project_id = p.id "
+            "WHERE s.type = 'ai' LIMIT 1"
+        ).fetchone()
+        return (row['slug'], row['id']) if row else None
+    finally:
+        conn.close()
+
+
+def test_projects_list():
+    r = client.get('/projects')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) == 10
+    for p in data:
+        assert PROJECT_LIST_KEYS <= set(p.keys())
+        assert isinstance(p['modules'], list)
+        assert p['steps_total'] > 0
+
+
+def test_project_detail():
+    r = client.get('/projects/containerize-python-app')
+    assert r.status_code == 200
+    data = r.json()
+    assert PROJECT_DETAIL_KEYS <= set(data.keys())
+    assert isinstance(data['steps'], list)
+    assert len(data['steps']) == 4
+    for step in data['steps']:
+        assert STEP_KEYS <= set(step.keys())
+        assert step['type'] in ('sandbox', 'ai')
+        assert step['status'] in ('not_started', 'passed', 'failed', 'graded')
+
+
+def test_project_detail_404():
+    r = client.get('/projects/does-not-exist')
+    assert r.status_code == 404
+
+
+def test_project_sandbox_step_pass_awards_xp():
+    info = _first_sandbox_step()
+    if info is None:
+        pytest.skip("No sandbox steps in DB")
+    slug, step_id, expected_output = info
+
+    conn = db_conn()
+    conn.execute("DELETE FROM project_progress WHERE step_id = ?", (step_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{step_id}",))
+    conn.commit()
+    conn.close()
+
+    r = client.post(f'/projects/{slug}/steps/{step_id}/sandbox', json={
+        'code': f'echo {expected_output}', 'language': 'bash',
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['passed'] is True
+    assert data['xp_earned'] == 10
+
+    conn = db_conn()
+    conn.execute("DELETE FROM project_progress WHERE step_id = ?", (step_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{step_id}",))
+    conn.commit()
+    conn.close()
+
+
+def test_project_sandbox_step_fail():
+    info = _first_sandbox_step()
+    if info is None:
+        pytest.skip("No sandbox steps in DB")
+    slug, step_id, _ = info
+
+    conn = db_conn()
+    conn.execute("DELETE FROM project_progress WHERE step_id = ?", (step_id,))
+    conn.commit()
+    conn.close()
+
+    r = client.post(f'/projects/{slug}/steps/{step_id}/sandbox', json={
+        'code': 'echo wrong_answer', 'language': 'bash',
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['passed'] is False
+    assert data['xp_earned'] == 0
+
+    conn = db_conn()
+    conn.execute("DELETE FROM project_progress WHERE step_id = ?", (step_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_project_sandbox_step_idempotent_xp():
+    info = _first_sandbox_step()
+    if info is None:
+        pytest.skip("No sandbox steps in DB")
+    slug, step_id, expected_output = info
+
+    conn = db_conn()
+    conn.execute("DELETE FROM project_progress WHERE step_id = ?", (step_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{step_id}",))
+    conn.commit()
+    conn.close()
+
+    payload = {'code': f'echo {expected_output}', 'language': 'bash'}
+    r1 = client.post(f'/projects/{slug}/steps/{step_id}/sandbox', json=payload)
+    assert r1.json()['xp_earned'] == 10
+
+    r2 = client.post(f'/projects/{slug}/steps/{step_id}/sandbox', json=payload)
+    assert r2.json()['xp_earned'] == 0
+    assert r2.json()['passed'] is True
+
+    conn = db_conn()
+    conn.execute("DELETE FROM project_progress WHERE step_id = ?", (step_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{step_id}",))
+    conn.commit()
+    conn.close()
+
+
+def test_project_sandbox_step_unknown_project_404():
+    r = client.post('/projects/does-not-exist/steps/1/sandbox', json={
+        'code': 'echo hi', 'language': 'bash',
+    })
+    assert r.status_code == 404
+
+
+def test_project_sandbox_step_wrong_type_404():
+    # Posting to the sandbox endpoint with an AI step ID must 404
+    info = _first_ai_step()
+    if info is None:
+        pytest.skip("No ai steps in DB")
+    slug, step_id = info
+    r = client.post(f'/projects/{slug}/steps/{step_id}/sandbox', json={
+        'code': 'echo hi', 'language': 'bash',
+    })
+    assert r.status_code == 404
+
+
+# ── Quiz ──────────────────────────────────────────────────────────────────────
+
+QUESTION_KEYS = {'id', 'question', 'options', 'correct_index', 'explanation'}
+
+
+def _first_quiz_question() -> tuple[int, int] | None:
+    """Return (question_id, lesson_id) for the first quiz question."""
+    conn = db_conn()
+    try:
+        row = conn.execute("SELECT id, lesson_id FROM quiz_questions LIMIT 1").fetchone()
+        return (row['id'], row['lesson_id']) if row else None
+    finally:
+        conn.close()
+
+
+def _first_quiz_lesson_slug() -> str | None:
+    conn = db_conn()
+    try:
+        row = conn.execute(
+            "SELECT l.slug FROM quiz_questions qq "
+            "JOIN lessons l ON qq.lesson_id = l.id LIMIT 1"
+        ).fetchone()
+        return row['slug'] if row else None
+    finally:
+        conn.close()
+
+
+def test_quiz_lesson_returns_questions():
+    slug = _first_quiz_lesson_slug()
+    if slug is None:
+        pytest.skip("No quiz questions in DB")
+    r = client.get(f'/quiz/{slug}')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    for q in data:
+        assert QUESTION_KEYS <= set(q.keys())
+        assert isinstance(q['options'], list)
+        assert 0 <= q['correct_index'] < len(q['options'])
+
+
+def test_quiz_lesson_question_count():
+    slug = _first_quiz_lesson_slug()
+    if slug is None:
+        pytest.skip("No quiz questions in DB")
+    assert len(client.get(f'/quiz/{slug}').json()) == 5
+
+
+def test_quiz_lesson_404():
+    r = client.get('/quiz/does-not-exist')
+    assert r.status_code == 404
+
+
+def test_quiz_attempt_correct_first_awards_5xp():
+    result = _first_quiz_question()
+    if result is None:
+        pytest.skip("No quiz questions in DB")
+    question_id, lesson_id = result
+
+    conn = db_conn()
+    conn.execute("DELETE FROM quiz_attempts WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM srs_schedule WHERE question_id = ?", (question_id,))
+    max_xp_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM xp_log").fetchone()[0]
+    conn.commit()
+    conn.close()
+
+    r = client.post('/quiz/attempt', json={'question_id': question_id, 'is_correct': True})
+    assert r.status_code == 200
+    assert r.json()['xp_earned'] == 5
+
+    conn = db_conn()
+    conn.execute("DELETE FROM quiz_attempts WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM srs_schedule WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM xp_log WHERE id > ? AND source = 'quiz'", (max_xp_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_quiz_attempt_correct_repeat_awards_2xp():
+    result = _first_quiz_question()
+    if result is None:
+        pytest.skip("No quiz questions in DB")
+    question_id, lesson_id = result
+
+    conn = db_conn()
+    conn.execute("DELETE FROM quiz_attempts WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM srs_schedule WHERE question_id = ?", (question_id,))
+    # Seed one prior attempt so "prior > 0" → xp=2
+    conn.execute(
+        "INSERT INTO quiz_attempts (lesson_id, question_id, is_correct) VALUES (?,?,1)",
+        (lesson_id, question_id),
+    )
+    max_xp_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM xp_log").fetchone()[0]
+    conn.commit()
+    conn.close()
+
+    r = client.post('/quiz/attempt', json={'question_id': question_id, 'is_correct': True})
+    assert r.status_code == 200
+    assert r.json()['xp_earned'] == 2
+
+    conn = db_conn()
+    conn.execute("DELETE FROM quiz_attempts WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM srs_schedule WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM xp_log WHERE id > ? AND source = 'quiz'", (max_xp_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_quiz_attempt_incorrect_awards_0xp():
+    result = _first_quiz_question()
+    if result is None:
+        pytest.skip("No quiz questions in DB")
+    question_id, _ = result
+
+    conn = db_conn()
+    conn.execute("DELETE FROM quiz_attempts WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM srs_schedule WHERE question_id = ?", (question_id,))
+    conn.commit()
+    conn.close()
+
+    r = client.post('/quiz/attempt', json={'question_id': question_id, 'is_correct': False})
+    assert r.status_code == 200
+    assert r.json()['xp_earned'] == 0
+
+    conn = db_conn()
+    conn.execute("DELETE FROM quiz_attempts WHERE question_id = ?", (question_id,))
+    conn.execute("DELETE FROM srs_schedule WHERE question_id = ?", (question_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_quiz_attempt_unknown_question_404():
+    r = client.post('/quiz/attempt', json={'question_id': 999999, 'is_correct': True})
+    assert r.status_code == 404
