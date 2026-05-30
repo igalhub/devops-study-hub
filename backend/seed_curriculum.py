@@ -71,6 +71,8 @@ REQUIRED STRUCTURE — every section must be present:
 - Tasks the learner can do in a terminal or lab environment
 - Each should reinforce a different concept from the lesson
 - Require understanding — not just copy-pasting from the Concepts section
+- Use imperative voice throughout: "Write a script that:" followed by bullets like \
+"1. Accept a URL as the first argument" NOT "1. Accepts a URL as the first argument"
 
 QUALITY ANCHOR — this is what a well-written Concepts subsection looks like:
 
