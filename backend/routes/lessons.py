@@ -32,6 +32,9 @@ def _parse_exercises(body: str) -> list[dict]:
     in_fence = False
     fence_tag = ''
     fence_lines: list[str] = []
+    # True when collecting a full ### Exercise N: block as a single item;
+    # False in Quick Checks sections where each numbered item is its own exercise.
+    in_named_exercise = False
 
     for line in section.split('\n'):
         stripped = line.strip()
@@ -56,16 +59,41 @@ def _parse_exercises(body: str) -> list[dict]:
             fence_lines.append(line)
             continue
 
+        if stripped.startswith('###'):
+            if re.search(r'Exercise\s+\d+', stripped, re.IGNORECASE):
+                # Start of a named exercise — save previous item, begin new block
+                if current_text is not None:
+                    items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
+                current_text = ''
+                current_expected = None
+                current_hints = []
+                in_named_exercise = True
+            else:
+                # e.g. ### Quick Checks — end of named exercises, switch to item mode
+                if current_text is not None:
+                    items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
+                current_text = None
+                current_expected = None
+                current_hints = []
+                in_named_exercise = False
+            continue
+
         if stripped.startswith('#') or stripped == '---':
             continue
 
         m = re.match(r'^\d+\.\s+(.+)$', stripped)
         if m:
-            if current_text is not None:
-                items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
-            current_text = m.group(1)
-            current_expected = None
-            current_hints = []
+            if in_named_exercise:
+                # Sub-bullet within a named exercise — append as a list item
+                if current_text is not None:
+                    current_text += '\n' + line
+            else:
+                # Quick Check style — each numbered item is its own exercise
+                if current_text is not None:
+                    items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
+                current_text = m.group(1)
+                current_expected = None
+                current_hints = []
             continue
 
         if current_text is not None and stripped.lower().startswith('hint:'):
@@ -73,7 +101,10 @@ def _parse_exercises(body: str) -> list[dict]:
             continue
 
         if current_text is not None and stripped:
-            current_text += ' ' + stripped
+            if in_named_exercise:
+                current_text += '\n' + stripped
+            else:
+                current_text += ' ' + stripped
 
     if current_text is not None:
         items.append({'text': current_text.strip(), 'expected_output': current_expected, 'hints': current_hints})
