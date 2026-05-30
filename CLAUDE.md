@@ -30,7 +30,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Content Search** — full-text search across lesson titles and body content
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
-- **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent)
+- **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent); every Check (pass or fail) updates SM-2 SRS schedule (`exercise_srs_schedule`); due exercises shown with amber ↻ in LessonViewer; sidebar "N ex" badge on Spaced Review row
 - **Projects** — 10 multi-step interview-ready projects mixing modules; steps are Sandbox (stdout check, 10 XP) or AI Review (Claude grades Weak/Adequate/Strong, 8/15 XP); 75 XP completion bonus per project
 - **Progressive Hints** — amber "Hint" button on exercises (CodePlayground), interview questions (InterviewPrep), and project steps (ProjectDetail); reveals 2 hints one at a time, resets on question change; hints stored as markdown `hint:` lines (exercises) or JSON column (interview/projects)
 - **Show Answer** — gray "Show answer / Hide answer" toggle on open-ended exercises (no `expected_output`); calls `POST /sandbox/answer` with lesson slug + exercise text; Haiku generates a full solution rendered as markdown; validated exercises (with `expected_output`) never show this button

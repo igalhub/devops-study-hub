@@ -246,7 +246,7 @@ devops-study-hub/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 89 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum)
+│   │   └── test_api.py      # 92 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
@@ -318,6 +318,7 @@ srs_schedule      question_id (PK), interval_days, ease, next_review, reviews
 projects          id, slug, title, description, modules (JSON), difficulty
 project_steps     id, project_id, order_index, title, type (sandbox/ai), prompt, language, expected_output, hints (JSON)
 project_progress  id, project_id, step_id, status, score, answer, completed_at
+exercise_srs_schedule  exercise_key TEXT (PK, format slug:index), interval_days, ease, next_review, reviews
 ```
 
 - Progress is per-lesson; module completion % is derived
@@ -421,3 +422,9 @@ exercises: 3
 - Per-exercise language assignment: YAML modules (kubernetes, ansible, helm) use bash for validated exercises (bash command exercises) and yaml for open-ended manifest-writing exercises; terraform, cicd, gcp, aws always use bash
 - Language switcher hidden in exercise-bound sandboxes; static language label shown instead; free-form standalone sandbox retains full Bash / Python / YAML switcher
 - Empty YAML stub warning: submitting the default `---` starter now exits 1 with a clear message ("⚠ Nothing to validate — your YAML is empty. Add your manifest below the --- line.")
+
+### Phase 8 — Exercise SRS ✅
+- SM-2 spaced-repetition schedule for exercises — every Check call (pass or fail) updates `exercise_srs_schedule` (TEXT PK `slug:index`, interval_days, ease, next_review, reviews)
+- `GET /sandbox/exercises/due` endpoint returns `{due_count, due_keys}` (keys due today by next_review date)
+- Sidebar: amber "N ex" badge on Spaced Review row when exercises are due
+- LessonViewer: amber ↻ indicator next to exercises whose key is in due_keys; fetched on lesson load
