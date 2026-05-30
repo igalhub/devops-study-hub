@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchInterviewQuestions, evaluateAnswerWithSrs, fetchInterviewReviewQueue, selfGradeInterview } from '../store/curriculumStore'
 
+const MOCK_QUESTION_COUNT = 8
+const MOCK_DURATION_S = 15 * 60 // 900 seconds
+
+function formatTime(s) {
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${String(sec).padStart(2, '0')}`
+}
+
 function HintBox({ hints, resetKey }) {
   const [hintCount, setHintCount] = useState(0)
   // Reset when question changes
@@ -42,8 +51,8 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
 
   // Main session state
   const [selectedSlug, setSelectedSlug] = useState(initialSlug)
-  const [mode, setMode] = useState('ai') // ai | flashcard
-  const [phase, setPhase] = useState('idle') // idle | loading | active | evaluating | reviewed | done
+  const [mode, setMode] = useState('ai') // ai | flashcard | mock
+  const [phase, setPhase] = useState('idle') // idle | loading | active | evaluating | reviewed | mock_reviewed | done
   const [questions, setQuestions] = useState([])
   const [qIndex, setQIndex] = useState(0)
   const [answer, setAnswer] = useState('')
@@ -51,6 +60,11 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
   const [results, setResults] = useState([])
   const [modelOpen, setModelOpen] = useState(false)
   const [error, setError] = useState(null)
+
+  // Mock session state
+  const [mockSecondsLeft, setMockSecondsLeft] = useState(MOCK_DURATION_S)
+  const [mockStartTime, setMockStartTime] = useState(null)
+  const [mockModelOpen, setMockModelOpen] = useState(false)
 
   // Review session state
   const [reviewQueue, setReviewQueue] = useState(queueProp) // null = loading, [] = empty
@@ -64,10 +78,18 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
   const selectedModule = modules.find(m => m.slug === selectedSlug)
   const topRef = useRef(null)
   const isMounted = useRef(true)
+  // Refs for timer auto-submit (avoid stale closures)
+  const mockAnswerRef = useRef('')
+  const mockQIndexRef = useRef(0)
+
   useEffect(() => {
     isMounted.current = true
     return () => { isMounted.current = false }
   }, [])
+
+  // Keep refs in sync with state for timer auto-submit
+  useEffect(() => { mockAnswerRef.current = answer }, [answer])
+  useEffect(() => { mockQIndexRef.current = qIndex }, [qIndex])
 
   // Sync when App's isolated fetch completes (queueProp transitions null → loaded)
   useEffect(() => {
@@ -75,11 +97,32 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
   }, [queueProp])
 
   useEffect(() => {
-    if ((phase === 'reviewed' || reviewPhase === 'reviewed_card') && topRef.current) {
+    if ((phase === 'reviewed' || phase === 'mock_reviewed' || reviewPhase === 'reviewed_card') && topRef.current) {
       const main = topRef.current.closest('main')
       if (main) main.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [phase, reviewPhase])
+
+  // Mock countdown timer — ticks every second, auto-submits at zero.
+  // Paused during mock_reviewed so time spent rating doesn't corrupt results.
+  useEffect(() => {
+    if (mode !== 'mock' || phase !== 'active') return
+    if (mockSecondsLeft <= 0) {
+      const currentQ = questions[mockQIndexRef.current]
+      if (currentQ) {
+        setResults(prev => [...prev, {
+          question: currentQ.question,
+          answer: mockAnswerRef.current,
+          model_answer: currentQ.model_answer,
+          score: null,
+        }])
+      }
+      setPhase('done')
+      return
+    }
+    const id = setTimeout(() => setMockSecondsLeft(s => s - 1), 1000)
+    return () => clearTimeout(id)
+  }, [mode, phase, mockSecondsLeft, questions])
 
   // ---- Main session handlers -----------------------------------------------
 
@@ -154,6 +197,65 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
     setAnswer('')
     setEvaluation(null)
     setResults([])
+    setError(null)
+  }
+
+  // ---- Mock session handlers ------------------------------------------------
+
+  const startMock = async () => {
+    setMode('mock')
+    setPhase('loading')
+    setError(null)
+    try {
+      const qs = await fetchInterviewQuestions(selectedSlug)
+      const shuffled = [...qs].sort(() => Math.random() - 0.5).slice(0, MOCK_QUESTION_COUNT)
+      setQuestions(shuffled)
+      setQIndex(0)
+      setAnswer('')
+      setEvaluation(null)
+      setResults([])
+      setMockSecondsLeft(MOCK_DURATION_S)
+      setMockStartTime(Date.now())
+      setMockModelOpen(false)
+      setPhase('active')
+    } catch {
+      setError('Failed to load questions. Make sure the backend is running.')
+      setPhase('idle')
+    }
+  }
+
+  const mockReveal = () => {
+    setMockModelOpen(false)
+    setPhase('mock_reviewed')
+  }
+
+  const mockSelfRate = (score) => {
+    const q = questions[qIndex]
+    const entry = { question: q.question, answer, model_answer: q.model_answer, score }
+    const newResults = [...results, entry]
+    if (qIndex + 1 >= questions.length) {
+      setResults(newResults)
+      setPhase('done')
+    } else {
+      setResults(newResults)
+      setQIndex(i => i + 1)
+      setAnswer('')
+      setMockModelOpen(false)
+      setPhase('active')
+    }
+  }
+
+  const mockReset = () => {
+    setMode('ai')
+    setPhase('idle')
+    setQuestions([])
+    setQIndex(0)
+    setAnswer('')
+    setEvaluation(null)
+    setResults([])
+    setMockSecondsLeft(MOCK_DURATION_S)
+    setMockStartTime(null)
+    setMockModelOpen(false)
     setError(null)
   }
 
@@ -408,7 +510,7 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
             </select>
           </div>
           {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => start('ai')}
               disabled={!selectedSlug || phase === 'loading'}
@@ -424,6 +526,14 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
             >
               Quick Review
             </button>
+            <button
+              onClick={startMock}
+              disabled={!selectedSlug || phase === 'loading'}
+              className="px-4 py-2 rounded-lg border border-indigo-500 text-indigo-600 dark:text-indigo-400 text-sm font-medium hover:bg-indigo-50 dark:hover:bg-indigo-950/30 disabled:opacity-50 transition-colors"
+              title={`${MOCK_QUESTION_COUNT} random questions, ${MOCK_DURATION_S / 60}-minute countdown — no backend writes`}
+            >
+              Mock Interview
+            </button>
           </div>
         </>
       )}
@@ -433,12 +543,46 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
   if (phase === 'done') {
     const counts = { Strong: 0, Adequate: 0, Weak: 0 }
     results.forEach(r => { if (r.score in counts) counts[r.score]++ })
+
+    const isMock = mode === 'mock'
+    const answeredCount = isMock ? results.filter(r => r.score !== null).length : results.length
+    const strongCount = counts.Strong
+    const adequateCount = counts.Adequate
+    const mockAccuracy = answeredCount > 0
+      ? Math.round(((strongCount + adequateCount) / answeredCount) * 100)
+      : 0
+    const elapsedS = isMock && mockStartTime
+      ? Math.min(Math.round((Date.now() - mockStartTime) / 1000), MOCK_DURATION_S)
+      : 0
+
     return (
       <div className="p-6 max-w-2xl">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{mode === 'flashcard' ? 'Flashcard Session Complete' : 'Session Complete'}</h1>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">
+            {isMock ? 'Mock Interview Complete' : mode === 'flashcard' ? 'Flashcard Session Complete' : 'Session Complete'}
+          </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{selectedModule?.title}</p>
         </div>
+
+        {isMock && (
+          <div className="flex gap-6 mb-5 text-sm">
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Accuracy </span>
+              <span className={`font-semibold ${mockAccuracy >= 75 ? 'text-emerald-600 dark:text-emerald-400' : mockAccuracy >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                {mockAccuracy}%
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Time </span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{formatTime(elapsedS)}</span>
+              <span className="text-gray-400 dark:text-gray-500"> / {formatTime(MOCK_DURATION_S)}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Answered </span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{answeredCount}/{results.length}</span>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 mb-6">
           {Object.entries(counts).map(([score, n]) => (
@@ -454,26 +598,45 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
             <div key={i} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{r.question}</p>
-                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium ${SCORE_STYLE[r.score]}`}>
-                  {r.score}
-                </span>
+                {r.score ? (
+                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium ${SCORE_STYLE[r.score]}`}>
+                    {r.score}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                    Timed out
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{r.feedback}</p>
+              {isMock ? (
+                <>
+                  {r.answer && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-1">{r.answer}</p>
+                  )}
+                  {r.model_answer && (
+                    <p className="text-xs text-emerald-700 dark:text-emerald-400 border-l-2 border-emerald-400 pl-2 mt-1">
+                      {r.model_answer}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400">{r.feedback}</p>
+              )}
             </div>
           ))}
         </div>
 
         <button
-          onClick={reset}
+          onClick={isMock ? mockReset : reset}
           className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
-          New Session
+          {isMock ? 'New Mock Interview' : 'New Session'}
         </button>
       </div>
     )
   }
 
-  // Active / Evaluating / Reviewed ------------------------------------------
+  // Active / Evaluating / Reviewed / Mock-Reviewed ---------------------------
   const q = questions[qIndex]
   return (
     <div ref={topRef} className="p-6 max-w-2xl">
@@ -484,12 +647,23 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
             Question {qIndex + 1} of {questions.length}
           </h1>
         </div>
-        <button
-          onClick={reset}
-          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 underline"
-        >
-          Exit session
-        </button>
+        <div className="flex items-center gap-3">
+          {mode === 'mock' && (
+            <div className={`text-sm font-mono font-semibold px-2.5 py-1 rounded-lg border ${
+              mockSecondsLeft <= 60
+                ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700'
+                : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+            }`}>
+              {formatTime(mockSecondsLeft)}
+            </div>
+          )}
+          <button
+            onClick={mode === 'mock' ? mockReset : reset}
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 underline"
+          >
+            Exit session
+          </button>
+        </div>
         <div className="flex gap-1.5">
           {questions.map((_, i) => (
             <div
@@ -510,8 +684,25 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
 
       {(phase === 'active' || phase === 'evaluating') && (
         <>
-          <HintBox hints={q.hints ?? []} resetKey={qIndex} />
-          {mode === 'flashcard' ? (
+          {mode !== 'mock' && <HintBox hints={q.hints ?? []} resetKey={qIndex} />}
+          {mode === 'mock' ? (
+            <>
+              <textarea
+                value={answer}
+                onChange={e => setAnswer(e.target.value)}
+                placeholder="Type your answer here…"
+                rows={6}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+              />
+              {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
+              <button
+                onClick={mockReveal}
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                Submit Answer
+              </button>
+            </>
+          ) : mode === 'flashcard' ? (
             <>
               {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
               <button
@@ -542,6 +733,42 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
             </>
           )}
         </>
+      )}
+
+      {phase === 'mock_reviewed' && (
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Your answer</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 italic leading-relaxed">
+              {answer || <span className="text-gray-300 dark:text-gray-600">No answer entered</span>}
+            </p>
+          </div>
+          <div>
+            <button
+              onClick={() => setMockModelOpen(o => !o)}
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              {mockModelOpen ? '▼ Hide model answer' : '▶ Show model answer'}
+            </button>
+            {mockModelOpen && (
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed border-l-2 border-indigo-400 pl-3">
+                {q.model_answer || <span className="italic text-gray-400">No model answer seeded yet</span>}
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">How well did you know this?</p>
+          <div className="flex gap-2">
+            {(['Strong', 'Adequate', 'Weak']).map(score => (
+              <button
+                key={score}
+                onClick={() => mockSelfRate(score)}
+                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${SCORE_STYLE[score]} hover:opacity-80`}
+              >
+                {score}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {phase === 'reviewed' && mode === 'flashcard' && (
