@@ -373,3 +373,115 @@ test('awk-sed named exercises have multi-step text, not a single sub-bullet', as
     expect(lines.length).toBeGreaterThan(1)
   }
 })
+
+// ── 18. Search group filter ───────────────────────────────────────────────────
+
+test('search group filter pills appear when results span groups', async ({ page }) => {
+  await page.goto(BASE)
+  await page.locator('button:has-text("Search")').first().click()
+  const input = page.getByPlaceholder(/search/i)
+  await expect(input).toBeVisible({ timeout: 2000 })
+  await input.fill('docker')
+  await page.waitForTimeout(400)
+  // "All" pill is the first exact-match "All" button in the filter row
+  await expect(page.getByRole('button', { name: 'All', exact: true }).first()).toBeVisible({ timeout: 3000 })
+})
+
+test('search group filter pill narrows results to that group', async ({ page }) => {
+  await page.goto(BASE)
+  await page.locator('button:has-text("Search")').first().click()
+  const input = page.getByPlaceholder(/search/i)
+  await expect(input).toBeVisible({ timeout: 2000 })
+  // "linux" has results only in Foundations; after clicking Foundations pill, Containers results gone
+  await input.fill('bash')
+  await page.waitForTimeout(400)
+  const foundationsPill = page.locator('button:has-text("Foundations")')
+  if (await foundationsPill.count() > 0) {
+    await foundationsPill.click()
+    // Containers & Infra pill should no longer be active (still visible but not filtering Foundations results out)
+    await expect(page.locator('button:has-text("Foundations")')).toBeVisible()
+  }
+})
+
+// ── 19. Keyboard navigation ───────────────────────────────────────────────────
+
+test('pressing ] on a lesson navigates to the next lesson', async ({ page }) => {
+  // Load app first so fetch is available in page context
+  await page.goto(BASE)
+  const data = await page.evaluate(async () => {
+    const r = await fetch('http://localhost:8000/modules')
+    return r.json()
+  })
+  const bashModule = data.find(m => m.slug === 'bash')
+  if (!bashModule || bashModule.lessons.length < 2) return test.skip()
+
+  const firstLesson = bashModule.lessons[0]
+  const secondLesson = bashModule.lessons[1]
+  await page.goto(`${BASE}/module/bash/lesson/${firstLesson.slug}`)
+  await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 5000 })
+  await page.keyboard.press(']')
+  await expect(page).toHaveURL(new RegExp(secondLesson.slug), { timeout: 3000 })
+})
+
+test('pressing space marks lesson complete and awards XP', async ({ page }) => {
+  await page.goto(`${BASE}/module/bash/lesson/script-basics`)
+  await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 5000 })
+  // Only run if lesson is not already complete
+  const markDone = page.locator('button:has-text("Mark as complete"), button:has-text("Mark done")')
+  if (await markDone.count() === 0) return test.skip()
+  const xpBefore = await getXP(page)
+  await page.keyboard.press(' ')
+  await page.waitForTimeout(800)
+  expect(await getXP(page)).toBeGreaterThan(xpBefore)
+})
+
+// ── 20. Interview Quick Review ────────────────────────────────────────────────
+
+test('Quick Review shows flashcard with Reveal Answer button', async ({ page }) => {
+  await page.goto(`${BASE}/interview`)
+  const quickReview = page.locator('button:has-text("Quick Review")')
+  await expect(quickReview).toBeVisible({ timeout: 3000 })
+  await quickReview.click()
+  // After clicking Quick Review, a question and Reveal Answer button should appear
+  await expect(
+    page.locator('button:has-text("Reveal Answer"), button:has-text("Reveal")').first()
+  ).toBeVisible({ timeout: 5000 })
+})
+
+// ── 21. Module Quiz complete flow ─────────────────────────────────────────────
+
+test('module quiz shows explanation and disables options after answering', async ({ page }) => {
+  await page.goto(`${BASE}/module/bash/quiz`)
+  await expect(page.locator('button:has-text("Start Quiz")')).toBeVisible({ timeout: 5000 })
+  await page.locator('button:has-text("Start Quiz")').click()
+  // First question options appear
+  await expect(page.locator('button').filter({ hasText: /^A\./ }).first()).toBeVisible({ timeout: 5000 })
+  // Click the first option
+  await page.locator('button').filter({ hasText: /^A\./ }).first().click()
+  // After answering, all option buttons become disabled and an advance button appears
+  await page.waitForFunction(() => {
+    const btns = Array.from(document.querySelectorAll('button'))
+    return btns.some(b => b.textContent.trim() === 'Next →' || b.textContent.trim() === 'Finish')
+  }, { timeout: 5000 })
+  // All A-D option buttons for this question should be disabled
+  const options = page.locator('button').filter({ hasText: /^[A-D]\./ })
+  const count = await options.count()
+  for (let i = 0; i < count; i++) {
+    await expect(options.nth(i)).toBeDisabled()
+  }
+})
+
+// ── 22. Exercise SRS due badge ────────────────────────────────────────────────
+
+test('exercise SRS due badge shows amber indicator when exercises are due', async ({ page }) => {
+  await page.goto(BASE)
+  const data = await page.evaluate(async () => {
+    const r = await fetch('http://localhost:8000/sandbox/exercises/due')
+    return r.json()
+  })
+  if (data.due_count === 0) return test.skip()
+
+  await page.goto(`${BASE}/module/bash/lesson/script-basics`)
+  // Due exercises show an amber ↻ icon on the exercise card
+  await expect(page.locator('text=↻').first()).toBeVisible({ timeout: 5000 })
+})

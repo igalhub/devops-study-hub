@@ -52,6 +52,7 @@ import {
   fetchInterviewQuestions, evaluateAnswerWithSrs, selfGradeInterview,
   fetchStats, fetchLesson, fetchExerciseDue,
   fetchModuleQuiz, getBookmarks, getRecentLessons,
+  checkExercise, markLessonComplete,
 } from '../../store/curriculumStore'
 
 // Stub fetch globally for any remaining direct API calls
@@ -379,6 +380,11 @@ describe('Sidebar', () => {
   it('shows progress % badge for in-progress module', () => {
     renderSidebar({ progress: { '1': 'complete' } })
     expect(screen.getByText('50%')).toBeInTheDocument()
+  })
+
+  it('shows exercise due badge on Spaced Review when exerciseDue > 0', () => {
+    renderSidebar({ exerciseDue: 7 })
+    expect(screen.getByText('7 ex')).toBeInTheDocument()
   })
 })
 
@@ -946,6 +952,50 @@ describe('LessonViewer', () => {
     expect(screen.getByText('✓ Lesson complete')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^reset$/i })).toBeInTheDocument()
   })
+
+  it('pressing ] navigates to the next lesson', async () => {
+    fetchLesson
+      .mockResolvedValueOnce(MOCK_LESSON_DATA)
+      .mockResolvedValueOnce({ ...MOCK_LESSON_DATA, id: 11, title: 'Systemd' })
+    renderLessonViewer('cron')
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+    fireEvent.keyDown(window, { key: ']' })
+    await waitFor(() => screen.getByRole('heading', { name: 'Systemd' }))
+  })
+
+  it('pressing [ navigates to the previous lesson', async () => {
+    fetchLesson
+      .mockResolvedValueOnce({ ...MOCK_LESSON_DATA, id: 11, title: 'Systemd' })
+      .mockResolvedValueOnce(MOCK_LESSON_DATA)
+    renderLessonViewer('systemd')
+    await waitFor(() => screen.getByRole('heading', { name: 'Systemd' }))
+    fireEvent.keyDown(window, { key: '[' })
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+  })
+
+  it('pressing space calls markLessonComplete for an incomplete lesson', async () => {
+    fetchLesson.mockResolvedValue(MOCK_LESSON_DATA)
+    markLessonComplete.mockResolvedValue({ xp_earned: 5, xp_total: 50 })
+    renderLessonViewer('cron')
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(markLessonComplete).toHaveBeenCalledWith(10)
+  })
+
+  it('shows Contents navigation when content has 3+ headings', async () => {
+    const richContent = [
+      '## Introduction',
+      'Some text.',
+      '## Core Concepts',
+      'More text.',
+      '## Summary',
+      'Done.',
+    ].join('\n\n')
+    fetchLesson.mockResolvedValue({ ...MOCK_LESSON_DATA, content: richContent })
+    renderLessonViewer('cron')
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+    expect(screen.getByText('Contents')).toBeInTheDocument()
+  })
 })
 
 // ─── Hint reveal (HintBox via ProjectDetail) ──────────────────────────────────
@@ -1074,5 +1124,119 @@ describe('ModuleQuiz', () => {
     renderModuleQuiz()
     await waitFor(() => screen.getByRole('button', { name: /start quiz/i }))
     expect(screen.getByText(/← docker/i)).toBeInTheDocument()
+  })
+})
+
+// ─── AiTutor ──────────────────────────────────────────────────────────────────
+import AiTutor from '../AiTutor'
+
+describe('AiTutor', () => {
+  beforeEach(() => {
+    // jsdom does not implement scrollIntoView
+    window.HTMLElement.prototype.scrollIntoView = vi.fn()
+  })
+
+  it('shows empty state when no messages', () => {
+    render(<AiTutor lessonSlug="linux/cron" />)
+    expect(screen.getByText(/no questions yet/i)).toBeInTheDocument()
+  })
+
+  it('renders textarea with placeholder and disabled Send button when input is empty', () => {
+    render(<AiTutor lessonSlug="linux/cron" />)
+    expect(screen.getByPlaceholderText(/ask a question/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+  })
+
+  it('enables Send button once textarea has text', () => {
+    render(<AiTutor lessonSlug="linux/cron" />)
+    fireEvent.change(screen.getByPlaceholderText(/ask a question/i), {
+      target: { value: 'How do cron jobs work?' },
+    })
+    expect(screen.getByRole('button', { name: /send/i })).not.toBeDisabled()
+  })
+
+  it('shows Thinking… on Send button while fetch is pending', async () => {
+    global.fetch.mockReturnValue(new Promise(() => {}))
+    render(<AiTutor lessonSlug="linux/cron" />)
+    fireEvent.change(screen.getByPlaceholderText(/ask a question/i), {
+      target: { value: 'What is cron?' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /thinking/i })).toBeInTheDocument()
+    )
+  })
+})
+
+// ─── CodePlayground check result ─────────────────────────────────────────────
+
+describe('CodePlayground check result', () => {
+  it('shows ✅ Correct! after a passing Check', async () => {
+    checkExercise.mockResolvedValue({ passed: true, xp_earned: 5, expected: 'hello', actual: 'hello' })
+    render(
+      <CodePlayground expectedOutput="hello" exerciseSlug="bash/script-basics" exerciseIndex={0} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /check/i }))
+    await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
+  })
+
+  it('shows +XP badge when xp_earned > 0 on pass', async () => {
+    checkExercise.mockResolvedValue({ passed: true, xp_earned: 5, expected: 'hello', actual: 'hello' })
+    render(
+      <CodePlayground expectedOutput="hello" exerciseSlug="bash/script-basics" exerciseIndex={0} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /check/i }))
+    await waitFor(() => expect(screen.getByText('+5 XP')).toBeInTheDocument())
+  })
+
+  it('shows ❌ Not quite and diff panels when Check fails', async () => {
+    checkExercise.mockResolvedValue({
+      passed: false, xp_earned: 0, expected: 'hello', actual: 'world', stderr: '',
+    })
+    render(
+      <CodePlayground expectedOutput="hello" exerciseSlug="bash/script-basics" exerciseIndex={0} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /check/i }))
+    await waitFor(() => expect(screen.getByText(/Not quite/)).toBeInTheDocument())
+    expect(screen.getByText('hello')).toBeInTheDocument()
+    expect(screen.getByText('world')).toBeInTheDocument()
+  })
+})
+
+// ─── Projects page ────────────────────────────────────────────────────────────
+import Projects from '../../pages/Projects'
+
+const MOCK_PROJECTS_LIST = [
+  {
+    slug: 'containerize-python-app',
+    title: 'Containerize a Python App',
+    description: 'Build a Python web app.',
+    difficulty: 'intermediate',
+    modules: ['Docker', 'Python'],
+    steps_done: 0,
+    steps_total: 4,
+  },
+]
+
+describe('Projects page', () => {
+  it('shows loading state while fetch is pending', () => {
+    global.fetch.mockReturnValue(new Promise(() => {}))
+    render(<MemoryRouter><Projects /></MemoryRouter>)
+    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+  })
+
+  it('renders project title after fetch resolves', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
+    render(<MemoryRouter><Projects /></MemoryRouter>)
+    await waitFor(() =>
+      expect(screen.getByText('Containerize a Python App')).toBeInTheDocument()
+    )
+  })
+
+  it('renders difficulty badge', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
+    render(<MemoryRouter><Projects /></MemoryRouter>)
+    await waitFor(() => screen.getByText('Containerize a Python App'))
+    expect(screen.getByText('intermediate')).toBeInTheDocument()
   })
 })
