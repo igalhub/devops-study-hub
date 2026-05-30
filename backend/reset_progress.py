@@ -9,6 +9,7 @@ What gets wiped:
     xp_log               — all XP history
     quiz_attempts        — quiz answer history and SM-2 state
     srs_schedule         — spaced-repetition schedule for quiz questions
+    exercise_srs_schedule — spaced-repetition schedule for exercises
     streaks              — streak calendar
     lesson_notes         — per-lesson saved notes
     interview_attempts   — interview Q&A history
@@ -30,6 +31,7 @@ from db import get_conn
 PROGRESS_TABLES = [
     "srs_schedule",            # references quiz_questions (content)
     "interview_srs_schedule",  # references interview_questions (content)
+    "exercise_srs_schedule",   # TEXT PK — no FK, safe to delete directly
     "interview_attempts",      # references interview_questions, modules (content)
     "quiz_attempts",           # references lessons (content)
     "project_progress",        # references projects, project_steps (content)

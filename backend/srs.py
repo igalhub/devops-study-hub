@@ -33,3 +33,33 @@ def update_srs(conn, table: str, question_id: int, is_correct: bool) -> None:
                 reviews       = excluded.reviews""",
         (question_id, new_interval, new_ease, next_review, reviews)
     )
+
+
+def update_exercise_srs(conn, exercise_key: str, is_correct: bool) -> None:
+    row = conn.execute(
+        "SELECT interval_days, ease, reviews FROM exercise_srs_schedule WHERE exercise_key = ?",
+        (exercise_key,)
+    ).fetchone()
+    if row is None:
+        interval, ease, reviews = 1, 2.5, 1
+    else:
+        interval = row['interval_days']
+        ease = row['ease']
+        reviews = row['reviews'] + 1
+    if is_correct:
+        new_interval = max(1, round(interval * ease))
+        new_ease = min(3.5, ease + 0.1)
+    else:
+        new_interval = 1
+        new_ease = max(1.3, ease - 0.2)
+    next_review = (date.today() + timedelta(days=new_interval)).isoformat()
+    conn.execute(
+        """INSERT INTO exercise_srs_schedule (exercise_key, interval_days, ease, next_review, reviews)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(exercise_key) DO UPDATE SET
+               interval_days = excluded.interval_days,
+               ease          = excluded.ease,
+               next_review   = excluded.next_review,
+               reviews       = excluded.reviews""",
+        (exercise_key, new_interval, new_ease, next_review, reviews)
+    )
