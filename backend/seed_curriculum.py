@@ -186,7 +186,7 @@ def _expand_content(title: str, module_slug: str, raw_content: str) -> str:
 
 def _generate_questions(title: str, content: str) -> list[dict]:
     prompt = QUIZ_PROMPT.format(title=title, content=content)
-    text = generate(prompt, max_tokens=2048)
+    text = generate(prompt, max_tokens=4096)
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text  # drop opening ```json line
         if text.endswith("```"):
