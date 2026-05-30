@@ -208,7 +208,7 @@ devops-study-hub/
 │   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
 │   │   │   ├── ThemeToggle.jsx
-│   │   │   └── __tests__/           # Vitest component tests (41 tests)
+│   │   │   └── __tests__/           # Vitest component tests (45 tests)
 │   ├── e2e/
 │   │   └── app.spec.js          # Playwright E2E suite (32 flows)
 │   │   ├── pages/
@@ -390,6 +390,7 @@ exercises: 3
 ### Phase 4 — Job Readiness ✅
 - Interview Prep Mode with AI-generated questions and AI feedback (score: Weak/Adequate/Strong)
 - Quick Review flashcard mode — pre-seeded model answers, self-grade Weak/Adequate/Strong, no live Claude call; `POST /interview/self-grade`; seeded via `seed_interview.py --model-answers` (184 answers across all 23 modules)
+- Mock Interview mode — 8 randomly shuffled questions per selected module, 15-minute countdown timer (pauses during self-review), self-grading only, no backend writes; results card shows accuracy %, time used, per-question breakdown with model answers
 - Interview SRS review queue (SM-2 algorithm; amber badge in sidebar when reviews due)
 - XP awards for interview answers (Strong=5, Adequate=2)
 
