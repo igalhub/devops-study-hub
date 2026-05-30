@@ -36,6 +36,9 @@ vi.mock('../../store/curriculumStore', () => ({
   isBookmarked: vi.fn().mockReturnValue(false),
   fetchExerciseDue: vi.fn(),
   searchContent: vi.fn(),
+  fetchModuleQuiz: vi.fn(),
+  getBookmarks: vi.fn().mockReturnValue([]),
+  getRecentLessons: vi.fn().mockReturnValue([]),
 }))
 
 vi.mock('react-syntax-highlighter', () => ({
@@ -48,6 +51,7 @@ import {
   fetchReviewQueue, logAttempt, fetchQuiz, fetchNote, saveNote,
   fetchInterviewQuestions, evaluateAnswerWithSrs, selfGradeInterview,
   fetchStats, fetchLesson, fetchExerciseDue,
+  fetchModuleQuiz, getBookmarks, getRecentLessons,
 } from '../../store/curriculumStore'
 
 // Stub fetch globally for any remaining direct API calls
@@ -941,5 +945,134 @@ describe('LessonViewer', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
     expect(screen.getByText('✓ Lesson complete')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^reset$/i })).toBeInTheDocument()
+  })
+})
+
+// ─── Hint reveal (HintBox via ProjectDetail) ──────────────────────────────────
+describe('HintBox progressive reveal', () => {
+  it('first Hint click shows first hint text and changes button to Next hint', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => screen.getByText('Write a Dockerfile'))
+    fireEvent.click(screen.getByRole('button', { name: /^hint$/i }))
+    expect(screen.getByText(/Use FROM python:3\.11/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next hint/i })).toBeInTheDocument()
+  })
+
+  it('second click shows second hint and disables button with No more hints', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => screen.getByText('Write a Dockerfile'))
+    fireEvent.click(screen.getByRole('button', { name: /^hint$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next hint/i }))
+    expect(screen.getByText(/Set WORKDIR to \/app/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /no more hints/i })).toBeDisabled()
+  })
+})
+
+// ─── BookmarksDropdown ────────────────────────────────────────────────────────
+import BookmarksDropdown from '../BookmarksDropdown'
+
+describe('BookmarksDropdown', () => {
+  it('renders nothing when bookmarks list is empty', () => {
+    getBookmarks.mockReturnValue([])
+    const { container } = render(<MemoryRouter><BookmarksDropdown /></MemoryRouter>)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders Saved button when bookmarks exist', () => {
+    getBookmarks.mockReturnValue([
+      { lessonSlug: 'cron', lessonTitle: 'Cron Jobs', moduleSlug: 'linux', moduleTitle: 'Linux' },
+    ])
+    render(<MemoryRouter><BookmarksDropdown /></MemoryRouter>)
+    expect(screen.getByRole('button', { name: /saved/i })).toBeInTheDocument()
+  })
+})
+
+// ─── RecentDropdown ───────────────────────────────────────────────────────────
+import RecentDropdown from '../RecentDropdown'
+
+describe('RecentDropdown', () => {
+  it('renders nothing when recent list is empty', () => {
+    getRecentLessons.mockReturnValue([])
+    const { container } = render(<MemoryRouter><RecentDropdown /></MemoryRouter>)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders Recent button when history exists', () => {
+    getRecentLessons.mockReturnValue([
+      { lessonSlug: 'cron', lessonTitle: 'Cron Jobs', moduleSlug: 'linux', moduleTitle: 'Linux' },
+    ])
+    render(<MemoryRouter><RecentDropdown /></MemoryRouter>)
+    expect(screen.getByRole('button', { name: /recent/i })).toBeInTheDocument()
+  })
+})
+
+// ─── ModuleQuiz ───────────────────────────────────────────────────────────────
+import ModuleQuiz from '../../pages/ModuleQuiz'
+
+const MOCK_MQ_QUESTION = {
+  id: 20,
+  question: 'What does docker run do?',
+  options: ['Builds an image', 'Starts a container', 'Pushes to registry', 'Pulls an image'],
+  correct_index: 1,
+  explanation: 'docker run creates and starts a new container.',
+  lesson_title: 'Docker Basics',
+}
+
+const MOCK_MODULES_MQ = [{ slug: 'docker', title: 'Docker' }]
+
+function renderModuleQuiz(slug = 'docker') {
+  return render(
+    <MemoryRouter initialEntries={[`/module/${slug}/quiz`]}>
+      <Routes>
+        <Route path="/module/:moduleSlug/quiz" element={<ModuleQuiz modules={MOCK_MODULES_MQ} />} />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+describe('ModuleQuiz', () => {
+  it('shows loading state while fetchModuleQuiz is pending', () => {
+    fetchModuleQuiz.mockReturnValue(new Promise(() => {}))
+    renderModuleQuiz()
+    expect(screen.getByText('Loading questions…')).toBeInTheDocument()
+  })
+
+  it('shows Module Quiz heading and Start Quiz button in idle phase', async () => {
+    fetchModuleQuiz.mockResolvedValue([MOCK_MQ_QUESTION])
+    renderModuleQuiz()
+    await waitFor(() => expect(screen.getByRole('heading', { name: /module quiz/i })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /start quiz/i })).toBeInTheDocument()
+  })
+
+  it('shows question and options after clicking Start Quiz', async () => {
+    fetchModuleQuiz.mockResolvedValue([MOCK_MQ_QUESTION])
+    logAttempt.mockResolvedValue({ xp_earned: 0 })
+    renderModuleQuiz()
+    await waitFor(() => screen.getByRole('button', { name: /start quiz/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start quiz/i }))
+    await waitFor(() => expect(screen.getByText(MOCK_MQ_QUESTION.question)).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /A\. Builds an image/ })).toBeInTheDocument()
+  })
+
+  it('shows 100% score after answering the single question correctly', async () => {
+    fetchModuleQuiz.mockResolvedValue([MOCK_MQ_QUESTION])
+    logAttempt.mockResolvedValue({ xp_earned: 5 })
+    renderModuleQuiz()
+    await waitFor(() => screen.getByRole('button', { name: /start quiz/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start quiz/i }))
+    await waitFor(() => screen.getByRole('button', { name: /B\. Starts a container/ }))
+    fireEvent.click(screen.getByRole('button', { name: /B\. Starts a container/ }))
+    await waitFor(() => screen.getByRole('button', { name: /finish/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finish/i }))
+    await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument())
+  })
+
+  it('shows back-link with module title in idle phase', async () => {
+    fetchModuleQuiz.mockResolvedValue([MOCK_MQ_QUESTION])
+    renderModuleQuiz()
+    await waitFor(() => screen.getByRole('button', { name: /start quiz/i }))
+    expect(screen.getByText(/← docker/i)).toBeInTheDocument()
   })
 })
