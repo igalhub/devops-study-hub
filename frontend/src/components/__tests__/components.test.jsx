@@ -110,10 +110,16 @@ import SearchModal from '../SearchModal'
 
 const MOCK_MODULES = [
   {
-    slug: 'linux', title: 'Linux',
+    slug: 'linux', title: 'Linux', group: 'Foundations',
     lessons: [
       { id: 1, slug: 'cron', title: 'Cron Jobs' },
       { id: 2, slug: 'systemd', title: 'Systemd' },
+    ],
+  },
+  {
+    slug: 'docker', title: 'Docker', group: 'Containers & Infra',
+    lessons: [
+      { id: 3, slug: 'scheduling', title: 'Cron-style Scheduling' },
     ],
   },
 ]
@@ -134,9 +140,68 @@ describe('SearchModal', () => {
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
       </MemoryRouter>
     )
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'systemd' } })
+    expect(screen.getByText('Systemd')).toBeInTheDocument()
+    expect(screen.queryByText('Cron Jobs')).toBeNull()
+  })
+
+  it('shows group filter pills when results span multiple groups', () => {
+    render(
+      <MemoryRouter>
+        <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
+      </MemoryRouter>
+    )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Foundations' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Containers & Infra' })).toBeInTheDocument()
+  })
+
+  it('filters results to selected group when pill is clicked', () => {
+    render(
+      <MemoryRouter>
+        <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
+      </MemoryRouter>
+    )
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Foundations' }))
     expect(screen.getByText('Cron Jobs')).toBeInTheDocument()
-    expect(screen.queryByText('Systemd')).toBeNull()
+    expect(screen.queryByText('Cron-style Scheduling')).toBeNull()
+  })
+
+  it('restores all results when All pill is clicked after group filter', () => {
+    render(
+      <MemoryRouter>
+        <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
+      </MemoryRouter>
+    )
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Foundations' }))
+    fireEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(screen.getByText('Cron Jobs')).toBeInTheDocument()
+    expect(screen.getByText('Cron-style Scheduling')).toBeInTheDocument()
+  })
+
+  it('resets group filter when query changes', () => {
+    render(
+      <MemoryRouter>
+        <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
+      </MemoryRouter>
+    )
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Foundations' }))
+    expect(screen.queryByText('Cron-style Scheduling')).toBeNull()
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'style' } })
+    expect(screen.getByText('Cron-style Scheduling')).toBeInTheDocument()
+  })
+
+  it('does not show pills when query is empty', () => {
+    render(
+      <MemoryRouter>
+        <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole('button', { name: 'All' })).toBeNull()
   })
 })
 
