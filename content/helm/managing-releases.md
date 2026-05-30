@@ -707,10 +707,10 @@ After the command fails:
 
 Write a shell script (not a one-liner) that:
 
-1. Accepts `NAMESPACE` and `IMAGE_TAG` as environment variables with no defaults — fail clearly if either is unset.
-2. Runs `helm upgrade --install` with `--atomic`, `--timeout 3m`, and `--history-max 10`.
+1. Accept `NAMESPACE` and `IMAGE_TAG` as environment variables with no defaults — fail clearly if either is unset.
+2. Run `helm upgrade --install` with `--atomic`, `--timeout 3m`, and `--history-max 10`.
 3. After a successful deploy, prints the active revision number and the image tag that is running (retrieved via `helm get values`).
-4. Runs a second time against the same release to confirm idempotency — the revision number should increment by 1 (because `upgrade --install` always creates a new revision even if values are unchanged), and the script should exit 0 both times.
+4. Run a second time against the same release to confirm idempotency — the revision number should increment by 1 (because `upgrade --install` always creates a new revision even if values are unchanged), and the script should exit 0 both times.
 
 **Goal:** build the habit of writing Helm deployments as safe, self-verifying scripts rather than ad hoc commands. Understand that `upgrade --install` always creates a revision even with no changes — plan `--history-max` accordingly.
 

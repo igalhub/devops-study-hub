@@ -771,10 +771,10 @@ Requirements:
 ### Exercise 3: Config Merger
 
 Write a function `merge_config(base_path, override_path)` that:
-1. Reads two files, each containing `key=value` lines (one per line, `#` lines are comments)
-2. Parses each into a dict
-3. Returns a merged dict where override values take precedence over base values
-4. Writes the merged result to `/tmp/merged.conf` in the same `key=value` format
+1. Read two files, each containing `key=value` lines (one per line, `#` lines are comments)
+2. Parse each into a dict
+3. Return a merged dict where override values take precedence over base values
+4. Write the merged result to `/tmp/merged.conf` in the same `key=value` format
 
 Then write a `main()` that accepts the two file paths as positional CLI arguments using `argparse`.
 

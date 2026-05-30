@@ -726,11 +726,11 @@ Then write a one-line explanation of *why* you test for `Content-Type: applicati
 **Exercise 4: Add Newman to a GitHub Actions workflow**
 
 Given an existing workflow file that has a `deploy` job, add an `api-tests` job that:
-1. Depends on `deploy` using `needs`
-2. Installs Newman
-3. Runs your collection with the JUnit reporter, outputting to `results/api.xml`
-4. Publishes results with `mikepenz/action-junit-report@v4` using `if: always()`
-5. Uploads the XML as an artifact using `actions/upload-artifact@v4` using `if: always()`
+1. Depend on `deploy` using `needs`
+2. Install Newman
+3. Run your collection with the JUnit reporter, outputting to `results/api.xml`
+4. Publish results with `mikepenz/action-junit-report@v4` using `if: always()`
+5. Upload the XML as an artifact using `actions/upload-artifact@v4` using `if: always()`
 
 Push a commit that intentionally fails a test (e.g., assert a field name that does not exist). Verify in the GitHub Actions UI that: the job is red, the test report appears in the PR checks tab, and the artifact is still present despite the failure.
 

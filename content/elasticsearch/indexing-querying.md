@@ -805,10 +805,10 @@ Do not run three separate queries. The result should let you compare warning rat
 ### Exercise 3 — Implement and Verify `search_after` Pagination
 
 **Task:** Write a bash script (not copy-pasted from the Concepts section — reconstruct it from understanding) that:
-1. Opens a Point in Time on `k8s-events` with a 2-minute keep-alive
-2. Fetches all documents in pages of 3, using `search_after` with `@timestamp` ascending and `_id` as the tie-breaker
-3. Prints each document's `pod_name` and `event_type` as it paginates
-4. Closes the PIT when all pages are exhausted
+1. Open a Point in Time on `k8s-events` with a 2-minute keep-alive
+2. Fetch all documents in pages of 3, using `search_after` with `@timestamp` ascending and `_id` as the tie-breaker
+3. Print each document's `pod_name` and `event_type` as it paginates
+4. Close the PIT when all pages are exhausted
 
 Then answer these questions in comments in your script:
 - Why is `_id` included as a secondary sort key?

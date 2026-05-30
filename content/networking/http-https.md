@@ -757,11 +757,11 @@ Pick any public HTTPS site (or use `api.github.com`) and use `openssl s_client` 
 
 Write a bash script named `wait-for-healthy.sh` that:
 
-1. Accepts a URL as its first argument and an optional timeout in seconds as the second argument (default: 60 seconds).
-2. Polls the URL every 5 seconds using `curl --fail --max-time 5`.
-3. Exits with code `0` as soon as the endpoint returns a 2xx status.
-4. Exits with code `1` if the total timeout is exceeded before the endpoint becomes healthy, printing a clear error message.
-5. Prints a timestamped status line on each poll attempt.
+1. Accept a URL as its first argument and an optional timeout in seconds as the second argument (default: 60 seconds).
+2. Poll the URL every 5 seconds using `curl --fail --max-time 5`.
+3. Exit with code `0` as soon as the endpoint returns a 2xx status.
+4. Exit with code `1` if the total timeout is exceeded before the endpoint becomes healthy, printing a clear error message.
+5. Print a timestamped status line on each poll attempt.
 
 Test it against `https://httpbin.org/status/200` (should succeed immediately) and `https://httpbin.org/status/503` (should time out).
 

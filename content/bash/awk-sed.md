@@ -661,10 +661,10 @@ function parse_ts(ts,    parts, t) {
 The command `df -h` prints filesystem usage in human-readable form. Its output includes a header line and columns for filesystem, size, used, available, use%, and mount point.
 
 **Task:** Write a single `awk` command that:
-1. Skips the header line
-2. Prints only filesystems where usage exceeds 80%
-3. Outputs: `MOUNT_POINT  USE%  AVAILABLE` in a formatted table using `printf`
-4. Adds a final `END` block that prints a count of how many filesystems are over the threshold
+1. Skip the header line
+2. Print only filesystems where usage exceeds 80%
+3. Output: `MOUNT_POINT  USE%  AVAILABLE` in a formatted table using `printf`
+4. Add a final `END` block that prints a count of how many filesystems are over the threshold
 
 The use% field contains a `%` character — you will need to strip it before numeric comparison. Use `sub(/%/, "", $5)` or string slicing.
 
@@ -693,10 +693,10 @@ EOF
 ```
 
 **Task:** Using `sed` (not awk), produce a normalized version that:
-1. Removes all comment lines (starting with `;` or `#`, possibly with leading whitespace)
-2. Removes blank lines
-3. Strips all whitespace around the `=` sign (so `  host = localhost` becomes `host=localhost`)
-4. Writes the result to `normalized.conf` using a temp file + mv pattern (not `-i`)
+1. Remove all comment lines (starting with `;` or `#`, possibly with leading whitespace)
+2. Remove blank lines
+3. Strip all whitespace around the `=` sign (so `  host = localhost` becomes `host=localhost`)
+4. Write the result to `normalized.conf` using a temp file + mv pattern (not `-i`)
 
 **Verify:** `cat normalized.conf` should produce exactly:
 ```
@@ -758,9 +758,9 @@ awk 'BEGIN {
 ```
 
 **Task:** Write an `awk` script (not a one-liner — use a file) that:
-1. Groups response times into 30-second buckets based on the timestamp field
+1. Group response times into 30-second buckets based on the timestamp field
 2. For each bucket, prints: `BUCKET_START  COUNT  AVG_MS  MAX_MS`
-3. Flags any bucket where average response time exceeds 250ms with `[SLOW]` at the end of the line
+3. Flag any bucket where average response time exceeds 250ms with `[SLOW]` at the end of the line
 4. At the end, prints the overall average across all samples
 
 **Hint:** Compute bucket start with `bucket = int($1 / 30) * 30`. Use separate arrays for count, sum, and max keyed by bucket. Iterate over buckets in sorted order in the `END` block — collect keys into an array and use `asort()` (GNU awk) or pipe the output to `sort -n`.

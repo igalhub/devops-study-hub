@@ -855,7 +855,7 @@ jq 'select(.used_pct > 50)' /var/log/disk_monitor.json
 ### Exercise 1: Service Restart with Idempotency Check
 
 Write a Python function `ensure_service_running(service_name)` that:
-1. Checks whether the systemd service is currently active using `systemctl is-active`
+1. Check whether the systemd service is currently active using `systemctl is-active`
 2. If it's already running, prints a message and returns without doing anything
 3. If it's stopped or failed, attempts to start it with `systemctl start`
 4. After starting, verifies the service is now active and raises an exception if it still isn't
@@ -869,10 +869,10 @@ Write a Python function `ensure_service_running(service_name)` that:
 ### Exercise 2: Find and Report Processes Over a Memory Threshold
 
 Write a script that:
-1. Runs `ps aux` and captures the output
-2. Parses each line to extract the process name and RSS memory usage (column 6 in `ps aux` output is RSS in KB)
-3. Filters for processes using more than 100 MB of RAM
-4. Prints a sorted table (highest memory first) showing PID, process name, and memory in MB
+1. Run `ps aux` and capture the output
+2. Parse each line to extract the process name and RSS memory usage (column 6 in `ps aux` output is RSS in KB)
+3. Filter for processes using more than 100 MB of RAM
+4. Print a sorted table (highest memory first) showing PID, process name, and memory in MB
 
 **Constraints:** do all filtering and sorting in Python — do not pipe through `grep`, `awk`, or `sort`. Handle the header line (`USER PID ...`) without crashing.
 
@@ -883,10 +883,10 @@ Write a script that:
 ### Exercise 3: Safe Config File Backup Before Edit
 
 Write a function `safe_edit(config_path, new_content)` that:
-1. Uses `pathlib` to check the file exists before touching it
-2. Creates a timestamped backup by running `cp` via subprocess (e.g., `nginx.conf.bak.20240115-143022`)
-3. Writes `new_content` to the original file using `pathlib`'s `write_text()`
-4. Verifies the new content was written correctly by reading the file back and comparing
+1. Use `pathlib` to check the file exists before touching it
+2. Create a timestamped backup by running `cp` via subprocess (e.g., `nginx.conf.bak.20240115-143022`)
+3. Write `new_content` to the original file using `pathlib`'s `write_text()`
+4. Verify the new content was written correctly by reading the file back and comparing
 5. If the verification fails, restores the backup using subprocess and raises an exception
 
 **Constraints:** build the backup filename in Python using `datetime.now()` and `pathlib` path manipulation. The `cp` command should use `check=True`. Test by pointing it at a throwaway file in `/tmp`.
@@ -896,11 +896,11 @@ Write a function `safe_edit(config_path, new_content)` that:
 ### Exercise 4: Multi-Repo Git Pull Script with Timeout and Error Summary
 
 Write a script that:
-1. Accepts a directory path as a command-line argument
-2. Finds all git repositories under that path (directories containing `.git/`)
-3. Runs `git pull --ff-only` in each repo with a 30-second timeout
-4. Collects results: success, failure (non-zero exit), or timeout
-5. Prints a final summary table showing each repo and its outcome
+1. Accept a directory path as a command-line argument
+2. Find all git repositories under that path (directories containing `.git/`)
+3. Run `git pull --ff-only` in each repo with a 30-second timeout
+4. Collect results: success, failure (non-zero exit), or timeout
+5. Print a final summary table showing each repo and its outcome
 
 **Constraints:** use `subprocess.run()` with `capture_output=True` and `timeout=30`. Catch both `CalledProcessError` and `TimeoutExpired` separately — they should produce different status labels in your summary. Do not use `check=True`; handle the return code manually. Run all pulls sequentially (no threading required).
 

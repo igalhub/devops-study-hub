@@ -815,10 +815,10 @@ aws iam get-credential-report --query 'Content' --output text | base64 -d
 
 You have a set of plaintext SSM parameters under `/myapp/staging/` and need to copy them to `/myapp/prod/` as `SecureString` (KMS-encrypted) parameters. Write a script that:
 
-1. Reads all parameters under the source path using `get_parameters_by_path`
-2. Writes each one to the destination path as `SecureString` using the account's default KMS key (`alias/aws/ssm`)
-3. Skips any parameter that already exists at the destination (idempotent)
-4. Prints a summary: created, skipped, failed
+1. Read all parameters under the source path using `get_parameters_by_path`
+2. Write each one to the destination path as `SecureString` using the account's default KMS key (`alias/aws/ssm`)
+3. Skip any parameter that already exists at the destination (idempotent)
+4. Print a summary: created, skipped, failed
 
 **Requirements:**
 - Handle `ParameterAlreadyExists` as a skip, not an error
