@@ -10,6 +10,10 @@ lerna-debug.log*
 dist-ssr
 *.local
 
+# Test artifacts
+test-results/
+.pytest_cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
