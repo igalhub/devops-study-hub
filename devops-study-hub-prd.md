@@ -210,7 +210,7 @@ devops-study-hub/
 │   │   │   ├── ThemeToggle.jsx
 │   │   │   └── __tests__/           # Vitest component tests (29 tests)
 │   ├── e2e/
-│   │   └── app.spec.js          # Playwright E2E suite (30 flows)
+│   │   └── app.spec.js          # Playwright E2E suite (32 flows)
 │   │   ├── pages/
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
@@ -246,7 +246,7 @@ devops-study-hub/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 23 integration tests (infra + per-feature)
+│   │   └── test_api.py      # 28 tests (infra + per-feature + parser unit tests)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
