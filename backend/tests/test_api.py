@@ -1,9 +1,11 @@
 import sqlite3
 import os
 import pytest
+from datetime import date, timedelta
 from fastapi.testclient import TestClient
 from main import app
 from routes.lessons import _parse_exercises
+from srs import update_srs
 
 client = TestClient(app)
 
@@ -901,3 +903,191 @@ def test_sandbox_run_unsupported_language():
     data = r.json()
     assert data['exit_code'] == 1
     assert data['stderr']
+
+
+# ── SRS unit tests ─────────────────────────────────────────────────────────────
+
+def _srs_conn():
+    conn = sqlite3.connect(':memory:')
+    conn.row_factory = sqlite3.Row
+    conn.execute("""
+        CREATE TABLE srs_schedule (
+            question_id INTEGER PRIMARY KEY,
+            interval_days INTEGER DEFAULT 1,
+            ease REAL DEFAULT 2.5,
+            next_review TEXT,
+            reviews INTEGER DEFAULT 0
+        )
+    """)
+    return conn
+
+
+def test_srs_first_correct_creates_row():
+    conn = _srs_conn()
+    update_srs(conn, 'srs_schedule', 1, True)
+    row = conn.execute("SELECT * FROM srs_schedule WHERE question_id = 1").fetchone()
+    assert row is not None
+    assert row['reviews'] == 1
+    assert row['interval_days'] == max(1, round(1 * 2.5))  # 2
+    assert abs(row['ease'] - 2.6) < 0.001
+    assert row['next_review'] == (date.today() + timedelta(days=row['interval_days'])).isoformat()
+
+
+def test_srs_correct_increases_interval():
+    conn = _srs_conn()
+    update_srs(conn, 'srs_schedule', 1, True)   # interval→2, ease→2.6
+    update_srs(conn, 'srs_schedule', 1, True)   # interval→round(2*2.6)=5, ease→2.7
+    row = conn.execute("SELECT * FROM srs_schedule WHERE question_id = 1").fetchone()
+    assert row['interval_days'] == 5
+    assert abs(row['ease'] - 2.7) < 0.001
+    assert row['reviews'] == 2
+
+
+def test_srs_wrong_resets_interval():
+    conn = _srs_conn()
+    update_srs(conn, 'srs_schedule', 1, True)    # interval→2, ease→2.6
+    update_srs(conn, 'srs_schedule', 1, False)   # interval→1, ease→2.4
+    row = conn.execute("SELECT * FROM srs_schedule WHERE question_id = 1").fetchone()
+    assert row['interval_days'] == 1
+    assert abs(row['ease'] - 2.4) < 0.001
+
+
+def test_srs_ease_floor():
+    conn = _srs_conn()
+    for _ in range(15):
+        update_srs(conn, 'srs_schedule', 1, False)
+    row = conn.execute("SELECT * FROM srs_schedule WHERE question_id = 1").fetchone()
+    assert row['ease'] >= 1.3
+
+
+def test_srs_ease_ceiling():
+    # ease starts at 2.5, gains 0.1 per correct answer, ceiling is 3.5 — 10 iterations suffices
+    conn = _srs_conn()
+    for _ in range(10):
+        update_srs(conn, 'srs_schedule', 1, True)
+    row = conn.execute("SELECT * FROM srs_schedule WHERE question_id = 1").fetchone()
+    assert row['ease'] <= 3.5
+
+
+def test_srs_invalid_table_raises():
+    conn = _srs_conn()
+    with pytest.raises(ValueError):
+        update_srs(conn, 'bad_table', 1, True)
+
+
+# ── Parser edge cases ──────────────────────────────────────────────────────────
+
+_NO_EXERCISES_MD = """## Introduction
+
+This lesson has no exercises section.
+"""
+
+_HINTS_EXERCISES_MD = f"""## Exercises
+
+### Quick Checks
+
+1. Print hello.
+
+{_TICKS}expected_output
+hello
+{_TICKS}
+hint: Use the echo command.
+hint: Try echo "hello".
+
+2. Count words.
+
+{_TICKS}expected_output
+3
+{_TICKS}
+"""
+
+_QUICK_CHECKS_ONLY_MD = f"""## Exercises
+
+### Quick Checks
+
+1. Print hello.
+
+{_TICKS}expected_output
+hello
+{_TICKS}
+
+2. Count words.
+
+{_TICKS}expected_output
+3
+{_TICKS}
+"""
+
+
+def test_parse_exercises_no_section_returns_empty():
+    assert _parse_exercises(_NO_EXERCISES_MD) == []
+
+
+def test_parse_exercises_hints_populated():
+    items = _parse_exercises(_HINTS_EXERCISES_MD)
+    assert items[0]['hints'] == ['Use the echo command.', 'Try echo "hello".']
+    assert items[1]['hints'] == []
+
+
+def test_parse_exercises_quick_checks_only():
+    items = _parse_exercises(_QUICK_CHECKS_ONLY_MD)
+    assert len(items) == 2
+    assert items[0]['text'] == 'Print hello.'
+    assert items[0]['expected_output'] == 'hello'
+    assert items[1]['text'] == 'Count words.'
+    assert items[1]['expected_output'] == '3'
+
+
+# ── Data integrity ─────────────────────────────────────────────────────────────
+
+def test_all_quiz_questions_valid_correct_index():
+    conn = db_conn()
+    rows = conn.execute(
+        "SELECT id, correct_index, json_array_length(options) as opt_count FROM quiz_questions"
+    ).fetchall()
+    conn.close()
+    bad = [r['id'] for r in rows if not (0 <= r['correct_index'] < r['opt_count'])]
+    assert bad == [], f"Quiz questions with invalid correct_index: {bad}"
+
+
+def test_all_modules_have_lessons():
+    data = client.get('/modules').json()
+    empty = [m['slug'] for m in data if len(m['lessons']) == 0]
+    assert empty == [], f"Modules with no lessons: {empty}"
+
+
+def test_all_projects_have_four_steps():
+    for p in client.get('/projects').json():
+        assert p['steps_total'] == 4, f"{p['slug']} has {p['steps_total']} steps, expected 4"
+
+
+# ── Error handling on covered endpoints ───────────────────────────────────────
+
+def test_progress_update_unknown_lesson_404():
+    r = client.post('/progress/999999', json={'status': 'complete'})
+    assert r.status_code == 404
+
+
+def test_lessons_unknown_slug_404():
+    r = client.get('/lessons/does-not-exist')
+    assert r.status_code == 404
+
+
+def test_sandbox_run_propagates_exit_code():
+    r = client.post('/sandbox/run', json={'code': 'exit 42', 'language': 'bash'})
+    assert r.status_code == 200
+    assert r.json()['exit_code'] == 42
+
+
+# ── Search edge cases ──────────────────────────────────────────────────────────
+
+def test_search_no_match_returns_empty():
+    r = client.get('/search', params={'q': 'xyzzy_no_match_ever'})
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_search_special_chars_no_crash():
+    for q in ['[linux]', '.*', 'a+b', 'a|b']:
+        r = client.get('/search', params={'q': q})
+        assert r.status_code == 200, f"crashed on q={q!r}"
