@@ -428,3 +428,7 @@ exercises: 3
 - `GET /sandbox/exercises/due` endpoint returns `{due_count, due_keys}` (keys due today by next_review date)
 - Sidebar: amber "N ex" badge on Spaced Review row when exercises are due
 - LessonViewer: amber ↻ indicator next to exercises whose key is in due_keys; fetched on lesson load
+
+### Phase 9 — Skeleton Loading Screens ✅
+- App.jsx startup skeleton: replaces plain "Loading…" with animate-pulse layout matching the real 3-column structure — sidebar (logo, progress bar, 10 nav rows), header strip, and Roadmap-style card grid (5 groups × 3 cards each)
+- LessonViewer skeleton: replaces plain "Loading…" with animate-pulse content approximating the lesson layout — back-link bar, title, two meta-badge pills, paragraph lines, section heading, more paragraph lines, code-block rectangle, trailing lines
