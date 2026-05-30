@@ -1137,3 +1137,57 @@ def test_search_results_capped_at_eight():
     r = client.get('/search', params={'q': 'the'})
     assert r.status_code == 200
     assert len(r.json()) <= 8
+
+
+# ── Layer 11: Targeted gap coverage ───────────────────────────────────────────
+
+def test_sandbox_run_python():
+    r = client.post('/sandbox/run', json={'code': 'print("hello")', 'language': 'python'})
+    assert r.status_code == 200
+    data = r.json()
+    assert data['stdout'].strip() == 'hello'
+    assert data['exit_code'] == 0
+
+
+def test_progress_complete_updates_status():
+    conn = db_conn()
+    row = conn.execute("""
+        SELECT l.id FROM lessons l
+        WHERE NOT EXISTS (
+            SELECT 1 FROM progress p WHERE p.lesson_id = l.id AND p.status = 'complete'
+        )
+        LIMIT 1
+    """).fetchone()
+    max_xp_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM xp_log").fetchone()[0]
+    conn.close()
+
+    if row is None:
+        pytest.skip("All lessons already complete")
+
+    lesson_id = row['id']
+    client.post(f'/progress/{lesson_id}', json={'status': 'complete'})
+
+    progress = client.get('/progress').json()
+    assert progress.get(str(lesson_id)) == 'complete'
+
+    conn = db_conn()
+    conn.execute("UPDATE progress SET status='not_started', completed_at=NULL WHERE lesson_id=?", (lesson_id,))
+    conn.execute("DELETE FROM xp_log WHERE id > ?", (max_xp_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_modules_structure():
+    data = client.get('/modules').json()
+    for m in data:
+        assert {'id', 'slug', 'title', 'group', 'lessons'} <= set(m.keys())
+        assert isinstance(m['lessons'], list)
+        for lesson in m['lessons']:
+            assert {'id', 'slug', 'title', 'duration_min', 'difficulty'} <= set(lesson.keys())
+
+
+def test_quiz_module_caps_at_twenty():
+    for m in client.get('/modules').json():
+        r = client.get(f'/quiz/module/{m["slug"]}')
+        assert r.status_code == 200
+        assert len(r.json()) <= 20, f"{m['slug']} returned more than 20 questions"
