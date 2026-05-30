@@ -82,6 +82,43 @@ def test_stats_shape():
     data = r.json()
     assert {'xp_by_day', 'quiz_by_module', 'summary', 'quiz_weak_lessons'} <= set(data.keys())
     assert {'total_xp', 'lessons_done', 'quiz_attempts', 'quiz_correct', 'streak'} <= set(data['summary'].keys())
+    assert isinstance(data['quiz_weak_lessons'], list)
+    assert len(data['quiz_weak_lessons']) <= 10
+    WEAK_KEYS = {'lesson_slug', 'lesson_title', 'module_slug', 'module_title', 'accuracy', 'attempt_count', 'wrong_count'}
+    for item in data['quiz_weak_lessons']:
+        assert WEAK_KEYS <= set(item.keys())
+        assert item['attempt_count'] >= 3
+        assert item['accuracy'] < 70
+
+
+def test_weak_lessons_shape_with_data():
+    conn = db_conn()
+    lesson_id = conn.execute("SELECT id FROM lessons LIMIT 1").fetchone()['id']
+    conn.executemany(
+        "INSERT INTO quiz_attempts (lesson_id, question_id, answer, is_correct) VALUES (?, 'wl-test-q', 'x', 0)",
+        [(lesson_id,)] * 4,
+    )
+    conn.commit()
+    ids = [r['id'] for r in conn.execute(
+        "SELECT id FROM quiz_attempts WHERE question_id = 'wl-test-q'"
+    ).fetchall()]
+    try:
+        r = client.get('/stats')
+        assert r.status_code == 200
+        wl = r.json()['quiz_weak_lessons']
+        assert isinstance(wl, list)
+        assert len(wl) <= 10
+        assert len(wl) >= 1
+        WEAK_KEYS = {'lesson_slug', 'lesson_title', 'module_slug', 'module_title', 'accuracy', 'attempt_count', 'wrong_count'}
+        for item in wl:
+            assert WEAK_KEYS <= set(item.keys())
+            assert item['attempt_count'] >= 3
+            assert item['accuracy'] < 70
+            assert 0 <= item['wrong_count'] <= item['attempt_count']
+    finally:
+        conn.execute(f"DELETE FROM quiz_attempts WHERE id IN ({','.join('?' * len(ids))})", ids)
+        conn.commit()
+        conn.close()
 
 
 def test_readiness_endpoint():

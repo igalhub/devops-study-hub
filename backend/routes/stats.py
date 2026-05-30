@@ -45,13 +45,14 @@ def get_stats():
         # subheading string in frontend/src/pages/Stats.jsx.
         weak_rows = conn.execute("""
             SELECT lesson_slug, lesson_title, module_slug, module_title,
-                   attempt_count, accuracy
+                   attempt_count, wrong_count, accuracy
             FROM (
                 SELECT l.slug  AS lesson_slug,
                        l.title AS lesson_title,
                        m.slug  AS module_slug,
                        m.title AS module_title,
                        COUNT(a.id) AS attempt_count,
+                       SUM(CASE WHEN a.is_correct = 0 THEN 1 ELSE 0 END) AS wrong_count,
                        CAST(ROUND(
                            100.0 * SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END)
                            / COUNT(a.id)
@@ -60,9 +61,11 @@ def get_stats():
                 JOIN lessons l ON a.lesson_id = l.id
                 JOIN modules m ON l.module_id = m.id
                 GROUP BY l.id
+                HAVING COUNT(a.id) >= 3
             )
             WHERE accuracy < 70
             ORDER BY accuracy ASC
+            LIMIT 10
         """).fetchall()
 
         total_done = conn.execute(
@@ -115,6 +118,7 @@ def get_stats():
                     'module_title':  r['module_title'],
                     'accuracy':      r['accuracy'],
                     'attempt_count': r['attempt_count'],
+                    'wrong_count':   r['wrong_count'],
                 }
                 for r in weak_rows
             ],
