@@ -432,3 +432,8 @@ exercises: 3
 ### Phase 9 — Skeleton Loading Screens ✅
 - App.jsx startup skeleton: replaces plain "Loading…" with animate-pulse layout matching the real 3-column structure — sidebar (logo, progress bar, 10 nav rows), header strip, and Roadmap-style card grid (5 groups × 3 cards each)
 - LessonViewer skeleton: replaces plain "Loading…" with animate-pulse content approximating the lesson layout — back-link bar, title, two meta-badge pills, paragraph lines, section heading, more paragraph lines, code-block rectangle, trailing lines
+
+### Phase 10 — Search Group Filter ✅
+- Group-filter pill row in SearchModal: "All" + one pill per curriculum group that has results for the current query; only groups with matching results appear
+- Clicking a group pill narrows results to that group's modules (client-side filter via slug→group map); clicking an active pill or switching query resets to All
+- No backend changes; works across both title-match and content-search results
