@@ -1091,3 +1091,49 @@ def test_search_special_chars_no_crash():
     for q in ['[linux]', '.*', 'a+b', 'a|b']:
         r = client.get('/search', params={'q': q})
         assert r.status_code == 200, f"crashed on q={q!r}"
+
+
+# ── 5 quick wins ───────────────────────────────────────────────────────────────
+
+def test_progress_update_invalid_status_422():
+    r = client.post('/progress/1', json={'status': 'done'})
+    assert r.status_code == 422
+
+
+def test_sandbox_check_nonzero_exit_returns_failed():
+    # Code exits non-zero → passed=False with reason='non_zero_exit', xp_earned=0
+    r = client.post('/sandbox/check', json={
+        'code': 'exit 1', 'language': 'bash',
+        'expected_output': '', 'slug': 'test-lesson', 'index': 96,
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data['passed'] is False
+    assert data['reason'] == 'non_zero_exit'
+    assert data['xp_earned'] == 0
+
+
+def test_notes_upsert_second_save_wins():
+    slug = _first_lesson_slug()
+    if slug is None:
+        pytest.skip("No lessons in DB")
+
+    original = client.get(f'/notes/{slug}').json()['content']
+    client.post(f'/notes/{slug}', json={'content': 'first save'})
+    client.post(f'/notes/{slug}', json={'content': 'second save'})
+    assert client.get(f'/notes/{slug}').json()['content'] == 'second save'
+    client.post(f'/notes/{slug}', json={'content': original})
+
+
+def test_interview_questions_count_per_module():
+    slug = _first_module_slug()
+    if slug is None:
+        pytest.skip("No modules with interview questions in DB")
+    assert len(client.get(f'/interview/questions/{slug}').json()) == 8
+
+
+def test_search_results_capped_at_eight():
+    # 'the' matches almost every lesson — verify the cap of 8 is enforced
+    r = client.get('/search', params={'q': 'the'})
+    assert r.status_code == 200
+    assert len(r.json()) <= 8
