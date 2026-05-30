@@ -13,8 +13,7 @@ vi.mock('@monaco-editor/react', () => ({
   ),
 }))
 
-// Mock curriculumStore — prevents real fetch calls from Review, Notes, Quiz, CodePlayground,
-// InterviewPrep
+// Mock curriculumStore — prevents real fetch calls from all components and pages
 vi.mock('../../store/curriculumStore', () => ({
   fetchReviewQueue: vi.fn(),
   logAttempt: vi.fn(),
@@ -26,10 +25,29 @@ vi.mock('../../store/curriculumStore', () => ({
   evaluateAnswerWithSrs: vi.fn(),
   fetchInterviewReviewQueue: vi.fn(),
   selfGradeInterview: vi.fn(),
+  markLessonComplete: vi.fn(),
+  resetLessonProgress: vi.fn(),
+  fetchStats: vi.fn(),
+  fetchProgressExport: vi.fn(),
+  fetchLesson: vi.fn(),
+  addRecentLesson: vi.fn(),
+  addBookmark: vi.fn(),
+  removeBookmark: vi.fn(),
+  isBookmarked: vi.fn().mockReturnValue(false),
+  fetchExerciseDue: vi.fn(),
+  searchContent: vi.fn(),
+}))
+
+vi.mock('react-syntax-highlighter', () => ({
+  Prism: ({ children }) => <pre>{children}</pre>,
+}))
+vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
+  oneDark: {},
 }))
 import {
   fetchReviewQueue, logAttempt, fetchQuiz, fetchNote, saveNote,
   fetchInterviewQuestions, evaluateAnswerWithSrs, selfGradeInterview,
+  fetchStats, fetchLesson, fetchExerciseDue,
 } from '../../store/curriculumStore'
 
 // Stub fetch globally for any remaining direct API calls
@@ -696,5 +714,232 @@ describe('InterviewPrep', () => {
     )
     expect(screen.getByText(/accuracy/i)).toBeInTheDocument()
     expect(selfGradeInterview).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Roadmap ──────────────────────────────────────────────────────────────────
+import Roadmap from '../../pages/Roadmap'
+
+const MOCK_ROADMAP_MODULES = [
+  { slug: 'linux', title: 'Linux', group: 'Foundations', lessons: [{ id: 1 }, { id: 2 }] },
+  { slug: 'python', title: 'Python', group: 'Foundations', lessons: [{ id: 3 }] },
+  { slug: 'docker', title: 'Docker', group: 'Containers & Infra', lessons: [{ id: 4 }] },
+]
+
+describe('Roadmap', () => {
+  it('renders Roadmap heading', () => {
+    render(<Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} />)
+    expect(screen.getByRole('heading', { name: /roadmap/i })).toBeInTheDocument()
+  })
+
+  it('renders group headings for represented groups', () => {
+    render(<Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} />)
+    expect(screen.getByText('Foundations')).toBeInTheDocument()
+    expect(screen.getByText('Containers & Infra')).toBeInTheDocument()
+  })
+
+  it('renders all module titles', () => {
+    render(<Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} />)
+    expect(screen.getByText('Linux')).toBeInTheDocument()
+    expect(screen.getByText('Python')).toBeInTheDocument()
+    expect(screen.getByText('Docker')).toBeInTheDocument()
+  })
+
+  it('shows 50% for a half-completed 2-lesson module', () => {
+    // Linux has 2 lessons; lesson id 1 is complete → 50%
+    render(<Roadmap modules={MOCK_ROADMAP_MODULES} progress={{ '1': 'complete' }} />)
+    expect(screen.getByText('50%')).toBeInTheDocument()
+  })
+
+  it('shows readiness % when readiness data is provided', () => {
+    render(
+      <Roadmap
+        modules={MOCK_ROADMAP_MODULES}
+        progress={{}}
+        readiness={{ linux: { readiness: 72 } }}
+      />
+    )
+    expect(screen.getByText('72%')).toBeInTheDocument()
+  })
+})
+
+// ─── ModuleView ───────────────────────────────────────────────────────────────
+import ModuleView from '../../pages/ModuleView'
+
+const MOCK_MODULE_MV = {
+  slug: 'linux', title: 'Linux', group: 'Foundations',
+  lessons: [
+    { id: 1, slug: 'cron', title: 'Cron Jobs', duration_min: 15, difficulty: 'beginner' },
+    { id: 2, slug: 'systemd', title: 'Systemd', duration_min: 20, difficulty: 'intermediate' },
+  ],
+}
+
+function renderModuleView(slug = 'linux', progress = {}) {
+  return render(
+    <MemoryRouter initialEntries={[`/module/${slug}`]}>
+      <Routes>
+        <Route path="/module/:moduleSlug" element={
+          <ModuleView modules={[MOCK_MODULE_MV]} progress={progress} onProgressUpdate={() => {}} />
+        } />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+describe('ModuleView', () => {
+  it('shows Module not found for an unknown slug', () => {
+    renderModuleView('does-not-exist')
+    expect(screen.getByText('Module not found.')).toBeInTheDocument()
+  })
+
+  it('renders module title and lesson count', () => {
+    renderModuleView()
+    expect(screen.getByRole('heading', { name: 'Linux' })).toBeInTheDocument()
+    expect(screen.getByText('2 lessons')).toBeInTheDocument()
+  })
+
+  it('renders all lesson titles', () => {
+    renderModuleView()
+    expect(screen.getByText('Cron Jobs')).toBeInTheDocument()
+    expect(screen.getByText('Systemd')).toBeInTheDocument()
+  })
+
+  it('shows Mark done button for each incomplete lesson', () => {
+    renderModuleView()
+    const buttons = screen.getAllByRole('button', { name: /mark done/i })
+    expect(buttons).toHaveLength(2)
+  })
+
+  it('shows ✓ Done and Reset for a completed lesson', () => {
+    // lesson id 1 (Cron Jobs) is complete; Systemd is not
+    renderModuleView('linux', { '1': 'complete' })
+    expect(screen.getByText('✓ Done')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^reset$/i })).toBeInTheDocument()
+  })
+})
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+import Stats from '../../pages/Stats'
+
+const MOCK_STATS_DATA = {
+  summary: { total_xp: 250, lessons_done: 5, quiz_attempts: 10, quiz_correct: 7, streak: 3 },
+  xp_by_day: [
+    { day: '2026-05-01', xp: 50 },
+    { day: '2026-05-31', xp: 30 },
+  ],
+  quiz_by_module: [
+    { module_title: 'Linux', module_slug: 'linux', total: 5, correct: 4 },
+  ],
+  quiz_weak_lessons: [],
+}
+
+describe('Stats', () => {
+  it('shows loading state while fetchStats is pending', () => {
+    fetchStats.mockReturnValue(new Promise(() => {}))
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
+  it('shows error state when fetchStats rejects', async () => {
+    fetchStats.mockRejectedValue(new Error('network error'))
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText('Failed to load stats.')).toBeInTheDocument())
+  })
+
+  it('renders summary cards with correct values', async () => {
+    fetchStats.mockResolvedValue(MOCK_STATS_DATA)
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText('250 XP')).toBeInTheDocument())
+    expect(screen.getByText('70%')).toBeInTheDocument()
+    expect(screen.getByText('3 days')).toBeInTheDocument()
+  })
+
+  it('renders Export progress button after data loads', async () => {
+    fetchStats.mockResolvedValue(MOCK_STATS_DATA)
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    await waitFor(() => screen.getByRole('button', { name: /export progress/i }))
+    expect(screen.getByRole('button', { name: /export progress/i })).toBeInTheDocument()
+  })
+
+  it('shows no quiz attempts message when quiz_by_module is empty', async () => {
+    fetchStats.mockResolvedValue({
+      ...MOCK_STATS_DATA,
+      quiz_by_module: [],
+      summary: { ...MOCK_STATS_DATA.summary, quiz_attempts: 0 },
+    })
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText(/no quiz attempts yet/i)).toBeInTheDocument())
+  })
+})
+
+// ─── LessonViewer ─────────────────────────────────────────────────────────────
+import LessonViewer from '../../pages/LessonViewer'
+
+const MOCK_LESSON_DATA = {
+  id: 10, title: 'Cron Jobs', module_title: 'Linux', module_slug: 'linux',
+  difficulty: 'beginner', duration_min: 15,
+  content: '## Introduction\n\nCron is a job scheduler.',
+  exercises: [],
+}
+
+const MOCK_MODULES_LV = [
+  {
+    slug: 'linux', title: 'Linux',
+    lessons: [
+      { id: 10, slug: 'cron', title: 'Cron Jobs' },
+      { id: 11, slug: 'systemd', title: 'Systemd' },
+    ],
+  },
+]
+
+function renderLessonViewer(slug = 'cron', progress = {}) {
+  return render(
+    <MemoryRouter initialEntries={[`/module/linux/lesson/${slug}`]}>
+      <Routes>
+        <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
+          <LessonViewer modules={MOCK_MODULES_LV} progress={progress} onProgressUpdate={() => {}} />
+        } />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+describe('LessonViewer', () => {
+  beforeEach(() => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve({ completed: [] }) })
+    fetchExerciseDue.mockResolvedValue({ due_keys: [], due_count: 0 })
+  })
+
+  it('shows skeleton loading while fetchLesson is pending', () => {
+    fetchLesson.mockReturnValue(new Promise(() => {}))
+    const { container } = renderLessonViewer()
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
+  })
+
+  it('shows Lesson not found when fetchLesson rejects with 404', async () => {
+    fetchLesson.mockRejectedValue(new Error('404 Not Found'))
+    renderLessonViewer()
+    await waitFor(() => expect(screen.getByText('Lesson not found.')).toBeInTheDocument())
+  })
+
+  it('renders lesson title after fetchLesson resolves', async () => {
+    fetchLesson.mockResolvedValue(MOCK_LESSON_DATA)
+    renderLessonViewer()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Cron Jobs' })).toBeInTheDocument())
+  })
+
+  it('shows Mark as complete button for an incomplete lesson', async () => {
+    fetchLesson.mockResolvedValue(MOCK_LESSON_DATA)
+    renderLessonViewer()
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+    expect(screen.getByRole('button', { name: /mark as complete/i })).toBeInTheDocument()
+  })
+
+  it('shows ✓ Lesson complete and Reset when lesson is done', async () => {
+    fetchLesson.mockResolvedValue(MOCK_LESSON_DATA)
+    renderLessonViewer('cron', { '10': 'complete' })
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+    expect(screen.getByText('✓ Lesson complete')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^reset$/i })).toBeInTheDocument()
   })
 })
