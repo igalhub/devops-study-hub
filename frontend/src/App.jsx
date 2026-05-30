@@ -69,8 +69,43 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
 
   if (loading) return (
     <div className={dark ? 'dark' : ''}>
-      <div className="flex items-center justify-center h-screen bg-stone-100 dark:bg-gray-900 text-gray-500">
-        Loading…
+      <div className="flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900 animate-pulse">
+        <div className="w-[220px] shrink-0 bg-stone-200 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col p-4">
+          <div className="h-5 w-28 bg-gray-300 dark:bg-gray-700 rounded mb-3" />
+          <div className="h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mb-2" />
+          <div className="h-3 w-16 bg-gray-300 dark:bg-gray-700 rounded mb-6" />
+          <div className="space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-7 bg-gray-300 dark:bg-gray-700 rounded-md" />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="shrink-0 flex items-center gap-3 px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-6 w-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
+          </div>
+          <div className="flex-1 p-6 overflow-hidden">
+            <div className="max-w-4xl mx-auto">
+              <div className="h-7 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-6" />
+              {[5, 5, 3, 2, 3].map((count, gi) => (
+                <div key={gi} className="mb-8">
+                  <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
+                  <div className="grid grid-cols-3 gap-3">
+                    {Array.from({ length: count }).map((_, i) => (
+                      <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                        <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                        <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
+                        <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
