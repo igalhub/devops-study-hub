@@ -856,7 +856,7 @@ jq 'select(.used_pct > 50)' /var/log/disk_monitor.json
 
 Write a Python function `ensure_service_running(service_name)` that:
 1. Check whether the systemd service is currently active using `systemctl is-active`
-2. If it's already running, prints a message and returns without doing anything
+2. If it's already running, print a message and return without doing anything
 3. If it's stopped or failed, attempts to start it with `systemctl start`
 4. After starting, verifies the service is now active and raises an exception if it still isn't
 

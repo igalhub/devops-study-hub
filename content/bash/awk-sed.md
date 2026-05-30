@@ -759,9 +759,9 @@ awk 'BEGIN {
 
 **Task:** Write an `awk` script (not a one-liner — use a file) that:
 1. Group response times into 30-second buckets based on the timestamp field
-2. For each bucket, prints: `BUCKET_START  COUNT  AVG_MS  MAX_MS`
+2. For each bucket, print: `BUCKET_START  COUNT  AVG_MS  MAX_MS`
 3. Flag any bucket where average response time exceeds 250ms with `[SLOW]` at the end of the line
-4. At the end, prints the overall average across all samples
+4. At the end, print the overall average across all samples
 
 **Hint:** Compute bucket start with `bucket = int($1 / 30) * 30`. Use separate arrays for count, sum, and max keyed by bucket. Iterate over buckets in sorted order in the `END` block — collect keys into an array and use `asort()` (GNU awk) or pipe the output to `sort -n`.
 
