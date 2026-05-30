@@ -209,6 +209,8 @@ devops-study-hub/
 │   │   │   ├── Sidebar.jsx
 │   │   │   ├── ThemeToggle.jsx
 │   │   │   └── __tests__/           # Vitest component tests (29 tests)
+│   ├── e2e/
+│   │   └── app.spec.js          # Playwright E2E suite (30 flows)
 │   │   ├── pages/
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
@@ -240,10 +242,11 @@ devops-study-hub/
 │   ├── seed_interview.py    # Pre-seeds interview questions (8 per module); --hints-only to backfill hints
 │   ├── seed_exercise_hints.py  # Adds 2 Claude hints to Quick Check exercises in lesson markdown
 │   ├── seed_projects.py     # Seeds 10 projects + steps (runs at startup)
+│   ├── reset_progress.py    # Wipes all progress tables; preserves content (quiz/interview/projects)
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 22 integration tests (infra + per-feature)
+│   │   └── test_api.py      # 23 integration tests (infra + per-feature)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
