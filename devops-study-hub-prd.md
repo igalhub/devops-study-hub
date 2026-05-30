@@ -208,7 +208,7 @@ devops-study-hub/
 │   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
 │   │   │   ├── ThemeToggle.jsx
-│   │   │   └── __tests__/           # Vitest component tests (84 tests)
+│   │   │   └── __tests__/           # Vitest component tests (99 tests)
 │   │   ├── pages/
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
@@ -229,7 +229,7 @@ devops-study-hub/
 │   │   ├── test-setup.js            # Vitest global setup (@testing-library/jest-dom)
 │   │   └── index.css
 │   ├── e2e/
-│   │   └── app.spec.js          # Playwright E2E suite (32 flows)
+│   │   └── app.spec.js          # Playwright E2E suite (39 flows)
 │   └── package.json
 ├── backend/
 │   ├── main.py              # FastAPI app entry point
