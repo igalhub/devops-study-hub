@@ -28,3 +28,8 @@ frontend/.env
 # Playwright MCP output
 .playwright-mcp/
 *.png
+
+# Test artifacts
+frontend/test-results/
+.pytest_cache/
+frontend/.pytest_cache/
