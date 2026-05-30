@@ -208,7 +208,7 @@ devops-study-hub/
 │   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
 │   │   │   ├── ThemeToggle.jsx
-│   │   │   └── __tests__/           # Vitest component tests (53 tests)
+│   │   │   └── __tests__/           # Vitest component tests (73 tests)
 │   ├── e2e/
 │   │   └── app.spec.js          # Playwright E2E suite (32 flows)
 │   │   ├── pages/
@@ -246,7 +246,7 @@ devops-study-hub/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 92 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS)
+│   │   └── test_api.py      # 94 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS + project completion bonus)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
