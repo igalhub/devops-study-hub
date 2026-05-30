@@ -26,7 +26,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Code Sandbox** — write and run Bash/Python exercises inline
 - **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson
 - **Roadmap View** — visual skill tree showing what to learn next
-- **Interview Prep Mode** — AI-generated questions with AI feedback (score: Weak/Adequate/Strong) + Quick Review flashcard mode (pre-seeded model answers, self-grade, no Claude call); SRS review queue; XP awards
+- **Interview Prep Mode** — AI-generated questions with AI feedback (score: Weak/Adequate/Strong) + Quick Review flashcard mode (pre-seeded model answers, self-grade, no Claude call) + Mock Interview mode (8 random questions, 15-min countdown, self-grading, no backend writes, results card); SRS review queue; XP awards
 - **Content Search** — full-text search across lesson titles and body content
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
