@@ -719,3 +719,185 @@ def test_quiz_attempt_incorrect_awards_0xp():
 def test_quiz_attempt_unknown_question_404():
     r = client.post('/quiz/attempt', json={'question_id': 999999, 'is_correct': True})
     assert r.status_code == 404
+
+
+# ── Quiz module ────────────────────────────────────────────────────────────────
+
+QUIZ_MODULE_QUESTION_KEYS = {'id', 'question', 'options', 'correct_index', 'explanation', 'lesson_title'}
+
+
+def test_quiz_module_returns_questions():
+    r = client.get(f'/quiz/module/{_first_module_slug()}')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    assert len(data) <= 20
+    for q in data:
+        assert QUIZ_MODULE_QUESTION_KEYS <= set(q.keys())
+
+
+def test_quiz_module_404():
+    r = client.get('/quiz/module/does-not-exist')
+    assert r.status_code == 404
+
+
+# ── Interview questions ────────────────────────────────────────────────────────
+
+INTERVIEW_QUESTION_KEYS = {'id', 'question', 'hints', 'model_answer'}
+
+
+def test_interview_questions_shape():
+    slug = _first_module_slug()
+    if slug is None:
+        pytest.skip("No modules with interview questions in DB")
+    r = client.get(f'/interview/questions/{slug}')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    for q in data:
+        assert INTERVIEW_QUESTION_KEYS <= set(q.keys())
+        assert isinstance(q['hints'], list)
+
+
+def test_interview_questions_404():
+    r = client.get('/interview/questions/does-not-exist')
+    assert r.status_code == 404
+
+
+# ── Review queues ──────────────────────────────────────────────────────────────
+
+REVIEW_QUEUE_KEYS = {'id', 'question', 'options', 'correct_index', 'explanation', 'lesson_title', 'module_title'}
+INTERVIEW_REVIEW_QUEUE_KEYS = {'id', 'question', 'hints', 'model_answer', 'module_title', 'module_slug'}
+
+
+def test_review_queue_shape():
+    r = client.get('/review/queue')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    for item in data:
+        assert REVIEW_QUEUE_KEYS <= set(item.keys())
+
+
+def test_interview_review_queue_shape():
+    r = client.get('/interview/review/queue')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    for item in data:
+        assert INTERVIEW_REVIEW_QUEUE_KEYS <= set(item.keys())
+
+
+# ── Notes ──────────────────────────────────────────────────────────────────────
+
+def _first_lesson_slug() -> str | None:
+    conn = db_conn()
+    try:
+        row = conn.execute("SELECT slug FROM lessons LIMIT 1").fetchone()
+        return row['slug'] if row else None
+    finally:
+        conn.close()
+
+
+def test_notes_get_returns_content_field():
+    slug = _first_lesson_slug()
+    if slug is None:
+        pytest.skip("No lessons in DB")
+    r = client.get(f'/notes/{slug}')
+    assert r.status_code == 200
+    assert 'content' in r.json()
+
+
+def test_notes_save_and_fetch():
+    slug = _first_lesson_slug()
+    if slug is None:
+        pytest.skip("No lessons in DB")
+
+    original = client.get(f'/notes/{slug}').json()['content']
+
+    r = client.post(f'/notes/{slug}', json={'content': 'test note'})
+    assert r.status_code == 200
+    assert r.json()['content'] == 'test note'
+
+    assert client.get(f'/notes/{slug}').json()['content'] == 'test note'
+
+    client.post(f'/notes/{slug}', json={'content': original})
+
+
+def test_notes_404_on_unknown_lesson():
+    assert client.get('/notes/does-not-exist').status_code == 404
+    assert client.post('/notes/does-not-exist', json={'content': 'x'}).status_code == 404
+
+
+# ── Search ─────────────────────────────────────────────────────────────────────
+
+SEARCH_RESULT_KEYS = {'lesson_id', 'module_slug', 'module_title', 'lesson_slug', 'lesson_title', 'snippet'}
+
+
+def test_search_returns_results():
+    r = client.get('/search', params={'q': 'docker'})
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    for item in data:
+        assert SEARCH_RESULT_KEYS <= set(item.keys())
+
+
+def test_search_short_query_returns_empty():
+    r = client.get('/search', params={'q': 'd'})
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+# ── Progress, XP, Streaks ──────────────────────────────────────────────────────
+
+def test_progress_shape():
+    r = client.get('/progress')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, dict)
+    for v in data.values():
+        assert v in ('not_started', 'in_progress', 'complete')
+
+
+def test_xp_shape():
+    r = client.get('/xp')
+    assert r.status_code == 200
+    data = r.json()
+    assert 'xp_total' in data
+    assert isinstance(data['xp_total'], int)
+
+
+def test_streaks_shape():
+    r = client.get('/streaks')
+    assert r.status_code == 200
+    data = r.json()
+    assert {'current_streak', 'longest_streak', 'today_done'} <= set(data.keys())
+    assert isinstance(data['current_streak'], int)
+    assert isinstance(data['longest_streak'], int)
+    assert isinstance(data['today_done'], bool)
+
+
+# ── Sandbox run ────────────────────────────────────────────────────────────────
+
+SANDBOX_RUN_KEYS = {'stdout', 'stderr', 'exit_code'}
+
+
+def test_sandbox_run_returns_output():
+    r = client.post('/sandbox/run', json={'code': 'echo hello', 'language': 'bash'})
+    assert r.status_code == 200
+    data = r.json()
+    assert SANDBOX_RUN_KEYS <= set(data.keys())
+    assert data['stdout'].strip() == 'hello'
+    assert data['exit_code'] == 0
+
+
+def test_sandbox_run_unsupported_language():
+    r = client.post('/sandbox/run', json={'code': 'echo hi', 'language': 'ruby'})
+    assert r.status_code == 200
+    data = r.json()
+    assert data['exit_code'] == 1
+    assert data['stderr']
