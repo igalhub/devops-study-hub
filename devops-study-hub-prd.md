@@ -246,7 +246,7 @@ devops-study-hub/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 43 tests (infra + per-feature + parser unit tests + projects + quiz)
+│   │   └── test_api.py      # 59 tests (infra + per-feature + parser + projects + quiz + notes + search + misc)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
