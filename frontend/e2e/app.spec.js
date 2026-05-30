@@ -349,3 +349,27 @@ test('dark mode toggle adds and removes dark class', async ({ page }) => {
   await page.locator('button:has-text("Light")').click()
   expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(false)
 })
+
+// ── 17. Exercise parser regression ────────────────────────────────────────────
+// Before the fix, ### Exercise N: blocks were split on every numbered sub-bullet,
+// turning a 6-exercise lesson into 14 phantom items.
+
+test('awk-sed renders exactly 6 exercise cards (parser regression)', async ({ page }) => {
+  await page.goto(`${BASE}/module/bash/lesson/awk-sed`)
+  await page.waitForSelector('[data-exercise-index]', { timeout: 8000 })
+  await expect(page.locator('[data-exercise-index]')).toHaveCount(6)
+})
+
+test('awk-sed named exercises have multi-step text, not a single sub-bullet', async ({ page }) => {
+  const data = await page.evaluate(async () => {
+    const r = await fetch('http://localhost:8000/lessons/awk-sed')
+    return r.json()
+  })
+  // First 4 exercises are named (open-ended, no expected_output).
+  const named = data.exercises.filter(ex => ex.expected_output === null)
+  expect(named).toHaveLength(4)
+  for (const ex of named) {
+    const lines = ex.text.split('\n').filter(l => l.trim().length > 0)
+    expect(lines.length).toBeGreaterThan(1)
+  }
+})

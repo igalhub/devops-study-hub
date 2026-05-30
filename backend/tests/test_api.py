@@ -3,6 +3,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from main import app
+from routes.lessons import _parse_exercises
 
 client = TestClient(app)
 
@@ -341,3 +342,82 @@ def test_self_grade_weak_awards_no_xp():
     assert data['score'] == 'Weak'
     assert data['xp_earned'] == 0
     assert data['xp_total'] == xp_before
+
+
+# ── Exercise parser unit tests ─────────────────────────────────────────────────
+#
+# Regression: before the fix, _parse_exercises() treated every numbered bullet
+# as a new exercise, so a ### Exercise 1: block with 3 sub-bullets became
+# 3 items instead of 1.  The fix introduces in_named_exercise mode.
+
+_TICKS = '`' * 3
+
+_NAMED_EXERCISES_MD = f"""## Exercises
+
+### Exercise 1: Parse a log file
+
+Parse an input file.
+
+1. Accept the path as the first argument
+2. Filter lines containing ERROR
+3. Print the count
+
+{_TICKS}expected_output
+3
+{_TICKS}
+
+### Exercise 2: Generate a report
+
+Produce a summary.
+
+1. Sum column values
+2. Print the total
+
+### Quick Checks
+
+1. Print "hello" using echo.
+
+{_TICKS}expected_output
+hello
+{_TICKS}
+
+2. Count lines.
+
+{_TICKS}expected_output
+5
+{_TICKS}
+"""
+
+
+def test_parse_exercises_named_block_count():
+    """### Exercise N: blocks must each parse as one item, not split on numbered sub-bullets."""
+    items = _parse_exercises(_NAMED_EXERCISES_MD)
+    assert len(items) == 4, f"Expected 4 (2 named + 2 QC), got {len(items)}: {[i['text'][:40] for i in items]}"
+
+
+def test_parse_exercises_named_block_preserves_all_bullets():
+    """All numbered sub-bullets inside a named exercise must appear in its text."""
+    text = _parse_exercises(_NAMED_EXERCISES_MD)[0]['text']
+    assert 'Accept' in text
+    assert 'Filter' in text
+    assert 'Print the count' in text
+
+
+def test_parse_exercises_named_block_expected_output():
+    items = _parse_exercises(_NAMED_EXERCISES_MD)
+    assert items[0]['expected_output'] == '3'
+    assert items[1]['expected_output'] is None
+
+
+def test_parse_exercises_quick_checks_split_on_numbered_items():
+    items = _parse_exercises(_NAMED_EXERCISES_MD)
+    assert items[2]['text'].startswith('Print')
+    assert items[2]['expected_output'] == 'hello'
+    assert items[3]['text'].startswith('Count')
+    assert items[3]['expected_output'] == '5'
+
+
+def test_awk_sed_exercise_count():
+    """Regression: parser bug returned 14 items for awk-sed; correct count is 6 (4 named + 2 QC)."""
+    exercises = client.get('/lessons/awk-sed').json()['exercises']
+    assert len(exercises) == 6, f"Parser regression: got {len(exercises)}: {[e['text'][:40] for e in exercises]}"
