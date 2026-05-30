@@ -208,7 +208,7 @@ devops-study-hub/
 │   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
 │   │   │   ├── ThemeToggle.jsx
-│   │   │   └── __tests__/           # Vitest component tests (45 tests)
+│   │   │   └── __tests__/           # Vitest component tests (50 tests)
 │   ├── e2e/
 │   │   └── app.spec.js          # Playwright E2E suite (32 flows)
 │   │   ├── pages/
