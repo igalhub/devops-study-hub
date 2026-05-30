@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from db import get_conn
 from ai_client import generate, AITimeoutError
+from srs import update_exercise_srs
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
@@ -149,21 +150,23 @@ def check_code(request: CheckRequest):
 
     passed = actual == expected
     xp_earned = 0
+    exercise_key = f'{request.slug}:{request.index}'
 
-    if passed:
-        source = f'exercise_check:{request.slug}:{request.index}'
-        conn = get_conn()
-        try:
-            conn.execute('BEGIN EXCLUSIVE')
+    conn = get_conn()
+    try:
+        conn.execute('BEGIN EXCLUSIVE')
+        if passed:
+            source = f'exercise_check:{request.slug}:{request.index}'
             already = conn.execute(
                 'SELECT 1 FROM xp_log WHERE source = ? LIMIT 1', (source,)
             ).fetchone()
             if not already:
                 conn.execute('INSERT INTO xp_log (source, points) VALUES (?, ?)', (source, XP_EXERCISE_CHECK))
                 xp_earned = XP_EXERCISE_CHECK
-            conn.commit()
-        finally:
-            conn.close()
+        update_exercise_srs(conn, exercise_key, passed)
+        conn.commit()
+    finally:
+        conn.close()
 
     return {
         'passed': passed,
@@ -220,6 +223,21 @@ def get_exercise_answer(request: AnswerRequest):
         raise HTTPException(status_code=504, detail='Request timed out — please try again')
 
     return {'answer': answer}
+
+
+@router.get('/sandbox/exercises/due')
+def exercises_due():
+    today = __import__('datetime').date.today().isoformat()
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT exercise_key FROM exercise_srs_schedule WHERE next_review <= ?",
+            (today,)
+        ).fetchall()
+    finally:
+        conn.close()
+    due_keys = [row['exercise_key'] for row in rows]
+    return {'due_count': len(due_keys), 'due_keys': due_keys}
 
 
 @router.get('/sandbox/completed/{lesson_slug}')

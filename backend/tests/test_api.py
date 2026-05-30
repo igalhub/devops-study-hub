@@ -15,7 +15,7 @@ EXPECTED_TABLES = {
     'modules', 'lessons', 'progress', 'quiz_questions',
     'interview_questions', 'quiz_attempts', 'xp_log', 'streaks',
     'srs_schedule', 'interview_attempts', 'interview_srs_schedule',
-    'lesson_notes',
+    'lesson_notes', 'exercise_srs_schedule',
 }
 
 EXPORT_KEYS = {
@@ -228,6 +228,7 @@ def test_sandbox_check_pass_awards_xp():
 
     conn = db_conn()
     conn.execute("DELETE FROM xp_log WHERE source = 'exercise_check:test-lesson:99'")
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = 'test-lesson:99'")
     conn.commit()
     conn.close()
 
@@ -236,6 +237,7 @@ def test_sandbox_check_idempotent_xp():
     source = 'exercise_check:test-lesson:98'
     conn = db_conn()
     conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = 'test-lesson:98'")
     conn.commit()
     conn.close()
 
@@ -249,6 +251,7 @@ def test_sandbox_check_idempotent_xp():
 
     conn = db_conn()
     conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = 'test-lesson:98'")
     conn.commit()
     conn.close()
 
@@ -273,6 +276,7 @@ def test_sandbox_completed():
     source = 'exercise_check:test-lesson:77'
     conn = db_conn()
     conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = 'test-lesson:77'")
     conn.commit()
     conn.close()
 
@@ -292,8 +296,77 @@ def test_sandbox_completed():
 
     conn = db_conn()
     conn.execute("DELETE FROM xp_log WHERE source = ?", (source,))
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = 'test-lesson:77'")
     conn.commit()
     conn.close()
+
+
+# ── Exercise SRS ─────────────────────────────────────────────────────────────
+
+def test_exercise_srs_creates_row():
+    key = 'test-lesson:999'
+    conn = db_conn()
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = ?", (key,))
+    conn.execute("DELETE FROM xp_log WHERE source = 'exercise_check:test-lesson:999'")
+    conn.commit()
+    conn.close()
+
+    r = client.post('/sandbox/check', json={
+        'code': 'echo "srs"', 'language': 'bash', 'expected_output': 'srs',
+        'slug': 'test-lesson', 'index': 999,
+    })
+    assert r.status_code == 200
+    assert r.json()['passed'] is True
+
+    conn = db_conn()
+    row = conn.execute(
+        "SELECT interval_days, ease, reviews FROM exercise_srs_schedule WHERE exercise_key = ?", (key,)
+    ).fetchone()
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = ?", (key,))
+    conn.execute("DELETE FROM xp_log WHERE source = 'exercise_check:test-lesson:999'")
+    conn.commit()
+    conn.close()
+
+    assert row is not None
+    assert row['interval_days'] == 2
+    assert abs(row['ease'] - 2.6) < 0.01
+    assert row['reviews'] == 1
+
+
+def test_exercise_srs_correct_increases_interval():
+    key = 'test-lesson:998'
+    conn = db_conn()
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = ?", (key,))
+    conn.execute("DELETE FROM xp_log WHERE source = 'exercise_check:test-lesson:998'")
+    conn.commit()
+    conn.close()
+
+    payload = {'code': 'echo "inc"', 'language': 'bash', 'expected_output': 'inc', 'slug': 'test-lesson', 'index': 998}
+    client.post('/sandbox/check', json=payload)
+    client.post('/sandbox/check', json=payload)
+
+    conn = db_conn()
+    row = conn.execute(
+        "SELECT interval_days FROM exercise_srs_schedule WHERE exercise_key = ?", (key,)
+    ).fetchone()
+    conn.execute("DELETE FROM exercise_srs_schedule WHERE exercise_key = ?", (key,))
+    conn.execute("DELETE FROM xp_log WHERE source = 'exercise_check:test-lesson:998'")
+    conn.commit()
+    conn.close()
+
+    assert row is not None
+    assert row['interval_days'] > 2
+
+
+def test_exercise_srs_due_endpoint():
+    r = client.get('/sandbox/exercises/due')
+    assert r.status_code == 200
+    data = r.json()
+    assert 'due_count' in data
+    assert 'due_keys' in data
+    assert isinstance(data['due_count'], int)
+    assert isinstance(data['due_keys'], list)
+    assert data['due_count'] == len(data['due_keys'])
 
 
 # ── Interview self-grade ──────────────────────────────────────────────────────

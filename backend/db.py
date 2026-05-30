@@ -103,6 +103,14 @@ def init_db():
             reviews       INTEGER NOT NULL DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS exercise_srs_schedule (
+            exercise_key  TEXT    PRIMARY KEY,
+            interval_days INTEGER NOT NULL DEFAULT 1,
+            ease          REAL    NOT NULL DEFAULT 2.5,
+            next_review   TEXT    NOT NULL,
+            reviews       INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS lesson_notes (
             lesson_id INTEGER PRIMARY KEY REFERENCES lessons(id),
             content TEXT NOT NULL DEFAULT '',
