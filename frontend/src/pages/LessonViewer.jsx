@@ -136,12 +136,32 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      if (e.key === ']' && nextLesson) navigate(`/module/${moduleSlug}/lesson/${nextLesson.slug}`)
-      if (e.key === '[' && prevLesson) navigate(`/module/${moduleSlug}/lesson/${prevLesson.slug}`)
+      if ((e.key === ']' || e.key === 'j') && nextLesson) navigate(`/module/${moduleSlug}/lesson/${nextLesson.slug}`)
+      if ((e.key === '[' || e.key === 'k') && prevLesson) navigate(`/module/${moduleSlug}/lesson/${prevLesson.slug}`)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [nextLesson, prevLesson, moduleSlug, navigate])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
+      if (e.key !== ' ' || !lesson) return
+      e.preventDefault()
+      const isDone = progress[String(lesson.id)] === 'complete'
+      if (isDone) {
+        resetLessonProgress(lesson.id).then(onProgressUpdate).catch(() => {})
+      } else {
+        const slug = lessonSlug
+        markLessonComplete(lesson.id).then(result => {
+          onProgressUpdate()
+          if (currentSlugRef.current === slug && result.module_completed) setModuleBanner(true)
+        }).catch(() => {})
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lesson, progress, lessonSlug, onProgressUpdate, currentSlugRef])
 
   const YAML_MODULES = new Set(['kubernetes', 'ansible', 'helm'])
   const exerciseLang = (ex) => {
