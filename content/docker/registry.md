@@ -743,11 +743,11 @@ echo "GHCR: ${GHCR_DIGEST}"
 ### Exercise 1: Implement a Production Tagging Pipeline
 
 Write a shell script (`tag-and-push.sh`) that:
-1. Accepts the ECR repository URI as an argument
-2. Builds the image from the current directory's `Dockerfile`
-3. Tags it with both the short Git SHA and the semver from a `VERSION` file at the repo root
-4. Pushes both tags to ECR
-5. Outputs the full image URI with digest after the push (use `docker inspect`)
+1. Accept the ECR repository URI as an argument
+2. Build the image from the current directory's `Dockerfile`
+3. Tag it with both the short Git SHA and the semver from a `VERSION` file at the repo root
+4. Push both tags to ECR
+5. Output the full image URI with digest after the push (use `docker inspect`)
 
 The script should fail immediately (`set -euo pipefail`) if any command fails and refuse to run if the working tree has uncommitted changes (`git status --porcelain`).
 

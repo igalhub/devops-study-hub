@@ -624,9 +624,9 @@ echo '2024-01-15T10:23:45.000Z [INFO] (api) Health check OK |' \
 ### Exercise 1: Log Analysis Pipeline
 
 You have an nginx access log at `/var/log/nginx/access.log` (or generate one with the command below). Write a single pipeline — no Python, no awk — that:
-1. Extracts only lines from the last hour (timestamp format: `15/Jan/2024:10:`)
+1. Extract only lines from the last hour (timestamp format: `15/Jan/2024:10:`)
 2. From those lines, counts unique client IPs that received a 4xx response
-3. Prints the top 5 IPs sorted by request count
+3. Print the top 5 IPs sorted by request count
 
 ```bash
 # Generate a synthetic log to work with if needed
@@ -646,10 +646,10 @@ done > /tmp/access.log
 ### Exercise 2: Config Validation Script
 
 Write a bash script `validate_env.sh` that reads a `.env` file (key=value format) and:
-1. Rejects any line where the key contains lowercase letters (all env var keys must be `UPPER_CASE`)
-2. Rejects any value that contains unquoted whitespace
-3. Warns (but does not fail) on any value that looks like it contains a plaintext password (heuristic: value longer than 16 characters with mixed case and digits)
-4. Prints a summary: N valid, N errors, N warnings
+1. Reject any line where the key contains lowercase letters (all env var keys must be `UPPER_CASE`)
+2. Reject any value that contains unquoted whitespace
+3. Warn (but do not fail) on any value that looks like it contains a plaintext password (heuristic: value longer than 16 characters with mixed case and digits)
+4. Print a summary: N valid, N errors, N warnings
 
 Use only `bash =~` and `BASH_REMATCH` — no grep, no sed.
 
@@ -667,10 +667,10 @@ O'Brien,Mary,mobrien@example.com,555-0202,DevOps
 ```
 
 Write a `sed` one-liner (you may chain `-e` expressions or pipe multiple `sed` calls) that:
-1. Transforms the header line to uppercase
-2. Reformats names to `first_name last_name` order
-3. Masks the phone number: `555-0101` → `555-XXXX`
-4. Removes the department column entirely
+1. Transform the header line to uppercase
+2. Reformat names to `first_name last_name` order
+3. Mask the phone number: `555-0101` → `555-XXXX`
+4. Remove the department column entirely
 
 Output should be:
 ```
