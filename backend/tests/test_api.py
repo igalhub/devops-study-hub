@@ -696,6 +696,124 @@ def test_project_sandbox_step_wrong_type_404():
     assert r.status_code == 404
 
 
+def test_project_completion_bonus_awards_75xp():
+    conn = db_conn()
+    row = conn.execute(
+        "SELECT p.id, p.slug FROM projects p "
+        "JOIN project_steps s ON s.project_id = p.id AND s.type = 'sandbox' "
+        "LIMIT 1"
+    ).fetchone()
+    if not row:
+        pytest.skip("No project with sandbox steps")
+    project_id, project_slug = row['id'], row['slug']
+    steps = conn.execute(
+        "SELECT id, type, expected_output FROM project_steps WHERE project_id = ? ORDER BY order_index",
+        (project_id,)
+    ).fetchall()
+    steps = [dict(s) for s in steps]
+    sandbox_steps = [s for s in steps if s['type'] == 'sandbox']
+    other_steps = [s for s in steps if s['type'] != 'sandbox']
+
+    # Clean state
+    conn.execute("DELETE FROM project_progress WHERE project_id = ?", (project_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_complete:{project_id}",))
+    for s in steps:
+        conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{s['id']}",))
+    # Pre-mark all non-sandbox steps and all but last sandbox step as done
+    for s in other_steps:
+        conn.execute(
+            "INSERT OR REPLACE INTO project_progress (project_id, step_id, status) VALUES (?, ?, 'graded')",
+            (project_id, s['id'])
+        )
+    for s in sandbox_steps[:-1]:
+        conn.execute(
+            "INSERT OR REPLACE INTO project_progress (project_id, step_id, status) VALUES (?, ?, 'passed')",
+            (project_id, s['id'])
+        )
+    conn.commit()
+    conn.close()
+
+    # Pass the final sandbox step via the API — triggers _check_project_complete
+    last_sb = sandbox_steps[-1]
+    r = client.post(f'/projects/{project_slug}/steps/{last_sb["id"]}/sandbox', json={
+        'code': f'echo {last_sb["expected_output"]}', 'language': 'bash',
+    })
+    assert r.status_code == 200
+    assert r.json()['passed'] is True
+
+    conn = db_conn()
+    bonus = conn.execute(
+        "SELECT points FROM xp_log WHERE source = ?", (f"project_complete:{project_id}",)
+    ).fetchone()
+    conn.execute("DELETE FROM project_progress WHERE project_id = ?", (project_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_complete:{project_id}",))
+    for s in steps:
+        conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{s['id']}",))
+    conn.commit()
+    conn.close()
+
+    assert bonus is not None, "completion bonus XP entry not created"
+    assert bonus['points'] == 75
+
+
+def test_project_completion_bonus_is_idempotent():
+    conn = db_conn()
+    row = conn.execute(
+        "SELECT p.id, p.slug FROM projects p "
+        "JOIN project_steps s ON s.project_id = p.id AND s.type = 'sandbox' "
+        "LIMIT 1"
+    ).fetchone()
+    if not row:
+        pytest.skip("No project with sandbox steps")
+    project_id, project_slug = row['id'], row['slug']
+    steps = [dict(s) for s in conn.execute(
+        "SELECT id, type, expected_output FROM project_steps WHERE project_id = ? ORDER BY order_index",
+        (project_id,)
+    ).fetchall()]
+    sandbox_steps = [s for s in steps if s['type'] == 'sandbox']
+    other_steps = [s for s in steps if s['type'] != 'sandbox']
+
+    conn.execute("DELETE FROM project_progress WHERE project_id = ?", (project_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_complete:{project_id}",))
+    for s in steps:
+        conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{s['id']}",))
+    for s in other_steps:
+        conn.execute(
+            "INSERT OR REPLACE INTO project_progress (project_id, step_id, status) VALUES (?, ?, 'graded')",
+            (project_id, s['id'])
+        )
+    for s in sandbox_steps[:-1]:
+        conn.execute(
+            "INSERT OR REPLACE INTO project_progress (project_id, step_id, status) VALUES (?, ?, 'passed')",
+            (project_id, s['id'])
+        )
+    conn.commit()
+    conn.close()
+
+    payload = {'code': f'echo {sandbox_steps[-1]["expected_output"]}', 'language': 'bash'}
+    last_id = sandbox_steps[-1]["id"]
+    client.post(f'/projects/{project_slug}/steps/{last_id}/sandbox', json=payload)
+    # Second call — all steps still done, bonus must not be doubled
+    conn2 = db_conn()
+    conn2.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{last_id}",))
+    conn2.commit()
+    conn2.close()
+    client.post(f'/projects/{project_slug}/steps/{last_id}/sandbox', json=payload)
+
+    conn = db_conn()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM xp_log WHERE source = ?", (f"project_complete:{project_id}",)
+    ).fetchone()[0]
+    conn.execute("DELETE FROM project_progress WHERE project_id = ?", (project_id,))
+    conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_complete:{project_id}",))
+    for s in steps:
+        conn.execute("DELETE FROM xp_log WHERE source = ?", (f"project_step:{s['id']}",))
+    conn.commit()
+    conn.close()
+
+    assert count == 1, f"completion bonus awarded {count} times, expected 1"
+
+
 # ── Quiz ──────────────────────────────────────────────────────────────────────
 
 QUESTION_KEYS = {'id', 'question', 'options', 'correct_index', 'explanation'}
