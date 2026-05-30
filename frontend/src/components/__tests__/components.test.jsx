@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 // Monaco Editor cannot run in jsdom — stub it out
 vi.mock('@monaco-editor/react', () => ({
@@ -13,7 +13,8 @@ vi.mock('@monaco-editor/react', () => ({
   ),
 }))
 
-// Mock curriculumStore — prevents real fetch calls from Review, Notes, Quiz, CodePlayground
+// Mock curriculumStore — prevents real fetch calls from Review, Notes, Quiz, CodePlayground,
+// InterviewPrep
 vi.mock('../../store/curriculumStore', () => ({
   fetchReviewQueue: vi.fn(),
   logAttempt: vi.fn(),
@@ -21,9 +22,14 @@ vi.mock('../../store/curriculumStore', () => ({
   fetchNote: vi.fn(),
   saveNote: vi.fn(),
   checkExercise: vi.fn(),
+  fetchInterviewQuestions: vi.fn(),
+  evaluateAnswerWithSrs: vi.fn(),
+  fetchInterviewReviewQueue: vi.fn(),
+  selfGradeInterview: vi.fn(),
 }))
 import {
   fetchReviewQueue, logAttempt, fetchQuiz, fetchNote, saveNote,
+  fetchInterviewQuestions,
 } from '../../store/curriculumStore'
 
 // Stub fetch globally for any remaining direct API calls
@@ -377,5 +383,183 @@ describe('Quiz', () => {
     fireEvent.click(screen.getByRole('button', { name: /see results/i }))
 
     await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument())
+  })
+})
+
+// ─── ProjectDetail ────────────────────────────────────────────────────────────
+import ProjectDetail from '../../pages/ProjectDetail'
+
+const MOCK_PROJECT = {
+  slug: 'containerize-python-app',
+  title: 'Containerize a Python App',
+  description: 'Build and containerize a Python web app.',
+  difficulty: 'intermediate',
+  modules: ['Docker', 'Python'],
+  steps: [
+    {
+      id: 1, title: 'Write a Dockerfile', type: 'sandbox',
+      prompt: 'Write a Dockerfile for a Python app.',
+      language: 'bash', status: 'not_started', score: null, answer: null,
+      hints: ['Use FROM python:3.11', 'Set WORKDIR to /app'],
+    },
+    {
+      id: 2, title: 'Run the container', type: 'sandbox',
+      prompt: 'Run the container and verify output.',
+      language: 'bash', status: 'not_started', score: null, answer: null,
+      hints: [],
+    },
+    {
+      id: 3, title: 'Explain Docker layers', type: 'ai',
+      prompt: 'Explain how Docker layers work.',
+      language: null, status: 'not_started', score: null, answer: null,
+      hints: [],
+    },
+    {
+      id: 4, title: 'Push to registry', type: 'sandbox',
+      prompt: 'Push the image to a registry.',
+      language: 'bash', status: 'not_started', score: null, answer: null,
+      hints: [],
+    },
+  ],
+}
+
+function renderProjectDetail(slug = 'containerize-python-app') {
+  return render(
+    <MemoryRouter initialEntries={[`/projects/${slug}`]}>
+      <Routes>
+        <Route path="/projects/:projectSlug" element={<ProjectDetail onXpEarned={() => {}} />} />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+describe('ProjectDetail', () => {
+  it('shows loading state before fetch resolves', () => {
+    global.fetch.mockReturnValue(new Promise(() => {}))
+    renderProjectDetail()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
+  it('renders project title and difficulty badge after fetch', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => expect(screen.getByText('Containerize a Python App')).toBeInTheDocument())
+    expect(screen.getByText('intermediate')).toBeInTheDocument()
+  })
+
+  it('renders all four step titles', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => screen.getByText('Write a Dockerfile'))
+    expect(screen.getByText('Run the container')).toBeInTheDocument()
+    expect(screen.getByText('Explain Docker layers')).toBeInTheDocument()
+    expect(screen.getByText('Push to registry')).toBeInTheDocument()
+  })
+
+  it('first sandbox step is expanded — Run and Check buttons visible', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => screen.getByText('Write a Dockerfile'))
+    expect(screen.getByRole('button', { name: /^run$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^check$/i })).toBeInTheDocument()
+  })
+
+  it('AI step shows Submit for AI Review when expanded', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => screen.getByText('Explain Docker layers'))
+    fireEvent.click(screen.getByText('Explain Docker layers'))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /submit for ai review/i })).toBeInTheDocument()
+    )
+  })
+
+  it('shows Hint button for step with hints', async () => {
+    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    renderProjectDetail()
+    await waitFor(() => screen.getByText('Write a Dockerfile'))
+    expect(screen.getByRole('button', { name: /^hint$/i })).toBeInTheDocument()
+  })
+})
+
+// ─── InterviewPrep ────────────────────────────────────────────────────────────
+import InterviewPrep from '../../pages/InterviewPrep'
+
+const MOCK_MODULES_IP = [{ slug: 'docker', title: 'Docker' }]
+
+const MOCK_INTERVIEW_QUESTION = {
+  id: 10,
+  question: 'What is the difference between a container and a VM?',
+  hints: [],
+  model_answer: 'Containers share the OS kernel while VMs run a full guest OS.',
+}
+
+const MOCK_REVIEW_CARD = {
+  id: 1,
+  question: 'What is a Docker image?',
+  hints: [],
+  module_slug: 'docker',
+  module_title: 'Docker',
+  model_answer: 'A Docker image is a read-only template.',
+}
+
+function renderInterviewPrep(props = {}) {
+  return render(
+    <MemoryRouter initialEntries={['/interview']}>
+      <Routes>
+        <Route path="/interview" element={
+          <InterviewPrep
+            modules={MOCK_MODULES_IP}
+            onXpEarned={() => {}}
+            onInterviewDueChange={() => {}}
+            interviewQueue={null}
+            {...props}
+          />
+        } />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+describe('InterviewPrep', () => {
+  it('renders heading and Start Session button in idle state', () => {
+    renderInterviewPrep()
+    expect(screen.getByText('Interview Prep')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start session/i })).toBeInTheDocument()
+  })
+
+  it('renders Quick Review button', () => {
+    renderInterviewPrep()
+    expect(screen.getByRole('button', { name: /quick review/i })).toBeInTheDocument()
+  })
+
+  it('shows review banner when interviewQueue has items', () => {
+    renderInterviewPrep({ interviewQueue: [MOCK_REVIEW_CARD] })
+    expect(screen.getByRole('button', { name: /practice due/i })).toBeInTheDocument()
+  })
+
+  it('hides review banner when interviewQueue is empty', () => {
+    renderInterviewPrep({ interviewQueue: [] })
+    expect(screen.queryByRole('button', { name: /practice due/i })).toBeNull()
+  })
+
+  it('shows question and Submit Answer after clicking Start Session', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() =>
+      expect(screen.getByText(MOCK_INTERVIEW_QUESTION.question)).toBeInTheDocument()
+    )
+    expect(screen.getByRole('button', { name: /submit answer/i })).toBeInTheDocument()
+  })
+
+  it('shows Reveal Answer button in flashcard mode after Quick Review', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /quick review/i }))
+    await waitFor(() =>
+      expect(screen.getByText(MOCK_INTERVIEW_QUESTION.question)).toBeInTheDocument()
+    )
+    expect(screen.getByRole('button', { name: /reveal answer/i })).toBeInTheDocument()
   })
 })
