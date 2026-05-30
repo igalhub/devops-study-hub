@@ -400,7 +400,7 @@ exercises: 3
 - Module Quiz (dedicated quiz page per module, reachable from ModuleView)
 - Full-text content search (SearchModal, debounced backend, title + body results)
 - Recently visited dropdown (last 5 lessons, persisted in localStorage)
-- Keyboard lesson navigation (`[` / `]` keys)
+- Keyboard lesson navigation (`[` / `]` and `j` / `k` keys); `space` toggles current lesson complete/incomplete (blocked inside inputs and textareas)
 - Module completion banner (fires once on last-lesson completion, includes XP)
 - Stats page (XP history, streak calendar, completion breakdown, quiz weak areas)
 - Sidebar collapse, TOC (auto-generated from `##` headings), reading mode
