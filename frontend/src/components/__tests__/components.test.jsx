@@ -103,6 +103,26 @@ describe('CodePlayground', () => {
     const bashBtn = screen.getByRole('button', { name: /^bash$/i })
     expect(bashBtn).toHaveClass('bg-emerald-600')
   })
+
+  it('renders Show answer button for open-ended exercise (no expectedOutput)', () => {
+    render(<CodePlayground exerciseSlug="linux/cron" exerciseText="Write a cron job" />)
+    expect(screen.getByRole('button', { name: /show answer/i })).toBeInTheDocument()
+  })
+
+  it('does not render Show answer button for validated exercise (has expectedOutput)', () => {
+    render(<CodePlayground expectedOutput="hello" exerciseSlug="linux/cron" exerciseText="echo hello" />)
+    expect(screen.queryByRole('button', { name: /show answer/i })).toBeNull()
+  })
+
+  it('toggles to Hide answer after clicking Show answer', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ answer: '`crontab -e`' }),
+    })
+    render(<CodePlayground exerciseSlug="linux/cron" exerciseText="Write a cron job" />)
+    fireEvent.click(screen.getByRole('button', { name: /show answer/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /hide answer/i })).toBeInTheDocument())
+  })
 })
 
 // ─── SearchModal ──────────────────────────────────────────────────────────────
