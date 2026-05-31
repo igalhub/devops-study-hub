@@ -267,12 +267,18 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-6">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <Link
           to={`/module/${moduleSlug}`}
           className="text-sm text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
         >
           ← {lesson.module_title}
+        </Link>
+        <Link
+          to={`/reference/${moduleSlug}`}
+          className="text-xs text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+        >
+          Reference
         </Link>
       </div>
 

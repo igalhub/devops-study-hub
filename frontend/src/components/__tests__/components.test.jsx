@@ -1014,6 +1014,14 @@ describe('LessonViewer', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
     expect(screen.getByText('Contents')).toBeInTheDocument()
   })
+
+  it('renders Reference link to /reference/:moduleSlug in lesson header', async () => {
+    fetchLesson.mockResolvedValue(MOCK_LESSON_DATA)
+    renderLessonViewer()
+    await waitFor(() => screen.getByRole('heading', { name: 'Cron Jobs' }))
+    const refLink = screen.getByRole('link', { name: /reference/i })
+    expect(refLink).toHaveAttribute('href', '/reference/linux')
+  })
 })
 
 // ─── Hint reveal (HintBox via ProjectDetail) ──────────────────────────────────
