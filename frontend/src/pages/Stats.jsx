@@ -115,7 +115,7 @@ export default function Stats() {
               const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-400' : 'bg-red-400'
               return (
                 <div key={module_slug} className="flex items-center gap-3">
-                  <div className="w-36 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate">{module_title}</div>
+                  <Link to={`/module/${module_slug}`} className="w-36 shrink-0 text-xs text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 truncate transition-colors">{module_title}</Link>
                   <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
                   </div>
@@ -172,7 +172,9 @@ export default function Stats() {
                             {lesson_title}
                           </Link>
                         </td>
-                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{module_title}</td>
+                        <td className="px-4 py-2.5">
+                          <Link to={`/module/${module_slug}`} className="text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{module_title}</Link>
+                        </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

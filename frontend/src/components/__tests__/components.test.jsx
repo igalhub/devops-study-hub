@@ -840,7 +840,9 @@ const MOCK_STATS_DATA = {
   quiz_by_module: [
     { module_title: 'Linux', module_slug: 'linux', total: 5, correct: 4 },
   ],
-  quiz_weak_lessons: [],
+  quiz_weak_lessons: [
+    { lesson_slug: 'filesystem-permissions', lesson_title: 'File System & Permissions', module_slug: 'linux', module_title: 'Linux', accuracy: 40, attempt_count: 5, wrong_count: 3 },
+  ],
 }
 
 describe('Stats', () => {
@@ -869,6 +871,22 @@ describe('Stats', () => {
     render(<MemoryRouter><Stats /></MemoryRouter>)
     await waitFor(() => screen.getByRole('button', { name: /export progress/i }))
     expect(screen.getByRole('button', { name: /export progress/i })).toBeInTheDocument()
+  })
+
+  it('quiz_by_module module name links to /module/:slug', async () => {
+    fetchStats.mockResolvedValue(MOCK_STATS_DATA)
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    await waitFor(() => screen.getByText('Quiz accuracy by module'))
+    const links = screen.getAllByRole('link', { name: 'Linux' })
+    expect(links.some(l => l.getAttribute('href') === '/module/linux')).toBe(true)
+  })
+
+  it('quiz_weak_lessons module name links to /module/:slug', async () => {
+    fetchStats.mockResolvedValue(MOCK_STATS_DATA)
+    render(<MemoryRouter><Stats /></MemoryRouter>)
+    await waitFor(() => screen.getByText('Quiz Weak Areas'))
+    const moduleLinks = screen.getAllByRole('link', { name: 'Linux' })
+    expect(moduleLinks.some(l => l.getAttribute('href') === '/module/linux')).toBe(true)
   })
 
   it('shows no quiz attempts message when quiz_by_module is empty', async () => {
