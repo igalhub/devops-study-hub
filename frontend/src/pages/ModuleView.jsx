@@ -56,6 +56,12 @@ export default function ModuleView({ modules, progress, onProgressUpdate, readin
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => navigate(`/reference/${moduleSlug}`)}
+            className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+          >
+            Reference
+          </button>
+          <button
             onClick={() => navigate(`/module/${moduleSlug}/quiz`)}
             className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
