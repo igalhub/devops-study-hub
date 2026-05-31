@@ -208,7 +208,7 @@ devops-study-hub/
 │   │   │   ├── SearchModal.jsx
 │   │   │   ├── Sidebar.jsx
 │   │   │   ├── ThemeToggle.jsx
-│   │   │   └── __tests__/           # Vitest component tests (99 tests)
+│   │   │   └── __tests__/           # Vitest component tests (101 tests)
 │   │   ├── pages/
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
