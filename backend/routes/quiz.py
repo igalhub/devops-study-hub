@@ -120,6 +120,58 @@ def get_module_quiz(module_slug: str):
     return questions[:20]
 
 
+@router.get("/quiz/weak-areas")
+def get_weak_area_questions():
+    conn = get_conn()
+    try:
+        weak_lessons = conn.execute("""
+            SELECT l.id AS lesson_id
+            FROM (
+                SELECT a.lesson_id,
+                       CAST(ROUND(100.0 * SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END)
+                            / COUNT(a.id)) AS INTEGER) AS accuracy
+                FROM quiz_attempts a
+                GROUP BY a.lesson_id
+                HAVING COUNT(a.id) >= 3
+            ) sub
+            JOIN lessons l ON l.id = sub.lesson_id
+            WHERE sub.accuracy < 70
+            ORDER BY sub.accuracy ASC
+            LIMIT 5
+        """).fetchall()
+
+        if not weak_lessons:
+            return []
+
+        lesson_ids = [r['lesson_id'] for r in weak_lessons]
+        placeholders = ','.join('?' * len(lesson_ids))
+        rows = conn.execute(f"""
+            SELECT q.id, q.question, q.options, q.correct_index, q.explanation,
+                   l.title AS lesson_title, m.title AS module_title
+            FROM quiz_questions q
+            JOIN lessons l ON q.lesson_id = l.id
+            JOIN modules m ON l.module_id = m.id
+            WHERE q.lesson_id IN ({placeholders})
+        """, lesson_ids).fetchall()
+
+        questions = [
+            {
+                'id': r['id'],
+                'question': r['question'],
+                'options': json.loads(r['options']),
+                'correct_index': r['correct_index'],
+                'explanation': r['explanation'],
+                'lesson_title': r['lesson_title'],
+                'module_title': r['module_title'],
+            }
+            for r in rows
+        ]
+        random.shuffle(questions)
+        return questions[:20]
+    finally:
+        conn.close()
+
+
 @router.get("/quiz/{lesson_slug}")
 def get_quiz(lesson_slug: str):
     lesson = _get_lesson_row(lesson_slug)

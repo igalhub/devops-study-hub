@@ -106,6 +106,10 @@ export function fetchModuleQuiz(moduleSlug) {
   return apiFetch(`/quiz/module/${moduleSlug}`)
 }
 
+export function fetchWeakAreaQuestions() {
+  return apiFetch('/quiz/weak-areas')
+}
+
 export function searchContent(q) {
   return apiFetch(`/search?q=${encodeURIComponent(q)}`)
 }

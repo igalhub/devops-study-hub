@@ -145,6 +145,15 @@ export default function Stats() {
               No lessons below 70% accuracy — keep it up!
             </p>
           ) : (
+            <>
+            <div className="mb-3">
+              <Link
+                to="/drill"
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+              >
+                Drill weak areas →
+              </Link>
+            </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
@@ -191,6 +200,7 @@ export default function Stats() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
