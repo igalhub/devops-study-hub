@@ -1284,6 +1284,26 @@ describe('Reference page', () => {
     )
     expect(screen.getByText('Key commands here.')).toBeInTheDocument()
   })
+
+  it('renders filter input after content loads', async () => {
+    global.fetch.mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ content: '# Linux\n\n## File Management\n\nls command\n\n## Networking\n\ncurl command' }),
+    })
+    renderReference()
+    await waitFor(() => screen.getByPlaceholderText(/filter commands/i))
+  })
+
+  it('shows no matching sections when filter has no matches', async () => {
+    global.fetch.mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ content: '# Linux\n\n## File Management\n\nls command' }),
+    })
+    renderReference()
+    await waitFor(() => screen.getByPlaceholderText(/filter commands/i))
+    fireEvent.change(screen.getByPlaceholderText(/filter commands/i), { target: { value: 'zzznomatch' } })
+    await waitFor(() => expect(screen.getByText(/no matching sections/i)).toBeInTheDocument())
+  })
 })
 
 // ─── Drill page ───────────────────────────────────────────────────────────────
