@@ -1235,10 +1235,10 @@ function renderReference(slug = 'linux') {
 }
 
 describe('Reference page', () => {
-  it('shows loading state while fetch is pending', () => {
+  it('shows skeleton while fetch is pending', () => {
     global.fetch.mockReturnValue(new Promise(() => {}))
-    renderReference()
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+    const { container } = renderReference()
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
   })
 
   it('shows not-found message on 404', async () => {
