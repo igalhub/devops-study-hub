@@ -771,6 +771,21 @@ describe('Roadmap', () => {
     )
     expect(screen.getByText('72%')).toBeInTheDocument()
   })
+
+  it('shows no Resume CTA when recent lessons list is empty', () => {
+    getRecentLessons.mockReturnValue([])
+    render(<MemoryRouter><Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} /></MemoryRouter>)
+    expect(screen.queryByText(/resume/i)).not.toBeInTheDocument()
+  })
+
+  it('shows Resume CTA linking to the last visited lesson', () => {
+    getRecentLessons.mockReturnValue([
+      { moduleSlug: 'linux', moduleTitle: 'Linux', lessonSlug: 'cron', lessonTitle: 'Cron Jobs' },
+    ])
+    render(<MemoryRouter><Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} /></MemoryRouter>)
+    const link = screen.getByRole('link', { name: /cron jobs/i })
+    expect(link).toHaveAttribute('href', '/module/linux/lesson/cron')
+  })
 })
 
 // ─── ModuleView ───────────────────────────────────────────────────────────────
