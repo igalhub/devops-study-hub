@@ -210,6 +210,10 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
           automaticLayout: true,
           padding: { top: 8 },
         }}
+        onMount={(editor) => {
+          window._monacoEditors = window._monacoEditors || []
+          window._monacoEditors.push(editor)
+        }}
       />
       <div
         onMouseDown={startResize}
