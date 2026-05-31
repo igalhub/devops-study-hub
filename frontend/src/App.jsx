@@ -137,6 +137,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
               >
                 <span>⌕</span>
                 <span>Search</span>
+                <span className="text-gray-400 dark:text-gray-600 text-[10px]">Ctrl K</span>
               </button>
               <RecentDropdown />
               <BookmarksDropdown />
