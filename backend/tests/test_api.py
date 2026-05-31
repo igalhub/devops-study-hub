@@ -1455,3 +1455,19 @@ def test_sandbox_run_python_syntax_error():
     data = r.json()
     assert data['exit_code'] != 0
     assert data['stderr']
+
+
+# ── Reference cards ────────────────────────────────────────────────────────────
+
+def test_reference_returns_content():
+    r = client.get('/reference/linux')
+    assert r.status_code == 200
+    data = r.json()
+    assert 'content' in data
+    assert isinstance(data['content'], str)
+    assert len(data['content']) > 0
+
+
+def test_reference_404_for_unknown_module():
+    r = client.get('/reference/nonexistent-module-xyz')
+    assert r.status_code == 404
