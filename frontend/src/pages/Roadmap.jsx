@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { getRecentLessons } from '../store/curriculumStore'
 import { readinessColor } from '../utils/readiness'
 
 const GROUP_ORDER = ['Foundations', 'Containers & Infra', 'CI/CD & Cloud', 'Security & APIs', 'Observability']
@@ -42,10 +44,24 @@ export default function Roadmap({ modules, progress, readiness = {} }) {
     group,
     modules: modules.filter(m => m.group === group),
   }))
+  const lastLesson = getRecentLessons()[0]
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-6">Roadmap</h1>
+      {lastLesson && (
+        <Link
+          to={`/module/${lastLesson.moduleSlug}/lesson/${lastLesson.lessonSlug}`}
+          className="flex items-center justify-between mb-6 px-4 py-3 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 hover:border-emerald-400 dark:hover:border-emerald-700 transition-colors group"
+        >
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">Resume</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{lastLesson.lessonTitle}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{lastLesson.moduleTitle}</div>
+          </div>
+          <span className="text-emerald-500 dark:text-emerald-400 text-lg group-hover:translate-x-0.5 transition-transform">→</span>
+        </Link>
+      )}
       {grouped.map(({ group, modules: mods }) => (
         <div key={group} className="mb-8">
           <h2 className="text-xs font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-500 mb-3">{group}</h2>
