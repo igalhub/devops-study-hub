@@ -1221,6 +1221,47 @@ describe('CodePlayground check result', () => {
   })
 })
 
+// ─── Reference page ───────────────────────────────────────────────────────────
+import Reference from '../../pages/Reference'
+
+function renderReference(slug = 'linux') {
+  return render(
+    <MemoryRouter initialEntries={[`/reference/${slug}`]}>
+      <Routes>
+        <Route path="/reference/:moduleSlug" element={<Reference />} />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+describe('Reference page', () => {
+  it('shows loading state while fetch is pending', () => {
+    global.fetch.mockReturnValue(new Promise(() => {}))
+    renderReference()
+    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+  })
+
+  it('shows not-found message on 404', async () => {
+    global.fetch.mockResolvedValue({ status: 404 })
+    renderReference()
+    await waitFor(() =>
+      expect(screen.getByText(/no reference card available/i)).toBeInTheDocument()
+    )
+  })
+
+  it('renders back-link and markdown content after successful fetch', async () => {
+    global.fetch.mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ content: '# Linux Reference\n\nKey commands here.' }),
+    })
+    renderReference()
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /← back to module/i })).toBeInTheDocument()
+    )
+    expect(screen.getByText('Key commands here.')).toBeInTheDocument()
+  })
+})
+
 // ─── Projects page ────────────────────────────────────────────────────────────
 import Projects from '../../pages/Projects'
 
