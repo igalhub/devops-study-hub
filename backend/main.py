@@ -18,6 +18,7 @@ from routes.search import router as search_router
 from routes.stats import router as stats_router
 from routes.export import router as export_router
 from routes.projects import router as projects_router
+from routes.reference import router as reference_router
 from seed_projects import seed_projects
 
 @asynccontextmanager
@@ -50,6 +51,7 @@ app.include_router(search_router)
 app.include_router(stats_router)
 app.include_router(export_router)
 app.include_router(projects_router)
+app.include_router(reference_router)
 
 
 @app.get('/health')

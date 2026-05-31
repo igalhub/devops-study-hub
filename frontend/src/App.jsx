@@ -16,6 +16,7 @@ import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Review from './pages/Review'
 import Stats from './pages/Stats'
+import Reference from './pages/Reference'
 import { useTheme } from './store/themeStore'
 import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue, fetchInterviewReviewQueue, fetchReadiness, fetchExerciseDue } from './store/curriculumStore'
 
@@ -179,6 +180,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
                 <Route path="/stats" element={<Stats />} />
+                <Route path="/reference/:moduleSlug" element={<Reference />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
                   <Suspense fallback={<div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>}>
                     <LessonViewer modules={modules} progress={progress} onProgressUpdate={loadData} />
