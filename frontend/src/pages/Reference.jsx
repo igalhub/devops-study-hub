@@ -21,7 +21,26 @@ export default function Reference() {
       .finally(() => setLoading(false))
   }, [moduleSlug])
 
-  if (loading) return <div className="p-6 text-sm text-gray-400 dark:text-gray-500">Loading…</div>
+  if (loading) return (
+    <div className="p-6 max-w-4xl animate-pulse">
+      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-6" />
+      <div className="h-7 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-8" />
+      {[32, 28, 36, 24].map((w, i) => (
+        <div key={i}>
+          <div className={`h-3 w-${w} bg-gray-200 dark:bg-gray-700 rounded mb-3 mt-${i > 0 ? 8 : 0}`} />
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map(j => (
+              <div key={j} className="flex gap-4">
+                <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-4 flex-1 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg mt-8" />
+    </div>
+  )
 
   if (notFound) return (
     <div className="p-6 max-w-2xl">
