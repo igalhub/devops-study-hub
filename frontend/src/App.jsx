@@ -15,6 +15,7 @@ import InterviewPrep from './pages/InterviewPrep'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Review from './pages/Review'
+import Drill from './pages/Drill'
 import Stats from './pages/Stats'
 import Reference from './pages/Reference'
 import { useTheme } from './store/themeStore'
@@ -179,6 +180,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 <Route path="/interview" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
+                <Route path="/drill" element={<Drill onXpEarned={onXpEarned} />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/reference/:moduleSlug" element={<Reference />} />
                 <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={

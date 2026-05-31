@@ -37,6 +37,7 @@ vi.mock('../../store/curriculumStore', () => ({
   fetchExerciseDue: vi.fn(),
   searchContent: vi.fn(),
   fetchModuleQuiz: vi.fn(),
+  fetchWeakAreaQuestions: vi.fn(),
   getBookmarks: vi.fn().mockReturnValue([]),
   getRecentLessons: vi.fn().mockReturnValue([]),
 }))
@@ -51,7 +52,7 @@ import {
   fetchReviewQueue, logAttempt, fetchQuiz, fetchNote, saveNote,
   fetchInterviewQuestions, evaluateAnswerWithSrs, selfGradeInterview,
   fetchStats, fetchLesson, fetchExerciseDue,
-  fetchModuleQuiz, getBookmarks, getRecentLessons,
+  fetchModuleQuiz, fetchWeakAreaQuestions, getBookmarks, getRecentLessons,
   checkExercise, markLessonComplete,
 } from '../../store/curriculumStore'
 
@@ -1282,6 +1283,38 @@ describe('Reference page', () => {
       expect(screen.getByRole('link', { name: /← back to module/i })).toBeInTheDocument()
     )
     expect(screen.getByText('Key commands here.')).toBeInTheDocument()
+  })
+})
+
+// ─── Drill page ───────────────────────────────────────────────────────────────
+import Drill from '../../pages/Drill'
+
+const MOCK_DRILL_QUESTION = {
+  id: 99, question: 'What does ls -la do?',
+  options: ['List files', 'Delete files', 'Copy files', 'Move files'],
+  correct_index: 0, explanation: 'ls -la lists all files with details.',
+  lesson_title: 'Filesystem', module_title: 'Linux',
+}
+
+describe('Drill page', () => {
+  it('shows loading while fetchWeakAreaQuestions is pending', () => {
+    fetchWeakAreaQuestions.mockReturnValue(new Promise(() => {}))
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+  })
+
+  it('shows no-weak-areas message when fetch returns empty list', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([])
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText(/no weak areas yet/i)).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /back to stats/i })).toBeInTheDocument()
+  })
+
+  it('shows question count and Start Drill button when weak questions exist', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByRole('button', { name: /start drill/i })).toBeInTheDocument())
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 })
 

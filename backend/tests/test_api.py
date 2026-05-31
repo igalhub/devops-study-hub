@@ -1471,3 +1471,20 @@ def test_reference_returns_content():
 def test_reference_404_for_unknown_module():
     r = client.get('/reference/nonexistent-module-xyz')
     assert r.status_code == 404
+
+
+# ── Weak-area drill ────────────────────────────────────────────────────────────
+
+def test_weak_area_questions_returns_list():
+    r = client.get('/quiz/weak-areas')
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+def test_weak_area_questions_have_required_keys():
+    r = client.get('/quiz/weak-areas')
+    assert r.status_code == 200
+    for q in r.json():
+        assert {'id', 'question', 'options', 'correct_index', 'explanation',
+                'lesson_title', 'module_title'} <= set(q.keys())
+        assert isinstance(q['options'], list)
