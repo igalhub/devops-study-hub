@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -34,6 +34,7 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
   const [checking, setChecking] = useState(false)
   const [answer, setAnswer] = useState(null)
   const [fetchingAnswer, setFetchingAnswer] = useState(false)
+  const editorRef = useRef(null)
   const [editorHeight, setEditorHeight] = useState(() => {
     const saved = localStorage.getItem('playground-editor-height')
     return saved ? Math.max(120, Math.min(800, Number(saved))) : 240
@@ -42,6 +43,14 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
   useEffect(() => {
     localStorage.setItem('playground-editor-height', String(editorHeight))
   }, [editorHeight])
+
+  useEffect(() => {
+    return () => {
+      if (editorRef.current && window._monacoEditors) {
+        window._monacoEditors = window._monacoEditors.filter(e => e !== editorRef.current)
+      }
+    }
+  }, [])
 
   const startResize = useCallback((e) => {
     e.preventDefault()
@@ -211,6 +220,7 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
           padding: { top: 8 },
         }}
         onMount={(editor) => {
+          editorRef.current = editor
           window._monacoEditors = window._monacoEditors || []
           window._monacoEditors.push(editor)
         }}
