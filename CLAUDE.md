@@ -34,6 +34,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Projects** — 10 multi-step interview-ready projects mixing modules; steps are Sandbox (stdout check, 10 XP) or AI Review (Claude grades Weak/Adequate/Strong, 8/15 XP); 75 XP completion bonus per project
 - **Progressive Hints** — amber "Hint" button on exercises (CodePlayground), interview questions (InterviewPrep), and project steps (ProjectDetail); reveals 2 hints one at a time, resets on question change; hints stored as markdown `hint:` lines (exercises) or JSON column (interview/projects)
 - **Show Answer** — gray "Show answer / Hide answer" toggle on open-ended exercises (no `expected_output`); calls `POST /sandbox/answer` with lesson slug + exercise text; Haiku generates a full solution rendered as markdown; validated exercises (with `expected_output`) never show this button
+- **Reference Cards** — per-module command cheat sheets covering key commands, flags, and patterns; accessible via "Reference" button on ModuleView header; route `/reference/:moduleSlug`; served from `reference/<slug>.md` files via `GET /reference/{module_slug}`; 23 cards covering all modules; 404-graceful for missing cards
 
 ### Quick Check authoring rules
 - **Python must be single-line** — markdown list indentation (3 spaces) is captured by the parser and causes `IndentationError` on multi-line blocks. Chain statements with semicolons instead.

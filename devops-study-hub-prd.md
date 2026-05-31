@@ -18,7 +18,7 @@ integrated practice environments.
 - Curriculum: 23 modules across 5 groups — Foundations, Containers & Infra,
   CI/CD & Cloud, Security & APIs, Observability (see Module Content Outline)
 - Features: AI Tutor, Code Sandbox, Spaced Repetition Quizzes,
-  Roadmap View, Interview Prep Mode, Projects
+  Roadmap View, Interview Prep Mode, Projects, Reference Cards
 - Study tracking, content planning, daily session management
 
 ### Out
@@ -216,6 +216,7 @@ devops-study-hub/
 │   │   │   ├── ModuleView.jsx
 │   │   │   ├── ProjectDetail.jsx # Multi-step project detail + sandbox/AI steps
 │   │   │   ├── Projects.jsx      # Projects list page
+│   │   │   ├── Reference.jsx     # Per-module command reference card (/reference/:slug)
 │   │   │   ├── Review.jsx        # Spaced repetition review queue
 │   │   │   ├── Roadmap.jsx
 │   │   │   └── Stats.jsx
@@ -259,7 +260,9 @@ devops-study-hub/
 │       ├── search.py        # Full-text content search
 │       ├── stats.py         # Aggregate stats endpoint
 │       ├── export.py        # Progress export (JSON backup)
-│       └── projects.py      # Projects CRUD + sandbox/AI-grade step endpoints
+│       ├── projects.py      # Projects CRUD + sandbox/AI-grade step endpoints
+│       └── reference.py     # Reference card fetch (GET /reference/{slug})
+├── reference/               # 23 .md command cheat sheets (one per module)
 ├── content/                 # 91 .md lesson files
 │   ├── linux/               # 6 lessons
 │   ├── python/              # 5 lessons
@@ -437,3 +440,10 @@ exercises: 3
 - Group-filter pill row in SearchModal: "All" + one pill per curriculum group that has results for the current query; only groups with matching results appear
 - Clicking a group pill narrows results to that group's modules (client-side filter via slug→group map); clicking an active pill or switching query resets to All
 - No backend changes; works across both title-match and content-search results
+
+### Phase 11 — Reference Cards ✅
+- 23 per-module command cheat sheets in `reference/<slug>.md` — key commands, flags, and patterns per module
+- Backend: `GET /reference/{module_slug}` reads and returns the markdown file; 404 if no card exists
+- Frontend: `Reference.jsx` fetches and renders markdown via ReactMarkdown + remarkGfm; prose-styled tables, inline code, and code blocks
+- Route `/reference/:moduleSlug` in App.jsx; entry point is "Reference" button on ModuleView header
+- Files live in `reference/` (not `content/`) to avoid the pre-commit 100-line minimum hook
