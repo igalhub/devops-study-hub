@@ -42,6 +42,11 @@ async function openExercise(page, index) {
 
 // Replaces all editor content with the given text.
 async function typeInEditor(page, text) {
+  // Wait for onMount to push the editor instance before using the API.
+  await page.waitForFunction(
+    () => window._monacoEditors && window._monacoEditors.length > 0,
+    { timeout: 5000 }
+  )
   // Use Monaco's API to set value directly — reliable, fires onChange synchronously.
   const set = await page.evaluate((code) => {
     const editors = window._monacoEditors
@@ -109,12 +114,16 @@ test('mark lesson complete awards XP', async ({ page }) => {
 
 test('lesson completion persists after reload', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  const markDone = page.locator('button:has-text("Mark done")')
+  // Wait for progress to load, then mark complete if not already done
+  await page.locator('button:has-text("Mark as complete")')
+    .or(page.locator('text=✓ Lesson complete')).first()
+    .waitFor({ state: 'visible', timeout: 5000 })
+  const markDone = page.locator('button:has-text("Mark as complete")')
   if (await markDone.count() > 0) await markDone.click()
   await page.waitForTimeout(600)
   await page.reload()
-  // After reload the lesson should show as done — no "Mark done" button
-  await expect(page.locator('button:has-text("Mark done")')).toHaveCount(0)
+  // After reload the lesson should show as done — no "Mark as complete" button
+  await expect(page.locator('button:has-text("Mark as complete")')).toHaveCount(0)
 })
 
 // ── 3. Code sandbox ───────────────────────────────────────────────────────────
@@ -243,9 +252,10 @@ test('AI Tutor panel and input are present on lesson page', async ({ page }) => 
 test('notes save and reload after navigation', async ({ page }) => {
   await page.goto(`${BASE}/module/bash/lesson/script-basics`)
   await page.locator('button:has-text("Notes")').first().click()
+  await page.waitForLoadState('networkidle', { timeout: 3000 }) // let fetchNote complete before filling
   const noteText = `e2e-${Date.now()}`
   await page.getByPlaceholder('Your notes for this lesson…').fill(noteText)
-  await page.waitForTimeout(1500) // auto-save debounce
+  await expect(page.locator('text=✓ Saved')).toBeVisible({ timeout: 3000 }) // wait for save confirmation
   await page.reload()
   await page.locator('button:has-text("Notes")').first().click()
   await expect(page.locator(`text=${noteText}`)).toBeVisible({ timeout: 3000 })
