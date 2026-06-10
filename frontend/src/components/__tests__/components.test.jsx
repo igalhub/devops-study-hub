@@ -20,6 +20,9 @@ vi.mock('@monaco-editor/react', () => ({
 
 // Mock curriculumStore — prevents real fetch calls from all components and pages
 vi.mock('../../store/curriculumStore', () => ({
+  apiFetch: (path, options) =>
+    fetch(`http://localhost:8000${path}`, options)
+      .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
   fetchReviewQueue: vi.fn(),
   logAttempt: vi.fn(),
   fetchQuiz: vi.fn(),
