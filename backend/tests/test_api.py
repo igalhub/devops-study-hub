@@ -358,15 +358,6 @@ def test_exercise_srs_correct_increases_interval():
     assert row['interval_days'] > 2
 
 
-def test_exercise_srs_due_endpoint():
-    r = client.get('/sandbox/exercises/due')
-    assert r.status_code == 200
-    data = r.json()
-    assert 'due_count' in data
-    assert 'due_keys' in data
-    assert isinstance(data['due_count'], int)
-    assert isinstance(data['due_keys'], list)
-    assert data['due_count'] == len(data['due_keys'])
 
 
 # ── Interview self-grade ──────────────────────────────────────────────────────

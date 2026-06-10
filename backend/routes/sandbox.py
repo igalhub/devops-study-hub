@@ -225,21 +225,6 @@ def get_exercise_answer(request: AnswerRequest):
     return {'answer': answer}
 
 
-@router.get('/sandbox/exercises/due')
-def exercises_due():
-    today = __import__('datetime').date.today().isoformat()
-    conn = get_conn()
-    try:
-        rows = conn.execute(
-            "SELECT exercise_key FROM exercise_srs_schedule WHERE next_review <= ?",
-            (today,)
-        ).fetchall()
-    finally:
-        conn.close()
-    due_keys = [row['exercise_key'] for row in rows]
-    return {'due_count': len(due_keys), 'due_keys': due_keys}
-
-
 @router.get('/sandbox/completed/{lesson_slug}')
 def completed_exercises(lesson_slug: str):
     conn = get_conn()
