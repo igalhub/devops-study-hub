@@ -7,6 +7,8 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson, addBookmark, removeBookmark, isBookmarked } from '../store/curriculumStore'
 import CodePlayground from '../components/CodePlayground'
 
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
 function HintBox({ hints }) {
   const [hintCount, setHintCount] = useState(0)
   if (!hints || hints.length === 0) return null
@@ -121,7 +123,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
       })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
-    fetch(`http://localhost:8000/sandbox/completed/${lessonSlug}`)
+    fetch(`${API}/sandbox/completed/${lessonSlug}`)
       .then(r => r.json())
       .then(d => { if (!cancelled) setCompletedExercises(new Set(d.completed)) })
       .catch(() => {})
