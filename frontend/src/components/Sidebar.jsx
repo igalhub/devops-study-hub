@@ -10,7 +10,7 @@ function Badge({ status, pct }) {
   return null
 }
 
-export default function Sidebar({ modules, progress, reviewDue = 0, exerciseDue = 0, interviewDue = 0 }) {
+export default function Sidebar({ modules, progress }) {
   const moduleMatch = useMatch('/module/:moduleSlug')
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const moduleSlug = (moduleMatch || lessonMatch)?.params?.moduleSlug
@@ -126,11 +126,6 @@ export default function Sidebar({ modules, progress, reviewDue = 0, exerciseDue 
             }`}
           >
             <span className="truncate">Interview Prep</span>
-            {interviewDue > 0 && (
-              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-medium">
-                {interviewDue}
-              </span>
-            )}
           </Link>
         </div>
         <div className="mb-1 border-t border-gray-200 dark:border-gray-700 pt-2">
@@ -146,16 +141,6 @@ export default function Sidebar({ modules, progress, reviewDue = 0, exerciseDue 
             }`}
           >
             <span className="truncate">Spaced Review</span>
-            {reviewDue > 0 && (
-              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 font-medium">
-                {reviewDue}
-              </span>
-            )}
-            {exerciseDue > 0 && (
-              <span className={`${reviewDue > 0 ? '' : 'ml-auto'} text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-medium`}>
-                {exerciseDue} ex
-              </span>
-            )}
           </Link>
           <Link
             to="/stats"

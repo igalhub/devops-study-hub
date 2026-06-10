@@ -19,11 +19,11 @@ import Drill from './pages/Drill'
 import Stats from './pages/Stats'
 import Reference from './pages/Reference'
 import { useTheme } from './store/themeStore'
-import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchReviewQueue, fetchInterviewReviewQueue, fetchReadiness, fetchExerciseDue } from './store/curriculumStore'
+import { fetchModules, fetchProgress, fetchXp, fetchStreak, fetchInterviewReviewQueue, fetchReadiness } from './store/curriculumStore'
 
 const LessonViewer = lazy(() => import('./pages/LessonViewer'))
 
-function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue, exerciseDue, interviewDue, interviewQueue, readiness, onXpEarned, onInterviewDueChange }) {
+function AppLayout({ modules, progress, loadData, loading, xp, streak, interviewQueue, readiness, onXpEarned }) {
   const { dark, toggle } = useTheme()
   const lessonMatch = useMatch('/module/:moduleSlug/lesson/:lessonSlug')
   const [rightTab, setRightTab] = useState('tutor')
@@ -117,7 +117,7 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
       {searchOpen && <SearchModal modules={modules} progress={progress} onClose={() => setSearchOpen(false)} />}
       <div className={`flex h-screen overflow-hidden bg-stone-100 dark:bg-gray-900 ${resizing ? 'select-none' : ''}`}>
         <div className={`shrink-0 overflow-hidden ${resizing ? '' : 'transition-[width] duration-200'}`} style={{ width: sidebarOpen ? sidebarWidth : 0 }}>
-          <Sidebar modules={modules} progress={progress} reviewDue={reviewDue} exerciseDue={exerciseDue} interviewDue={interviewDue} />
+          <Sidebar modules={modules} progress={progress} />
         </div>
         {sidebarOpen && (
           <div onMouseDown={startSidebarResize} className="w-1 shrink-0 cursor-col-resize hover:bg-emerald-400 dark:hover:bg-emerald-600 bg-transparent transition-colors" title="Drag to resize sidebar" />
@@ -177,8 +177,8 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, reviewDue
                 } />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/projects/:projectSlug" element={<ProjectDetail onXpEarned={onXpEarned} />} />
-                <Route path="/interview" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
-                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} onInterviewDueChange={onInterviewDueChange} interviewQueue={interviewQueue} />} />
+                <Route path="/interview" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} interviewQueue={interviewQueue} />} />
+                <Route path="/interview/:moduleSlug" element={<InterviewPrep modules={modules} onXpEarned={onXpEarned} interviewQueue={interviewQueue} />} />
                 <Route path="/review" element={<Review onXpEarned={onXpEarned} onComplete={loadData} />} />
                 <Route path="/drill" element={<Drill onXpEarned={onXpEarned} />} />
                 <Route path="/stats" element={<Stats />} />
@@ -234,30 +234,25 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [xp, setXp] = useState(0)
   const [streak, setStreak] = useState({ current: 0, longest: 0, today_done: false })
-  const [reviewDue, setReviewDue] = useState(0)
-  const [exerciseDue, setExerciseDue] = useState(0)
-  const [interviewDue, setInterviewDue] = useState(0)
   const [interviewQueue, setInterviewQueue] = useState(null)
   const [readiness, setReadiness] = useState({})
 
   const loadData = async () => {
     try {
-      const [mods, prog, xpData, streakData, reviewQueue] = await Promise.all([
-        fetchModules(), fetchProgress(), fetchXp(), fetchStreak(), fetchReviewQueue()
+      const [mods, prog, xpData, streakData] = await Promise.all([
+        fetchModules(), fetchProgress(), fetchXp(), fetchStreak()
       ])
       setModules(mods)
       setProgress(prog)
       setXp(xpData.xp_total)
       setStreak({ current: streakData.current_streak, longest: streakData.longest_streak, today_done: streakData.today_done })
-      setReviewDue(reviewQueue.length)
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
       setLoading(false)
     }
     // Fetched separately so a failure here does not blank the whole app
-    fetchInterviewReviewQueue().then(q => { setInterviewDue(q.length); setInterviewQueue(q) }).catch(() => { setInterviewQueue([]) })
-    fetchExerciseDue().then(d => setExerciseDue(d.due_count)).catch(() => {})
+    fetchInterviewReviewQueue().then(q => setInterviewQueue(q)).catch(() => { setInterviewQueue([]) })
     fetchReadiness().then(list => {
       const dict = {}
       list.forEach(r => { dict[r.module_slug] = r })
@@ -266,7 +261,6 @@ export default function App() {
   }
 
   const handleXpEarned = (total) => setXp(total)
-  const handleInterviewDueChange = (count) => setInterviewDue(count)
 
   useEffect(() => { loadData() }, [])
 
@@ -279,13 +273,9 @@ export default function App() {
         loading={loading}
         xp={xp}
         streak={streak}
-        reviewDue={reviewDue}
-        exerciseDue={exerciseDue}
-        interviewDue={interviewDue}
         interviewQueue={interviewQueue}
         readiness={readiness}
         onXpEarned={handleXpEarned}
-        onInterviewDueChange={handleInterviewDueChange}
       />
     </BrowserRouter>
   )

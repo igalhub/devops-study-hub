@@ -40,7 +40,7 @@ const SCORE_STYLE = {
   Weak: 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700',
 }
 
-export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChange, interviewQueue: queueProp = null }) {
+export default function InterviewPrep({ modules, onXpEarned, interviewQueue: queueProp = null }) {
   const { moduleSlug: urlSlug } = useParams()
 
   const initialSlug = urlSlug && modules.find(m => m.slug === urlSlug)
@@ -310,8 +310,8 @@ export default function InterviewPrep({ modules, onXpEarned, onInterviewDueChang
     setReviewResults([])
     setError(null)
     fetchInterviewReviewQueue()
-      .then(q => { setReviewQueue(q); if (onInterviewDueChange) onInterviewDueChange(q.length) })
-      .catch(() => { setReviewQueue([]); if (onInterviewDueChange) onInterviewDueChange(0) })
+      .then(q => setReviewQueue(q))
+      .catch(() => setReviewQueue([]))
   }
 
   // ---- Review session renders ----------------------------------------------
