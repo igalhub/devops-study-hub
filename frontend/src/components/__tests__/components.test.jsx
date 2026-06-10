@@ -476,7 +476,9 @@ describe('Quiz', () => {
     fireEvent.click(screen.getByRole('button', { name: /start quiz/i }))
 
     await waitFor(() => screen.getByRole('button', { name: /A\. ls/ }))
-    fireEvent.click(screen.getByRole('button', { name: /A\. ls/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /A\. ls/ }))
+    })
 
     // All option buttons should be disabled once revealed
     const optionBtns = screen.getAllByRole('button', { name: /^[A-D]\./ })
@@ -954,10 +956,10 @@ describe('LessonViewer', () => {
     fetchExerciseDue.mockResolvedValue({ due_keys: [], due_count: 0 })
   })
 
-  it('shows skeleton loading while fetchLesson is pending', () => {
+  it('shows skeleton loading while fetchLesson is pending', async () => {
     fetchLesson.mockReturnValue(new Promise(() => {}))
     const { container } = renderLessonViewer()
-    expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
+    await waitFor(() => expect(container.querySelector('.animate-pulse')).toBeInTheDocument())
   })
 
   it('shows Lesson not found when fetchLesson rejects with 404', async () => {
