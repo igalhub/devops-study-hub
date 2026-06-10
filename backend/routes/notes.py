@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from db import get_conn
@@ -47,7 +47,7 @@ def save_note(lesson_slug: str, body: NoteBody):
                ON CONFLICT(lesson_id) DO UPDATE SET
                    content = excluded.content,
                    updated_at = excluded.updated_at""",
-            (lesson_id, body.content, datetime.utcnow().isoformat()),
+            (lesson_id, body.content, datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
         return {"content": body.content}
