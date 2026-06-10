@@ -4,20 +4,26 @@ An interactive, self-hosted study tool for learning DevOps. Covers 23 modules an
 
 ## Features
 
+### Learning & Practice
 - **AI Tutor** — ask questions in context of the current lesson (streaming Claude responses)
-- **Code Sandbox** — write and run Bash, Python, and YAML inline (real subprocess execution)
-- **Spaced Repetition Quizzes** — SM-2 algorithm, 5 AI-generated questions per lesson
-- **Interview Prep** — 8 scenario-based questions per module with AI feedback
-- **Roadmap** — visual skill tree showing completion across all modules
-- **Progress tracking** — XP, daily streaks, per-lesson completion
-- **Content search** — full-text search across lesson titles and body content
-- **Lesson notes** — per-lesson textarea, auto-saved to backend
+- **Code Sandbox** — write and run Bash, Python, and YAML inline with real subprocess execution; validated exercises have a Check button that awards XP on correct output
+- **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson; weak-area drill across all modules on the Stats page
+- **Interview Prep** — 8 scenario-based questions per module with AI feedback (Weak/Adequate/Strong); Quick Review flashcard mode with pre-seeded model answers; Mock Interview mode with a 15-minute countdown and results card
+- **Projects** — 10 multi-step interview-ready projects (containerization, Kubernetes, IaC, GitOps, ELK, Helm, and more); steps are either sandbox-validated or AI-graded; 75 XP completion bonus per project
+- **Progressive Hints** — 2 hints revealed one at a time on exercises, interview questions, and project steps
+- **Show Answer** — AI-generated solution panel for open-ended exercises
+- **Reference Cards** — per-module command cheat sheets for all 23 modules; accessible from each module header
+
+### Navigation & Tracking
+- **Roadmap** — visual skill tree with per-module job readiness scores (completion 40% + quiz accuracy 40% + interview coverage 20%)
+- **Stats page** — XP timeline, streak calendar, per-module completion breakdown, quiz weak areas drill
+- **Progress export** — download a full JSON backup of progress, XP log, quiz attempts, notes, interview history, and SRS state
+- **Content search** — full-text search across lesson titles and body content, filterable by curriculum group
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Recently visited** — last 5 lessons, one-click return from the header
-- **Stats page** — XP timeline, streak calendar, per-module completion breakdown
-- **Module quiz** — dedicated quiz page per module
+- **Lesson notes** — per-lesson textarea, auto-saved to backend
 - **Reading mode** — distraction-free view; auto-generated TOC for long lessons
-- **Keyboard navigation** — `[` / `]` keys move between lessons within a module
+- **Keyboard navigation** — `[` / `]` keys move between lessons; `space` toggles lesson complete
 
 ## Prerequisites
 
@@ -90,8 +96,9 @@ devops-study-hub/
 ├── backend/           # FastAPI + SQLite
 │   ├── seed.py        # Seeds modules & lessons from content/
 │   ├── seed_curriculum.py  # Expands content + generates quiz questions
-│   └── seed_interview.py   # Generates interview questions
-└── content/           # Markdown lesson files (91 lessons across 23 modules)
+│   └── seed_interview.py   # Generates interview questions + model answers
+├── content/           # Markdown lesson files (91 lessons across 23 modules)
+└── reference/         # Per-module command cheat sheets (23 modules)
 ```
 
 The frontend fetches from the backend API (`localhost:8000` by default). The AI Tutor and interview evaluator stream responses from Claude. The code sandbox executes Bash/Python in subprocesses and validates YAML via PyYAML — local only, no container isolation.
