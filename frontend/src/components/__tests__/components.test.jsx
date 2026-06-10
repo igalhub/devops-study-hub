@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
+const ROUTER_FUTURE = { v7_startTransition: true, v7_relativeSplatPath: true }
+function TestRouter({ children, ...props }) {
+  return <MemoryRouter future={ROUTER_FUTURE} {...props}>{children}</MemoryRouter>
+}
+
 // Monaco Editor cannot run in jsdom — stub it out
 vi.mock('@monaco-editor/react', () => ({
   default: ({ value, onChange }) => (
@@ -170,18 +175,18 @@ const MOCK_MODULES = [
 describe('SearchModal', () => {
   it('renders the search input', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 
   it('filters lessons by title when query matches', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'systemd' } })
     expect(screen.getByText('Systemd')).toBeInTheDocument()
@@ -190,9 +195,9 @@ describe('SearchModal', () => {
 
   it('shows group filter pills when results span multiple groups', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
     expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
@@ -202,9 +207,9 @@ describe('SearchModal', () => {
 
   it('filters results to selected group when pill is clicked', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
     fireEvent.click(screen.getByRole('button', { name: 'Foundations' }))
@@ -214,9 +219,9 @@ describe('SearchModal', () => {
 
   it('restores all results when All pill is clicked after group filter', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
     fireEvent.click(screen.getByRole('button', { name: 'Foundations' }))
@@ -227,9 +232,9 @@ describe('SearchModal', () => {
 
   it('resets group filter when query changes', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'cron' } })
     fireEvent.click(screen.getByRole('button', { name: 'Foundations' }))
@@ -240,9 +245,9 @@ describe('SearchModal', () => {
 
   it('does not show pills when query is empty', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <SearchModal modules={MOCK_MODULES} onClose={() => {}} />
-      </MemoryRouter>
+      </TestRouter>
     )
     expect(screen.queryByRole('button', { name: 'All' })).toBeNull()
   })
@@ -341,13 +346,13 @@ const SIDEBAR_MODULE = {
 
 function renderSidebar(props = {}) {
   return render(
-    <MemoryRouter>
+    <TestRouter>
       <Sidebar
         modules={[SIDEBAR_MODULE]}
         progress={{}}
         {...props}
       />
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -525,11 +530,11 @@ const MOCK_PROJECT = {
 
 function renderProjectDetail(slug = 'containerize-python-app') {
   return render(
-    <MemoryRouter initialEntries={[`/projects/${slug}`]}>
+    <TestRouter initialEntries={[`/projects/${slug}`]}>
       <Routes>
         <Route path="/projects/:projectSlug" element={<ProjectDetail onXpEarned={() => {}} />} />
       </Routes>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -605,7 +610,7 @@ const MOCK_REVIEW_CARD = {
 
 function renderInterviewPrep(props = {}) {
   return render(
-    <MemoryRouter initialEntries={['/interview']}>
+    <TestRouter initialEntries={['/interview']}>
       <Routes>
         <Route path="/interview" element={
           <InterviewPrep
@@ -616,7 +621,7 @@ function renderInterviewPrep(props = {}) {
           />
         } />
       </Routes>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -856,7 +861,7 @@ describe('Roadmap', () => {
 
   it('shows no Resume CTA when recent lessons list is empty', () => {
     getRecentLessons.mockReturnValue([])
-    render(<MemoryRouter><Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} /></MemoryRouter>)
+    render(<TestRouter><Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} /></TestRouter>)
     expect(screen.queryByText(/resume/i)).not.toBeInTheDocument()
   })
 
@@ -864,7 +869,7 @@ describe('Roadmap', () => {
     getRecentLessons.mockReturnValue([
       { moduleSlug: 'linux', moduleTitle: 'Linux', lessonSlug: 'cron', lessonTitle: 'Cron Jobs' },
     ])
-    render(<MemoryRouter><Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} /></MemoryRouter>)
+    render(<TestRouter><Roadmap modules={MOCK_ROADMAP_MODULES} progress={{}} /></TestRouter>)
     const link = screen.getByRole('link', { name: /cron jobs/i })
     expect(link).toHaveAttribute('href', '/module/linux/lesson/cron')
   })
@@ -883,13 +888,13 @@ const MOCK_MODULE_MV = {
 
 function renderModuleView(slug = 'linux', progress = {}) {
   return render(
-    <MemoryRouter initialEntries={[`/module/${slug}`]}>
+    <TestRouter initialEntries={[`/module/${slug}`]}>
       <Routes>
         <Route path="/module/:moduleSlug" element={
           <ModuleView modules={[MOCK_MODULE_MV]} progress={progress} onProgressUpdate={() => {}} />
         } />
       </Routes>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -945,19 +950,19 @@ const MOCK_STATS_DATA = {
 describe('Stats', () => {
   it('shows loading state while fetchStats is pending', () => {
     fetchStats.mockReturnValue(new Promise(() => {}))
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('shows error state when fetchStats rejects', async () => {
     fetchStats.mockRejectedValue(new Error('network error'))
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     await waitFor(() => expect(screen.getByText('Failed to load stats.')).toBeInTheDocument())
   })
 
   it('renders summary cards with correct values', async () => {
     fetchStats.mockResolvedValue(MOCK_STATS_DATA)
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     await waitFor(() => expect(screen.getByText('250 XP')).toBeInTheDocument())
     expect(screen.getByText('70%')).toBeInTheDocument()
     expect(screen.getByText('3 days')).toBeInTheDocument()
@@ -965,14 +970,14 @@ describe('Stats', () => {
 
   it('renders Export progress button after data loads', async () => {
     fetchStats.mockResolvedValue(MOCK_STATS_DATA)
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     await waitFor(() => screen.getByRole('button', { name: /export progress/i }))
     expect(screen.getByRole('button', { name: /export progress/i })).toBeInTheDocument()
   })
 
   it('quiz_by_module module name links to /module/:slug', async () => {
     fetchStats.mockResolvedValue(MOCK_STATS_DATA)
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     await waitFor(() => screen.getByText('Quiz accuracy by module'))
     const links = screen.getAllByRole('link', { name: 'Linux' })
     expect(links.some(l => l.getAttribute('href') === '/module/linux')).toBe(true)
@@ -980,7 +985,7 @@ describe('Stats', () => {
 
   it('quiz_weak_lessons module name links to /module/:slug', async () => {
     fetchStats.mockResolvedValue(MOCK_STATS_DATA)
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     await waitFor(() => screen.getByText('Quiz Weak Areas'))
     const moduleLinks = screen.getAllByRole('link', { name: 'Linux' })
     expect(moduleLinks.some(l => l.getAttribute('href') === '/module/linux')).toBe(true)
@@ -992,7 +997,7 @@ describe('Stats', () => {
       quiz_by_module: [],
       summary: { ...MOCK_STATS_DATA.summary, quiz_attempts: 0 },
     })
-    render(<MemoryRouter><Stats /></MemoryRouter>)
+    render(<TestRouter><Stats /></TestRouter>)
     await waitFor(() => expect(screen.getByText(/no quiz attempts yet/i)).toBeInTheDocument())
   })
 })
@@ -1019,13 +1024,13 @@ const MOCK_MODULES_LV = [
 
 function renderLessonViewer(slug = 'cron', progress = {}) {
   return render(
-    <MemoryRouter initialEntries={[`/module/linux/lesson/${slug}`]}>
+    <TestRouter initialEntries={[`/module/linux/lesson/${slug}`]}>
       <Routes>
         <Route path="/module/:moduleSlug/lesson/:lessonSlug" element={
           <LessonViewer modules={MOCK_MODULES_LV} progress={progress} onProgressUpdate={() => {}} />
         } />
       </Routes>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -1148,7 +1153,7 @@ import BookmarksDropdown from '../BookmarksDropdown'
 describe('BookmarksDropdown', () => {
   it('renders nothing when bookmarks list is empty', () => {
     getBookmarks.mockReturnValue([])
-    const { container } = render(<MemoryRouter><BookmarksDropdown /></MemoryRouter>)
+    const { container } = render(<TestRouter><BookmarksDropdown /></TestRouter>)
     expect(container.firstChild).toBeNull()
   })
 
@@ -1156,7 +1161,7 @@ describe('BookmarksDropdown', () => {
     getBookmarks.mockReturnValue([
       { lessonSlug: 'cron', lessonTitle: 'Cron Jobs', moduleSlug: 'linux', moduleTitle: 'Linux' },
     ])
-    render(<MemoryRouter><BookmarksDropdown /></MemoryRouter>)
+    render(<TestRouter><BookmarksDropdown /></TestRouter>)
     expect(screen.getByRole('button', { name: /saved/i })).toBeInTheDocument()
   })
 })
@@ -1167,7 +1172,7 @@ import RecentDropdown from '../RecentDropdown'
 describe('RecentDropdown', () => {
   it('renders nothing when recent list is empty', () => {
     getRecentLessons.mockReturnValue([])
-    const { container } = render(<MemoryRouter><RecentDropdown /></MemoryRouter>)
+    const { container } = render(<TestRouter><RecentDropdown /></TestRouter>)
     expect(container.firstChild).toBeNull()
   })
 
@@ -1175,7 +1180,7 @@ describe('RecentDropdown', () => {
     getRecentLessons.mockReturnValue([
       { lessonSlug: 'cron', lessonTitle: 'Cron Jobs', moduleSlug: 'linux', moduleTitle: 'Linux' },
     ])
-    render(<MemoryRouter><RecentDropdown /></MemoryRouter>)
+    render(<TestRouter><RecentDropdown /></TestRouter>)
     expect(screen.getByRole('button', { name: /recent/i })).toBeInTheDocument()
   })
 })
@@ -1196,11 +1201,11 @@ const MOCK_MODULES_MQ = [{ slug: 'docker', title: 'Docker' }]
 
 function renderModuleQuiz(slug = 'docker') {
   return render(
-    <MemoryRouter initialEntries={[`/module/${slug}/quiz`]}>
+    <TestRouter initialEntries={[`/module/${slug}/quiz`]}>
       <Routes>
         <Route path="/module/:moduleSlug/quiz" element={<ModuleQuiz modules={MOCK_MODULES_MQ} />} />
       </Routes>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -1330,11 +1335,11 @@ import Reference from '../../pages/Reference'
 
 function renderReference(slug = 'linux') {
   return render(
-    <MemoryRouter initialEntries={[`/reference/${slug}`]}>
+    <TestRouter initialEntries={[`/reference/${slug}`]}>
       <Routes>
         <Route path="/reference/:moduleSlug" element={<Reference />} />
       </Routes>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 
@@ -1399,27 +1404,27 @@ const MOCK_DRILL_QUESTION = {
 describe('Drill page', () => {
   it('shows loading while fetchWeakAreaQuestions is pending', () => {
     fetchWeakAreaQuestions.mockReturnValue(new Promise(() => {}))
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
 
   it('shows no-weak-areas message when fetch returns empty list', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([])
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     await waitFor(() => expect(screen.getByText(/no weak areas yet/i)).toBeInTheDocument())
     expect(screen.getByRole('link', { name: /back to stats/i })).toBeInTheDocument()
   })
 
   it('shows question count and Start Drill button when weak questions exist', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     await waitFor(() => expect(screen.getByRole('button', { name: /start drill/i })).toBeInTheDocument())
     expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   it('active phase shows question and Reveal Answer button after Start Drill', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
     expect(screen.getByText(MOCK_DRILL_QUESTION.question)).toBeInTheDocument()
@@ -1428,7 +1433,7 @@ describe('Drill page', () => {
 
   it('reveals answer options after clicking Reveal Answer', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
@@ -1439,7 +1444,7 @@ describe('Drill page', () => {
   it('selecting an option shows explanation and Finish button', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
     logAttempt.mockResolvedValue({ xp_earned: 0, xp_total: 50 })
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
@@ -1451,7 +1456,7 @@ describe('Drill page', () => {
   it('done phase shows score % and Drill again button', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
     logAttempt.mockResolvedValue({ xp_earned: 0, xp_total: 50 })
-    render(<MemoryRouter><Drill /></MemoryRouter>)
+    render(<TestRouter><Drill /></TestRouter>)
     await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
@@ -1465,7 +1470,7 @@ describe('Drill page', () => {
   it('done phase shows XP earned when logAttempt returns xp_earned > 0', async () => {
     fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
     logAttempt.mockResolvedValue({ xp_earned: 2, xp_total: 52 })
-    render(<MemoryRouter><Drill onXpEarned={() => {}} /></MemoryRouter>)
+    render(<TestRouter><Drill onXpEarned={() => {}} /></TestRouter>)
     await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
     fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
@@ -1494,13 +1499,13 @@ const MOCK_PROJECTS_LIST = [
 describe('Projects page', () => {
   it('shows loading state while fetch is pending', () => {
     global.fetch.mockReturnValue(new Promise(() => {}))
-    render(<MemoryRouter><Projects /></MemoryRouter>)
+    render(<TestRouter><Projects /></TestRouter>)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
 
   it('renders project title after fetch resolves', async () => {
     global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
-    render(<MemoryRouter><Projects /></MemoryRouter>)
+    render(<TestRouter><Projects /></TestRouter>)
     await waitFor(() =>
       expect(screen.getByText('Containerize a Python App')).toBeInTheDocument()
     )
@@ -1508,7 +1513,7 @@ describe('Projects page', () => {
 
   it('renders difficulty badge', async () => {
     global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
-    render(<MemoryRouter><Projects /></MemoryRouter>)
+    render(<TestRouter><Projects /></TestRouter>)
     await waitFor(() => screen.getByText('Containerize a Python App'))
     expect(screen.getByText('intermediate')).toBeInTheDocument()
   })
