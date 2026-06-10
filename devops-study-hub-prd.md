@@ -394,8 +394,7 @@ exercises: 3
 ### Phase 4 — Job Readiness ✅
 - Interview Prep Mode with AI-generated questions and AI feedback (score: Weak/Adequate/Strong)
 - Quick Review flashcard mode — pre-seeded model answers, self-grade Weak/Adequate/Strong, no live Claude call; `POST /interview/self-grade`; seeded via `seed_interview.py --model-answers` (184 answers across all 23 modules)
-- Mock Interview mode — 8 randomly shuffled questions per selected module, 15-minute countdown timer (pauses during self-review), self-grading only, no backend writes; results card shows accuracy %, time used, per-question breakdown with model answers
-- Interview SRS review queue (SM-2 algorithm; amber badge in sidebar when reviews due)
+- Interview SRS review queue (SM-2 algorithm); Practice Due banner on idle screen when reviews are waiting
 - XP awards for interview answers (Strong=5, Adequate=2)
 
 ### Phase 5 — Polish & Navigation ✅
@@ -408,7 +407,7 @@ exercises: 3
 - Stats page (XP history, streak calendar, completion breakdown, quiz weak areas)
 - Sidebar collapse, TOC (auto-generated from `##` headings), reading mode
 - Bookmarks (star any lesson, persisted in localStorage, BookmarksDropdown in header)
-- Job readiness score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
+- Module Progress score per module (completion 40% + quiz accuracy 40% + interview coverage 20%); shown as badge on Roadmap cards and breakdown row on ModuleView
 - Progress export — download full JSON backup (progress, XP log, quiz attempts, notes, interview history, SRS state) from Stats page
 - Lab exercise validation — `expected_output` fenced block in lesson markdown; amber Check button in CodePlayground; stdout match + exit 0 required; 5 XP awarded once per exercise (idempotent via xp_log source key); 182 exercises across all 23 modules
 
@@ -418,7 +417,7 @@ exercises: 3
 - 75 XP completion bonus per project; all XP idempotent via xp_log source keys
 - Projects page (card grid with difficulty, module tags, step progress) + ProjectDetail page (expandable steps, server state restored on reload)
 - Sidebar: Projects link above Interview Prep in Practice section
-- Progressive Hints — amber HintBox in CodePlayground (exercises), InterviewPrep, and ProjectDetail; 2 hints revealed one at a time; resets on question/step change; hints stored as `hint:` lines in markdown (exercises) or JSON column (interview/project steps); seeded via `seed_exercise_hints.py` (184 exercise hints across all 23 modules) and `seed_interview.py --hints-only` (368 interview hints across all 23 modules)
+- Progressive Hints — amber HintBox in CodePlayground (exercises) and ProjectDetail (project steps); 2 hints revealed one at a time; resets on question/step change; hints stored as `hint:` lines in markdown (exercises) or JSON column (project steps); seeded via `seed_exercise_hints.py` (184 exercise hints across all 23 modules); interview hints remain in DB but are not surfaced in the UI
 
 ### Phase 7 — Sandbox Polish ✅
 - Show answer button (`POST /sandbox/answer`) on open-ended exercises (no `expected_output`); Haiku generates a complete solution using lesson title + content as context; renders as markdown in a blue Solution panel; validated exercises keep Check button only
@@ -429,8 +428,6 @@ exercises: 3
 ### Phase 8 — Exercise SRS ✅
 - SM-2 spaced-repetition schedule for exercises — every Check call (pass or fail) updates `exercise_srs_schedule` (TEXT PK `slug:index`, interval_days, ease, next_review, reviews)
 - `GET /sandbox/exercises/due` endpoint returns `{due_count, due_keys}` (keys due today by next_review date)
-- Sidebar: amber "N ex" badge on Spaced Review row when exercises are due
-- LessonViewer: amber ↻ indicator next to exercises whose key is in due_keys; fetched on lesson load
 
 ### Phase 9 — Skeleton Loading Screens ✅
 - App.jsx startup skeleton: replaces plain "Loading…" with animate-pulse layout matching the real 3-column structure — sidebar (logo, progress bar, 10 nav rows), header strip, and Roadmap-style card grid (5 groups × 3 cards each)
