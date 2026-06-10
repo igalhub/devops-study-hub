@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+import { apiFetch } from '../store/curriculumStore'
 
 const DIFFICULTY_STYLES = {
   beginner: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
@@ -14,8 +13,7 @@ export default function Projects() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API}/projects`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+    apiFetch('/projects')
       .then(data => { setProjects(data); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../store/themeStore'
+import { apiFetch } from '../store/curriculumStore'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -239,8 +240,7 @@ export default function ProjectDetail({ onXpEarned }) {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`${API}/projects/${projectSlug}`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+    apiFetch(`/projects/${projectSlug}`)
       .then(data => {
         setProject(data)
         const status = {}
