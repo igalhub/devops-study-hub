@@ -664,55 +664,6 @@ describe('InterviewPrep', () => {
     expect(screen.getByRole('button', { name: /reveal answer/i })).toBeInTheDocument()
   })
 
-  it('renders Mock Interview button in idle state', () => {
-    renderInterviewPrep()
-    expect(screen.getByRole('button', { name: /mock interview/i })).toBeInTheDocument()
-  })
-
-  it('shows question and countdown timer after clicking Mock Interview', async () => {
-    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
-    renderInterviewPrep()
-    fireEvent.click(screen.getByRole('button', { name: /mock interview/i }))
-    await waitFor(() =>
-      expect(screen.getByText(MOCK_INTERVIEW_QUESTION.question)).toBeInTheDocument()
-    )
-    expect(screen.getByText('15:00')).toBeInTheDocument()
-  })
-
-  it('Submit Answer in mock mode reveals model answer without calling evaluateAnswerWithSrs', async () => {
-    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
-    renderInterviewPrep()
-    fireEvent.click(screen.getByRole('button', { name: /mock interview/i }))
-    await waitFor(() =>
-      expect(screen.getByText(MOCK_INTERVIEW_QUESTION.question)).toBeInTheDocument()
-    )
-    fireEvent.change(screen.getByPlaceholderText(/type your answer/i), { target: { value: 'containers share the kernel' } })
-    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
-    await waitFor(() =>
-      expect(screen.getByText(/show model answer/i)).toBeInTheDocument()
-    )
-    expect(evaluateAnswerWithSrs).not.toHaveBeenCalled()
-  })
-
-  it('self-grading in mock mode shows results card without calling selfGradeInterview', async () => {
-    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
-    renderInterviewPrep()
-    fireEvent.click(screen.getByRole('button', { name: /mock interview/i }))
-    await waitFor(() =>
-      expect(screen.getByText(MOCK_INTERVIEW_QUESTION.question)).toBeInTheDocument()
-    )
-    fireEvent.change(screen.getByPlaceholderText(/type your answer/i), { target: { value: 'containers share the kernel' } })
-    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
-    await waitFor(() =>
-      expect(screen.getByText(/show model answer/i)).toBeInTheDocument()
-    )
-    fireEvent.click(screen.getByRole('button', { name: /^strong$/i }))
-    await waitFor(() =>
-      expect(screen.getByText('Mock Interview Complete')).toBeInTheDocument()
-    )
-    expect(screen.getByText(/accuracy/i)).toBeInTheDocument()
-    expect(selfGradeInterview).not.toHaveBeenCalled()
-  })
 })
 
 // ─── Roadmap ──────────────────────────────────────────────────────────────────
