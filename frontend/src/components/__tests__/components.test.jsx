@@ -346,8 +346,6 @@ function renderSidebar(props = {}) {
       <Sidebar
         modules={[SIDEBAR_MODULE]}
         progress={{}}
-        reviewDue={0}
-        interviewDue={0}
         {...props}
       />
     </MemoryRouter>
@@ -355,22 +353,14 @@ function renderSidebar(props = {}) {
 }
 
 describe('Sidebar', () => {
-  it('shows Spaced Review badge with count when reviewDue > 0', () => {
-    renderSidebar({ reviewDue: 3 })
-    expect(screen.getByText('3')).toBeInTheDocument()
+  it('shows Spaced Review nav link', () => {
+    renderSidebar()
+    expect(screen.getByRole('link', { name: /spaced review/i })).toBeInTheDocument()
   })
 
-  it('hides Spaced Review badge when reviewDue is 0', () => {
-    renderSidebar({ reviewDue: 0 })
-    // Badge text should not exist; "Spaced Review" nav link still present
-    const link = screen.getByRole('link', { name: /spaced review/i })
-    expect(link).toBeInTheDocument()
-    expect(link).not.toHaveTextContent('0')
-  })
-
-  it('shows Interview badge with count when interviewDue > 0', () => {
-    renderSidebar({ interviewDue: 5 })
-    expect(screen.getByText('5')).toBeInTheDocument()
+  it('shows Interview Prep nav link', () => {
+    renderSidebar()
+    expect(screen.getByRole('link', { name: /interview prep/i })).toBeInTheDocument()
   })
 
   it('shows Done badge for fully completed module', () => {
@@ -381,11 +371,6 @@ describe('Sidebar', () => {
   it('shows progress % badge for in-progress module', () => {
     renderSidebar({ progress: { '1': 'complete' } })
     expect(screen.getByText('50%')).toBeInTheDocument()
-  })
-
-  it('shows exercise due badge on Spaced Review when exerciseDue > 0', () => {
-    renderSidebar({ exerciseDue: 7 })
-    expect(screen.getByText('7 ex')).toBeInTheDocument()
   })
 })
 

@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson, addBookmark, removeBookmark, isBookmarked, fetchExerciseDue } from '../store/curriculumStore'
+import { fetchLesson, markLessonComplete, resetLessonProgress, addRecentLesson, addBookmark, removeBookmark, isBookmarked } from '../store/curriculumStore'
 import CodePlayground from '../components/CodePlayground'
 
 function HintBox({ hints }) {
@@ -95,7 +95,6 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
   const [error, setError] = useState(null)
   const [activeExercise, setActiveExercise] = useState(null)
   const [completedExercises, setCompletedExercises] = useState(new Set())
-  const [dueExerciseKeys, setDueExerciseKeys] = useState(new Set())
   const [bookmarked, setBookmarked] = useState(false)
   const [moduleBanner, setModuleBanner] = useState(false)
   const currentSlugRef = useRef(lessonSlug)
@@ -107,7 +106,6 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     setError(null)
     setActiveExercise(null)
     setCompletedExercises(new Set())
-    setDueExerciseKeys(new Set())
     setModuleBanner(false)
     setBookmarked(isBookmarked(lessonSlug))
     fetchLesson(lessonSlug)
@@ -126,9 +124,6 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
     fetch(`http://localhost:8000/sandbox/completed/${lessonSlug}`)
       .then(r => r.json())
       .then(d => { if (!cancelled) setCompletedExercises(new Set(d.completed)) })
-      .catch(() => {})
-    fetchExerciseDue()
-      .then(d => { if (!cancelled) setDueExerciseKeys(new Set(d.due_keys)) })
       .catch(() => {})
     return () => { cancelled = true }
   }, [lessonSlug])
@@ -353,9 +348,6 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
                   <div className="shrink-0 flex items-center gap-2">
                     {completedExercises.has(i) && (
                       <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓</span>
-                    )}
-                    {dueExerciseKeys.has(`${lessonSlug}:${i}`) && (
-                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium" title="Due for review">↻</span>
                     )}
                     <button
                       onClick={() => toggleExercise(i)}
