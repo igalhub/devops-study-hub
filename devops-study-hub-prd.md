@@ -247,7 +247,7 @@ devops-study-hub/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
-│   │   └── test_api.py      # 98 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS + project completion bonus + reference cards + weak areas)
+│   │   └── test_api.py      # 97 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS + project completion bonus + reference cards + weak areas)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
@@ -290,6 +290,7 @@ devops-study-hub/
 ├── .claude/
 │   ├── commands/              # Project slash commands (gitignored)
 │   │   ├── cleanup.md
+│   │   ├── dead-code.md       # Cross-layer dead code audit
 │   │   ├── dev-check.md
 │   │   ├── expand-content.md  # Guided safe content expansion workflow
 │   │   ├── rollback.md
@@ -427,7 +428,6 @@ exercises: 3
 
 ### Phase 8 — Exercise SRS ✅
 - SM-2 spaced-repetition schedule for exercises — every Check call (pass or fail) updates `exercise_srs_schedule` (TEXT PK `slug:index`, interval_days, ease, next_review, reviews)
-- `GET /sandbox/exercises/due` endpoint returns `{due_count, due_keys}` (keys due today by next_review date)
 
 ### Phase 9 — Skeleton Loading Screens ✅
 - App.jsx startup skeleton: replaces plain "Loading…" with animate-pulse layout matching the real 3-column structure — sidebar (logo, progress bar, 10 nav rows), header strip, and Roadmap-style card grid (5 groups × 3 cards each)
