@@ -1354,7 +1354,7 @@ describe('Reference page', () => {
   })
 
   it('shows not-found message on 404', async () => {
-    global.fetch.mockResolvedValue({ status: 404 })
+    global.fetch.mockResolvedValue({ ok: false, status: 404 })
     renderReference()
     await waitFor(() =>
       expect(screen.getByText(/no reference card available/i)).toBeInTheDocument()
@@ -1363,7 +1363,7 @@ describe('Reference page', () => {
 
   it('renders back-link and markdown content after successful fetch', async () => {
     global.fetch.mockResolvedValue({
-      status: 200,
+      ok: true,
       json: () => Promise.resolve({ content: '# Linux Reference\n\nKey commands here.' }),
     })
     renderReference()
@@ -1375,7 +1375,7 @@ describe('Reference page', () => {
 
   it('renders filter input after content loads', async () => {
     global.fetch.mockResolvedValue({
-      status: 200,
+      ok: true,
       json: () => Promise.resolve({ content: '# Linux\n\n## File Management\n\nls command\n\n## Networking\n\ncurl command' }),
     })
     renderReference()
@@ -1384,7 +1384,7 @@ describe('Reference page', () => {
 
   it('shows no matching sections when filter has no matches', async () => {
     global.fetch.mockResolvedValue({
-      status: 200,
+      ok: true,
       json: () => Promise.resolve({ content: '# Linux\n\n## File Management\n\nls command' }),
     })
     renderReference()

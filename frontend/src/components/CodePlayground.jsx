@@ -78,6 +78,7 @@ export default function CodePlayground({ initialCode, initialLanguage, expectedO
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language }),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setOutput(await res.json())
     } catch (e) {
       setOutput({ stdout: '', stderr: e.message, exit_code: 1 })
