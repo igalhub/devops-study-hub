@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useMatch } from 'react-router-dom'
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense, Component } from 'react'
 import Sidebar from './components/Sidebar'
 import SearchModal from './components/SearchModal'
 import ThemeToggle from './components/ThemeToggle'
@@ -228,6 +228,35 @@ function AppLayout({ modules, progress, loadData, loading, xp, streak, interview
   )
 }
 
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+          <div className="text-center space-y-4 max-w-md px-6">
+            <p className="text-2xl font-semibold">Something went wrong</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-mono break-all">{this.state.error.message}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 export default function App() {
   const [modules, setModules] = useState([])
   const [progress, setProgress] = useState({})
@@ -265,18 +294,20 @@ export default function App() {
   useEffect(() => { loadData() }, [])
 
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppLayout
-        modules={modules}
-        progress={progress}
-        loadData={loadData}
-        loading={loading}
-        xp={xp}
-        streak={streak}
-        interviewQueue={interviewQueue}
-        readiness={readiness}
-        onXpEarned={handleXpEarned}
-      />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AppLayout
+          modules={modules}
+          progress={progress}
+          loadData={loadData}
+          loading={loading}
+          xp={xp}
+          streak={streak}
+          interviewQueue={interviewQueue}
+          readiness={readiness}
+          onXpEarned={handleXpEarned}
+        />
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
