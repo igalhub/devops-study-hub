@@ -241,10 +241,12 @@ export default function ProjectDetail({ onXpEarned }) {
 
   useEffect(() => {
     const controller = new AbortController()
+    let cancelled = false
     setLoading(true)
     setError(null)
     apiFetch(`/projects/${projectSlug}`, { signal: controller.signal })
       .then(data => {
+        if (cancelled) return
         setProject(data)
         const status = {}
         data.steps.forEach(s => { status[s.id] = { status: s.status, score: s.score } })
@@ -253,8 +255,8 @@ export default function ProjectDetail({ onXpEarned }) {
         setExpanded((first ?? data.steps[0])?.id ?? null)
         setLoading(false)
       })
-      .catch(err => { if (err.name !== 'AbortError') { setError(err.message); setLoading(false) } })
-    return () => controller.abort()
+      .catch(err => { if (!cancelled) { setError(err.message); setLoading(false) } })
+    return () => { cancelled = true; controller.abort() }
   }, [projectSlug])
 
   const handleStepComplete = (stepId, status, score) => {
