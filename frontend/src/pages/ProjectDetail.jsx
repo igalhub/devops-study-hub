@@ -235,12 +235,15 @@ export default function ProjectDetail({ onXpEarned }) {
   const { projectSlug } = useParams()
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [stepStatus, setStepStatus] = useState({})
 
   useEffect(() => {
+    const controller = new AbortController()
     setLoading(true)
-    apiFetch(`/projects/${projectSlug}`)
+    setError(null)
+    apiFetch(`/projects/${projectSlug}`, { signal: controller.signal })
       .then(data => {
         setProject(data)
         const status = {}
@@ -250,7 +253,8 @@ export default function ProjectDetail({ onXpEarned }) {
         setExpanded((first ?? data.steps[0])?.id ?? null)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(err => { if (err.name !== 'AbortError') { setError(err.message); setLoading(false) } })
+    return () => controller.abort()
   }, [projectSlug])
 
   const handleStepComplete = (stepId, status, score) => {
@@ -258,6 +262,7 @@ export default function ProjectDetail({ onXpEarned }) {
   }
 
   if (loading) return <div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>
+  if (error) return <div className="p-6 text-red-500">{error}</div>
   if (!project) return <div className="p-6 text-red-500">Project not found.</div>
 
   const totalDone = Object.values(stepStatus).filter(s => ['passed', 'graded'].includes(s.status)).length

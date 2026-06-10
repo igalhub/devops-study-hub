@@ -11,14 +11,16 @@ const DIFFICULTY_STYLES = {
 export default function Projects() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     apiFetch('/projects')
       .then(data => { setProjects(data); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch(() => { setError(true); setLoading(false) })
   }, [])
 
   if (loading) return <div className="p-6 text-gray-400 dark:text-gray-500">Loading…</div>
+  if (error) return <div className="p-6 text-red-500">Failed to load projects.</div>
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
