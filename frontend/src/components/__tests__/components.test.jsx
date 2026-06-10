@@ -662,6 +662,151 @@ describe('InterviewPrep', () => {
     expect(screen.getByRole('button', { name: /reveal answer/i })).toBeInTheDocument()
   })
 
+  it('Submit Answer is disabled when textarea is empty in AI mode', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    expect(screen.getByRole('button', { name: /submit answer/i })).toBeDisabled()
+  })
+
+  it('Submit Answer shows Evaluating… while evaluateAnswerWithSrs is pending', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    evaluateAnswerWithSrs.mockReturnValue(new Promise(() => {}))
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My answer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /evaluating/i })).toBeInTheDocument())
+  })
+
+  it('shows score badge and feedback in reviewed phase (AI mode)', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    evaluateAnswerWithSrs.mockResolvedValue({
+      score: 'Strong', feedback: 'Excellent answer!', xp_earned: 15, xp_total: 100, model_answer: 'Model.',
+    })
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My answer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+    await waitFor(() => expect(screen.getByText('Strong')).toBeInTheDocument())
+    expect(screen.getByText('Excellent answer!')).toBeInTheDocument()
+  })
+
+  it('Finish Session transitions to done phase with New Session button', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    evaluateAnswerWithSrs.mockResolvedValue({
+      score: 'Adequate', feedback: 'OK', xp_earned: 8, xp_total: 80, model_answer: 'Model.',
+    })
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My answer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+    await waitFor(() => screen.getByRole('button', { name: /finish session/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finish session/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: /session complete/i })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /new session/i })).toBeInTheDocument()
+  })
+
+  it('toggles model answer visibility in AI reviewed phase', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    evaluateAnswerWithSrs.mockResolvedValue({
+      score: 'Weak', feedback: 'Needs work.', xp_earned: 0, xp_total: 50, model_answer: 'The correct model answer.',
+    })
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My answer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+    await waitFor(() => screen.getByText(/show model answer/i))
+    fireEvent.click(screen.getByText(/show model answer/i))
+    expect(screen.getByText('The correct model answer.')).toBeInTheDocument()
+  })
+
+  it('shows error message when fetchInterviewQuestions fails', async () => {
+    fetchInterviewQuestions.mockRejectedValue(new Error('network error'))
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }))
+    await waitFor(() =>
+      expect(screen.getByText(/failed to load questions/i)).toBeInTheDocument()
+    )
+  })
+
+  it('shows Strong/Adequate/Weak self-grade buttons after Reveal Answer in flashcard mode', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /quick review/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    expect(screen.getByRole('button', { name: /^strong$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^adequate$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^weak$/i })).toBeInTheDocument()
+  })
+
+  it('shows Finish Session after self-grading in flashcard mode', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    selfGradeInterview.mockResolvedValue({ score: 'Strong', xp_earned: 15, xp_total: 100 })
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /quick review/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^strong$/i })) })
+    await waitFor(() => expect(screen.getByRole('button', { name: /finish session/i })).toBeInTheDocument())
+  })
+
+  it('flashcard done phase shows Flashcard Session Complete heading', async () => {
+    fetchInterviewQuestions.mockResolvedValue([MOCK_INTERVIEW_QUESTION])
+    selfGradeInterview.mockResolvedValue({ score: 'Adequate', xp_earned: 8, xp_total: 80 })
+    renderInterviewPrep()
+    fireEvent.click(screen.getByRole('button', { name: /quick review/i }))
+    await waitFor(() => screen.getByText(MOCK_INTERVIEW_QUESTION.question))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^adequate$/i })) })
+    await waitFor(() => screen.getByRole('button', { name: /finish session/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finish session/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /flashcard session complete/i })).toBeInTheDocument()
+    )
+  })
+
+  it('Practice Due button enters review session with question and textarea', () => {
+    renderInterviewPrep({ interviewQueue: [MOCK_REVIEW_CARD] })
+    fireEvent.click(screen.getByRole('button', { name: /practice due/i }))
+    expect(screen.getByText(MOCK_REVIEW_CARD.question)).toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit answer/i })).toBeInTheDocument()
+  })
+
+  it('review session shows score badge after evaluation', async () => {
+    evaluateAnswerWithSrs.mockResolvedValue({
+      score: 'Adequate', feedback: 'Decent.', xp_earned: 8, xp_total: 80, model_answer: 'Model.',
+    })
+    renderInterviewPrep({ interviewQueue: [MOCK_REVIEW_CARD] })
+    fireEvent.click(screen.getByRole('button', { name: /practice due/i }))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My review answer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+    await waitFor(() => expect(screen.getByText('Adequate')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /finish review/i })).toBeInTheDocument()
+  })
+
+  it('review done phase shows Review Complete heading', async () => {
+    evaluateAnswerWithSrs.mockResolvedValue({
+      score: 'Strong', feedback: 'Great!', xp_earned: 15, xp_total: 100, model_answer: 'Model.',
+    })
+    renderInterviewPrep({ interviewQueue: [MOCK_REVIEW_CARD] })
+    fireEvent.click(screen.getByRole('button', { name: /practice due/i }))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My answer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+    await waitFor(() => screen.getByRole('button', { name: /finish review/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finish review/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /review complete/i })).toBeInTheDocument()
+    )
+  })
+
 })
 
 // ─── Roadmap ──────────────────────────────────────────────────────────────────
@@ -1270,6 +1415,64 @@ describe('Drill page', () => {
     render(<MemoryRouter><Drill /></MemoryRouter>)
     await waitFor(() => expect(screen.getByRole('button', { name: /start drill/i })).toBeInTheDocument())
     expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
+  it('active phase shows question and Reveal Answer button after Start Drill', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
+    expect(screen.getByText(MOCK_DRILL_QUESTION.question)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reveal answer/i })).toBeInTheDocument()
+  })
+
+  it('reveals answer options after clicking Reveal Answer', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    expect(screen.getByRole('button', { name: /A\. List files/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /B\. Delete files/ })).toBeInTheDocument()
+  })
+
+  it('selecting an option shows explanation and Finish button', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
+    logAttempt.mockResolvedValue({ xp_earned: 0, xp_total: 50 })
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /A\. List files/ })) })
+    expect(screen.getByText(MOCK_DRILL_QUESTION.explanation)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /finish/i })).toBeInTheDocument()
+  })
+
+  it('done phase shows score % and Drill again button', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
+    logAttempt.mockResolvedValue({ xp_earned: 0, xp_total: 50 })
+    render(<MemoryRouter><Drill /></MemoryRouter>)
+    await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /A\. List files/ })) })
+    await waitFor(() => screen.getByRole('button', { name: /finish/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finish/i }))
+    await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /drill again/i })).toBeInTheDocument()
+  })
+
+  it('done phase shows XP earned when logAttempt returns xp_earned > 0', async () => {
+    fetchWeakAreaQuestions.mockResolvedValue([MOCK_DRILL_QUESTION])
+    logAttempt.mockResolvedValue({ xp_earned: 2, xp_total: 52 })
+    render(<MemoryRouter><Drill onXpEarned={() => {}} /></MemoryRouter>)
+    await waitFor(() => screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start drill/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /A\. List files/ })) })
+    await waitFor(() => screen.getByRole('button', { name: /finish/i }))
+    fireEvent.click(screen.getByRole('button', { name: /finish/i }))
+    await waitFor(() => expect(screen.getByText(/\+2 XP earned/i)).toBeInTheDocument())
   })
 })
 
