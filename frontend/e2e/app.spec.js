@@ -504,18 +504,3 @@ test('module quiz shows explanation and disables options after answering', async
     await expect(options.nth(i)).toBeDisabled()
   }
 })
-
-// ── 22. Exercise SRS due badge ────────────────────────────────────────────────
-
-test('exercise SRS due badge shows amber indicator when exercises are due', async ({ page }) => {
-  await page.goto(BASE)
-  const data = await page.evaluate(async () => {
-    const r = await fetch('http://localhost:8000/sandbox/exercises/due')
-    return r.json()
-  })
-  if (data.due_count === 0) return test.skip()
-
-  await page.goto(`${BASE}/module/bash/lesson/script-basics`)
-  // Due exercises show an amber ↻ icon on the exercise card
-  await expect(page.locator('text=↻').first()).toBeVisible({ timeout: 5000 })
-})

@@ -8,14 +8,14 @@ An interactive, self-hosted study tool for learning DevOps. Covers 23 modules an
 - **AI Tutor** — ask questions in context of the current lesson (streaming Claude responses)
 - **Code Sandbox** — write and run Bash, Python, and YAML inline with real subprocess execution; validated exercises have a Check button that awards XP on correct output
 - **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson; weak-area drill across all modules on the Stats page
-- **Interview Prep** — 8 scenario-based questions per module with AI feedback (Weak/Adequate/Strong); Quick Review flashcard mode with pre-seeded model answers; Mock Interview mode with a 15-minute countdown and results card
+- **Interview Prep** — 8 scenario-based questions per module with AI feedback (Weak/Adequate/Strong); Quick Review flashcard mode with pre-seeded model answers and self-grading; SRS review queue surfaces due questions via Practice Due banner
 - **Projects** — 10 multi-step interview-ready projects (containerization, Kubernetes, IaC, GitOps, ELK, Helm, and more); steps are either sandbox-validated or AI-graded; 75 XP completion bonus per project
-- **Progressive Hints** — 2 hints revealed one at a time on exercises, interview questions, and project steps
+- **Progressive Hints** — 2 hints revealed one at a time on exercises and project steps
 - **Show Answer** — AI-generated solution panel for open-ended exercises
 - **Reference Cards** — per-module command cheat sheets for all 23 modules; accessible from each module header
 
 ### Navigation & Tracking
-- **Roadmap** — visual skill tree with per-module job readiness scores (completion 40% + quiz accuracy 40% + interview coverage 20%)
+- **Roadmap** — visual skill tree with per-module progress scores (completion 40% + quiz accuracy 40% + interview coverage 20%)
 - **Stats page** — XP timeline, streak calendar, per-module completion breakdown, quiz weak areas drill
 - **Progress export** — download a full JSON backup of progress, XP log, quiz attempts, notes, interview history, and SRS state
 - **Content search** — full-text search across lesson titles and body content, filterable by curriculum group
