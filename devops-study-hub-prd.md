@@ -180,7 +180,7 @@ integrated practice environments.
   - `seed_curriculum.py` — full pipeline: detects thin content, expands via Claude API,
     then seeds quiz questions in one pass (idempotent, auto-commits); `--quiz-only` or
     `--force-quiz` to regenerate quiz questions without expanding content
-  - `seed_interview.py` — pre-seeds interview questions (8 per module) for all 23 modules; `--hints-only` backfills 2 progressive hints per question
+  - `seed_interview.py` — pre-seeds interview questions (8 per module) for all 23 modules; `--hints-only` backfills 2 hints per question into DB (not currently surfaced in UI)
   - `seed_exercise_hints.py` — adds 2 Claude-generated hints to Quick Check exercises that have `expected_output` but no hints; `--dry-run` and `--module` flags
 
 ## Code Sandbox
@@ -240,7 +240,7 @@ devops-study-hub/
 │   ├── srs.py               # Shared SM-2 spaced repetition logic
 │   ├── seed.py              # Seeds modules & lessons from content/
 │   ├── seed_curriculum.py   # Full pipeline: expand content + seed quiz
-│   ├── seed_interview.py    # Pre-seeds interview questions (8 per module); --hints-only to backfill hints
+│   ├── seed_interview.py    # Pre-seeds interview questions (8 per module); --hints-only backfills hints into DB (not surfaced in UI)
 │   ├── seed_exercise_hints.py  # Adds 2 Claude hints to Quick Check exercises in lesson markdown
 │   ├── seed_projects.py     # Seeds 10 projects + steps (runs at startup)
 │   ├── reset_progress.py    # Wipes all progress tables; preserves content (quiz/interview/projects)

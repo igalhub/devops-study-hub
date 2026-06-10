@@ -31,5 +31,7 @@ frontend/.env
 
 # Test artifacts
 frontend/test-results/
+frontend/coverage/
 .pytest_cache/
 frontend/.pytest_cache/
+backend/.coverage
