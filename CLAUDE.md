@@ -26,13 +26,13 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 - **Code Sandbox** — write and run Bash/Python exercises inline
 - **Spaced Repetition Quizzes** — SM-2 algorithm, 5 questions per lesson
 - **Roadmap View** — visual skill tree showing what to learn next
-- **Interview Prep Mode** — AI-generated questions with AI feedback (score: Weak/Adequate/Strong) + Quick Review flashcard mode (pre-seeded model answers, self-grade, no Claude call) + Mock Interview mode (8 random questions, 15-min countdown, self-grading, no backend writes, results card); SRS review queue; XP awards
+- **Interview Prep Mode** — AI-generated questions with AI feedback (score: Weak/Adequate/Strong) + Quick Review flashcard mode (pre-seeded model answers, self-grade, no Claude call); SRS review queue with Practice Due banner; XP awards
 - **Content Search** — full-text search across lesson titles and body content
 - **Bookmarks** — star any lesson; accessible from the header dropdown
 - **Module Quiz** — dedicated per-module quiz page
-- **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent); every Check (pass or fail) updates SM-2 SRS schedule (`exercise_srs_schedule`); due exercises shown with amber ↻ in LessonViewer; sidebar "N ex" badge on Spaced Review row
+- **Lab Exercise Validation** — Check button on exercises with `expected_output`; validates stdout, awards 5 XP per exercise (idempotent); every Check (pass or fail) updates SM-2 SRS schedule (`exercise_srs_schedule`)
 - **Projects** — 10 multi-step interview-ready projects mixing modules; steps are Sandbox (stdout check, 10 XP) or AI Review (Claude grades Weak/Adequate/Strong, 8/15 XP); 75 XP completion bonus per project
-- **Progressive Hints** — amber "Hint" button on exercises (CodePlayground), interview questions (InterviewPrep), and project steps (ProjectDetail); reveals 2 hints one at a time, resets on question change; hints stored as markdown `hint:` lines (exercises) or JSON column (interview/projects)
+- **Progressive Hints** — amber "Hint" button on exercises (CodePlayground) and project steps (ProjectDetail); reveals 2 hints one at a time, resets on question change; hints stored as markdown `hint:` lines (exercises) or JSON column (projects)
 - **Show Answer** — gray "Show answer / Hide answer" toggle on open-ended exercises (no `expected_output`); calls `POST /sandbox/answer` with lesson slug + exercise text; Haiku generates a full solution rendered as markdown; validated exercises (with `expected_output`) never show this button
 - **Reference Cards** — per-module command cheat sheets covering key commands, flags, and patterns; accessible via "Reference" button on ModuleView header; route `/reference/:moduleSlug`; served from `reference/<slug>.md` files via `GET /reference/{module_slug}`; 23 cards covering all modules; 404-graceful for missing cards
 
