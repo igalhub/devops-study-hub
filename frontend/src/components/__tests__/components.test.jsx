@@ -34,7 +34,6 @@ vi.mock('../../store/curriculumStore', () => ({
   addBookmark: vi.fn(),
   removeBookmark: vi.fn(),
   isBookmarked: vi.fn().mockReturnValue(false),
-  fetchExerciseDue: vi.fn(),
   searchContent: vi.fn(),
   fetchModuleQuiz: vi.fn(),
   fetchWeakAreaQuestions: vi.fn(),
@@ -51,7 +50,7 @@ vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
 import {
   fetchReviewQueue, logAttempt, fetchQuiz, fetchNote, saveNote,
   fetchInterviewQuestions, evaluateAnswerWithSrs, selfGradeInterview,
-  fetchStats, fetchLesson, fetchExerciseDue,
+  fetchStats, fetchLesson,
   fetchModuleQuiz, fetchWeakAreaQuestions, getBookmarks, getRecentLessons,
   checkExercise, markLessonComplete,
 } from '../../store/curriculumStore'
@@ -612,7 +611,6 @@ function renderInterviewPrep(props = {}) {
           <InterviewPrep
             modules={MOCK_MODULES_IP}
             onXpEarned={() => {}}
-            onInterviewDueChange={() => {}}
             interviewQueue={null}
             {...props}
           />
@@ -889,7 +887,6 @@ function renderLessonViewer(slug = 'cron', progress = {}) {
 describe('LessonViewer', () => {
   beforeEach(() => {
     global.fetch.mockResolvedValue({ json: () => Promise.resolve({ completed: [] }) })
-    fetchExerciseDue.mockResolvedValue({ due_keys: [], due_count: 0 })
   })
 
   it('shows skeleton loading while fetchLesson is pending', async () => {
