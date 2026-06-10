@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { checkExercise } from '../store/curriculumStore'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 const STARTER = {
   bash: '#!/bin/bash\n# Try the exercises from this lesson\necho "Hello, DevOps!"\n',
