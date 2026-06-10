@@ -50,7 +50,7 @@ export default function ModuleView({ modules, progress, onProgressUpdate, readin
               <span>·</span>
               <span>Interview <span className="font-medium text-gray-600 dark:text-gray-300">{moduleReadiness.interview_pct}%</span></span>
               <span>·</span>
-              <span>Job readiness <span className={`font-semibold ${readinessColor(moduleReadiness.readiness)}`}>{moduleReadiness.readiness}%</span></span>
+              <span>Module Progress <span className={`font-semibold ${readinessColor(moduleReadiness.readiness)}`}>{moduleReadiness.readiness}%</span></span>
             </div>
           )}
         </div>

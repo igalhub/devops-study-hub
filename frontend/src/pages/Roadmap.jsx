@@ -28,7 +28,7 @@ function ModuleCard({ mod, progress, readiness }) {
         <div className="text-xs text-gray-500 dark:text-gray-400">{pct}%</div>
         {readiness && (
           <div className="flex items-center gap-1">
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">ready</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">progress</span>
             <span className={`text-xs font-semibold ${readinessColor(readiness.readiness)}`}>
               {readiness.readiness}%
             </span>
