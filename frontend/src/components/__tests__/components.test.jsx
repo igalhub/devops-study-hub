@@ -546,14 +546,14 @@ describe('ProjectDetail', () => {
   })
 
   it('renders project title and difficulty badge after fetch', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => expect(screen.getByText('Containerize a Python App')).toBeInTheDocument())
     expect(screen.getByText('intermediate')).toBeInTheDocument()
   })
 
   it('renders all four step titles', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => screen.getByText('Write a Dockerfile'))
     expect(screen.getByText('Run the container')).toBeInTheDocument()
@@ -562,7 +562,7 @@ describe('ProjectDetail', () => {
   })
 
   it('first sandbox step is expanded — Run and Check buttons visible', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => screen.getByText('Write a Dockerfile'))
     expect(screen.getByRole('button', { name: /^run$/i })).toBeInTheDocument()
@@ -570,7 +570,7 @@ describe('ProjectDetail', () => {
   })
 
   it('AI step shows Submit for AI Review when expanded', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => screen.getByText('Explain Docker layers'))
     fireEvent.click(screen.getByText('Explain Docker layers'))
@@ -580,7 +580,7 @@ describe('ProjectDetail', () => {
   })
 
   it('shows Hint button for step with hints', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => screen.getByText('Write a Dockerfile'))
     expect(screen.getByRole('button', { name: /^hint$/i })).toBeInTheDocument()
@@ -1128,7 +1128,7 @@ describe('LessonViewer', () => {
 // ─── Hint reveal (HintBox via ProjectDetail) ──────────────────────────────────
 describe('HintBox progressive reveal', () => {
   it('first Hint click shows first hint text and changes button to Next hint', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => screen.getByText('Write a Dockerfile'))
     fireEvent.click(screen.getByRole('button', { name: /^hint$/i }))
@@ -1137,7 +1137,7 @@ describe('HintBox progressive reveal', () => {
   })
 
   it('second click shows second hint and disables button with No more hints', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECT) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECT) })
     renderProjectDetail()
     await waitFor(() => screen.getByText('Write a Dockerfile'))
     fireEvent.click(screen.getByRole('button', { name: /^hint$/i }))
@@ -1504,7 +1504,7 @@ describe('Projects page', () => {
   })
 
   it('renders project title after fetch resolves', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
     render(<TestRouter><Projects /></TestRouter>)
     await waitFor(() =>
       expect(screen.getByText('Containerize a Python App')).toBeInTheDocument()
@@ -1512,7 +1512,7 @@ describe('Projects page', () => {
   })
 
   it('renders difficulty badge', async () => {
-    global.fetch.mockResolvedValue({ json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
+    global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_PROJECTS_LIST) })
     render(<TestRouter><Projects /></TestRouter>)
     await waitFor(() => screen.getByText('Containerize a Python App'))
     expect(screen.getByText('intermediate')).toBeInTheDocument()
