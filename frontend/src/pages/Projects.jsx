@@ -15,7 +15,7 @@ export default function Projects() {
 
   useEffect(() => {
     fetch(`${API}/projects`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
       .then(data => { setProjects(data); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])

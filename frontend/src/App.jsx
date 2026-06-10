@@ -242,7 +242,7 @@ class ErrorBoundary extends Component {
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
           <div className="text-center space-y-4 max-w-md px-6">
             <p className="text-2xl font-semibold">Something went wrong</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-mono break-all">{this.state.error.message}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-mono break-all">{this.state.error?.message ?? String(this.state.error)}</p>
             <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm"
