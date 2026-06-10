@@ -122,10 +122,6 @@ export function checkExercise(slug, index, code, language, expectedOutput) {
   })
 }
 
-export function fetchExerciseDue() {
-  return apiFetch('/sandbox/exercises/due')
-}
-
 const RECENT_KEY = 'devops_recent'
 const MAX_RECENT = 10
 
