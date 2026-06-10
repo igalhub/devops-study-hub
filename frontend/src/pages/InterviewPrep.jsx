@@ -55,7 +55,7 @@ export default function InterviewPrep({ modules, onXpEarned, interviewQueue: que
   }, [queueProp])
 
   useEffect(() => {
-    if ((phase === 'reviewed' || phase === 'mock_reviewed' || reviewPhase === 'reviewed_card') && topRef.current) {
+    if ((phase === 'reviewed' || reviewPhase === 'reviewed_card') && topRef.current) {
       const main = topRef.current.closest('main')
       if (main) main.scrollTo({ top: 0, behavior: 'smooth' })
     }
