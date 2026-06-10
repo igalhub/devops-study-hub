@@ -25,7 +25,7 @@ export default function Reference() {
     setNotFound(false)
     setQuery('')
     fetch(`${API}/reference/${moduleSlug}`)
-      .then(r => { if (r.status === 404) { setNotFound(true); return null } return r.json() })
+      .then(r => { if (!r.ok) { setNotFound(true); return null } return r.json() })
       .then(d => { if (d) setContent(d.content) })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false))

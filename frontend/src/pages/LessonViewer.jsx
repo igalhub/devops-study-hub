@@ -124,7 +124,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     fetch(`${API}/sandbox/completed/${lessonSlug}`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(d => { if (!cancelled) setCompletedExercises(new Set(d.completed)) })
       .catch(() => {})
     return () => { cancelled = true }

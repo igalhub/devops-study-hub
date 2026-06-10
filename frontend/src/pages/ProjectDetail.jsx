@@ -55,8 +55,11 @@ function SandboxStep({ step, projectSlug, onComplete, onXpEarned }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language: step.language }),
       })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const data = await r.json()
       setResult({ kind: 'run', ...data })
+    } catch (e) {
+      setResult({ kind: 'run', stdout: '', stderr: e.message, exit_code: 1 })
     } finally {
       setRunning(false)
     }
@@ -70,12 +73,15 @@ function SandboxStep({ step, projectSlug, onComplete, onXpEarned }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language: step.language }),
       })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const data = await r.json()
       setResult({ kind: 'check', ...data })
       if (data.passed) {
         onComplete(step.id, 'passed')
         if (data.xp_earned > 0) onXpEarned(data.xp_total)
       }
+    } catch {
+      setResult({ kind: 'check', passed: false })
     } finally {
       setChecking(false)
     }
@@ -170,10 +176,13 @@ function AiStep({ step, projectSlug, onComplete, onXpEarned }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answer }),
       })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const data = await r.json()
       setResult(data)
       onComplete(step.id, 'graded', data.score)
       if (data.xp_earned > 0) onXpEarned(data.xp_total)
+    } catch {
+      // grading resets via finally; result stays null so user can retry
     } finally {
       setGrading(false)
     }
