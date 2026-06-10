@@ -52,5 +52,17 @@ Use `/expand-content` to expand thin lesson content. The skill enforces code-rev
 
 To seed exercise hints: `python3 seed_exercise_hints.py [--dry-run] [--module <slug>]` — adds `hint:` lines to lesson markdown files for any Quick Check that has `expected_output` but no hints yet. To seed model answers for Quick Review flashcard mode: `python3 seed_interview.py --model-answers [--module <slug>]` — idempotent, skips already-answered questions.
 
+## Removing a Feature
+When a feature is removed or significantly trimmed, walk this checklist in order before committing:
+
+1. **Frontend UI** — delete the component / JSX block / route
+2. **Frontend store** — remove any `export function` in `curriculumStore.js` that only served this feature; verify with `grep -rn "<funcName>" frontend/src/ | grep -v curriculumStore.js`
+3. **Backend route** — delete the `@router.*` handler(s) in `backend/routes/`
+4. **Backend test** — delete the corresponding `test_*` function(s) in `test_api.py`
+5. **Docs** — run `/update-docs` to sync CLAUDE.md, PRD, README, and memory
+6. **Verify clean** — run `/dead-code` to confirm no orphans remain in any layer
+
+Skipping steps 2–4 is how dead code accumulates. Run `/dead-code` if unsure.
+
 ## Documentation Currency
 Run `/update-docs` after any significant change (new skill, schema change, lesson count change, new feature). It audits CLAUDE.md, the PRD, skill files, and memory against ground truth from `.claude/docs-manifest.sh` and proposes edits before committing.
