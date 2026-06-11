@@ -43,6 +43,11 @@ if [[ $backend_ready -eq 0 ]]; then
     echo "ERROR: Backend failed to start after 10s. Check that .venv exists and port 8000 is free."
     exit 1
 fi
+# Confirm it's our process that's serving — another process may have answered the probe
+if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+    echo "ERROR: Port 8000 is already in use by another process. Stop it and try again."
+    exit 1
+fi
 
 echo "Starting frontend..."
 cd "$PROJECT_DIR/frontend"
