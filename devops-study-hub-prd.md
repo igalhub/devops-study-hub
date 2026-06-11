@@ -1,7 +1,7 @@
 # PRD — DevOps Study Hub
 
 ## Problem
-A developer transitioning into DevOps needs structured, hands-on learning
+Anyone transitioning into DevOps needs structured, hands-on learning
 that builds real job-ready skills — not passive reading. Existing platforms
 (Udemy, Linux Foundation, etc.) are valuable sources of knowledge. This
 project complements them with active recall, spaced repetition, and a
