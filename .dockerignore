@@ -1,0 +1,23 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.venv/
+backend/.venv/
+
+# Secrets and local DB — injected at runtime
+backend/.env
+backend/hub.db
+
+# Frontend build artifacts and dev deps
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/e2e/
+
+# Git
+.git/
+
+# Claude / IDE
+.claude/
