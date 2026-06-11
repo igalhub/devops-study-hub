@@ -92,6 +92,8 @@ cd frontend && npm install && cd ..
 
 Opens http://localhost:5173 automatically. Ctrl-C stops both servers.
 
+**After `git pull`:** the seed scripts (`seed.py`, `seed_curriculum.py`, `seed_interview.py`, `seed_projects.py`) are all idempotent — safe to re-run on an existing database without data loss. Schema migrations are not currently needed; `db.py` creates missing tables on startup.
+
 ---
 
 ## Database
@@ -103,6 +105,8 @@ The repo ships with a pre-seeded `backend/hub.db` containing all 455 quiz questi
 ```bash
 git update-index --skip-worktree backend/hub.db
 ```
+
+**Limitation:** this flag doesn't survive `git checkout` or `git stash` — you'll need to re-run it after switching branches or unstashing. To back up your progress before a branch switch, use the Export button on the Stats page.
 
 To reset back to a clean pre-seeded state at any time:
 

@@ -36,7 +36,7 @@ def _apply_resource_limits():
     """Called as preexec_fn in child process — limits CPU, memory, file writes, and open files."""
     MB = 1024 * 1024
     resource.setrlimit(resource.RLIMIT_CPU,   (5,   5))               # 5s CPU time
-    resource.setrlimit(resource.RLIMIT_AS,    (512 * MB, 512 * MB))   # 512 MB virtual (CPython needs ~150 MB baseline)
+    resource.setrlimit(resource.RLIMIT_AS,    (256 * MB, 256 * MB))   # 256 MB virtual (CPython baseline ~150 MB; sufficient for all DevOps exercises)
     resource.setrlimit(resource.RLIMIT_FSIZE, (10  * MB, 10  * MB))   # 10 MB max written file
     resource.setrlimit(resource.RLIMIT_NOFILE,(64,  64))              # max 64 open file descriptors
     # RLIMIT_NPROC is per-UID and would starve other server subprocesses — intentionally omitted
