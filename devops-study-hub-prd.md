@@ -456,4 +456,4 @@ exercises: 3
 - `frontend/Dockerfile`: multi-stage — Node 18 build (VITE_API_URL as build arg) → nginx:alpine serve; `nginx.conf` handles SPA routing via `try_files`
 - `docker-compose.yml`: two services (`backend`, `frontend`); API key injected at runtime via `env_file: backend/.env`; SQLite DB mounted as volume (`./backend/hub.db:/app/backend/hub.db`)
 - `.dockerignore`: excludes `backend/.env`, `hub.db`, `node_modules/`, `.git/`, `.claude/`
-- `start.sh`: unified single-terminal launcher (background backend + foreground frontend + auto browser open); `Ctrl-C` kills both
+- `start.sh`: unified single-terminal launcher — starts backend + frontend (both backgrounded), polls readiness before opening browser, detects port conflicts, monitors for backend crashes mid-session, kills full process tree on exit
