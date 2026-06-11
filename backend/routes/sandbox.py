@@ -32,10 +32,12 @@ _SAFE_ENV = {
 
 
 def _apply_resource_limits():
-    """Called as preexec_fn in child process — limits memory and file writes."""
+    """Called as preexec_fn in child process — limits CPU, memory, file writes, and open files."""
     MB = 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_CPU,   (5,   5))               # 5s CPU time
     resource.setrlimit(resource.RLIMIT_AS,    (512 * MB, 512 * MB))   # 512 MB virtual (CPython needs ~150 MB baseline)
     resource.setrlimit(resource.RLIMIT_FSIZE, (10  * MB, 10  * MB))   # 10 MB max written file
+    resource.setrlimit(resource.RLIMIT_NOFILE,(64,  64))              # max 64 open file descriptors
     # RLIMIT_NPROC is per-UID and would starve other server subprocesses — intentionally omitted
 
 
@@ -48,6 +50,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
                 env=_SAFE_ENV,
+                cwd='/tmp',
             )
         elif language == 'yaml':
             validate = (
@@ -70,6 +73,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
                 env=_SAFE_ENV,
+                cwd='/tmp',
             )
         else:  # python
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -81,6 +85,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                     capture_output=True, text=True, timeout=TIMEOUT,
                     preexec_fn=_apply_resource_limits,
                     env=_SAFE_ENV,
+                    cwd='/tmp',
                 )
             finally:
                 os.unlink(tmpfile)
