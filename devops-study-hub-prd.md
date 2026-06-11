@@ -3,9 +3,10 @@
 ## Problem
 A developer transitioning into DevOps needs structured, hands-on learning
 that builds real job-ready skills — not passive reading. Existing platforms
-(Udemy, Linux Foundation, etc.) are valuable sources of knowledge, but this
-project adds a personal layer: active recall, spaced repetition, and an
-integrated practice environment tailored to the learner's own pace and gaps.
+(Udemy, Linux Foundation, etc.) are valuable sources of knowledge. This
+project complements them with active recall, spaced repetition, and a
+lightweight code sandbox — not a full lab or simulation environment, but
+a focused study tool that tracks progress and surfaces gaps.
 
 ## Success Criteria
 - Can confidently answer common DevOps interview questions
