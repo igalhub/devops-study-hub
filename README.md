@@ -68,7 +68,15 @@ set -a && source .env && set +a
 
 ## Run
 
-Two terminals:
+**Option A — single terminal (recommended):**
+
+```bash
+./start.sh
+```
+
+Starts backend and frontend, then opens http://localhost:5173 automatically. Ctrl-C stops both.
+
+**Option B — two terminals:**
 
 ```bash
 # Terminal 1 — backend (port 8000)
@@ -78,7 +86,13 @@ Two terminals:
 ./start-frontend.sh
 ```
 
-Then open http://localhost:5173.
+**Option C — Docker:**
+
+```bash
+docker compose up --build
+```
+
+Frontend at http://localhost:5173, backend at http://localhost:8000. The API key is read from `backend/.env` at runtime (never baked into the image).
 
 ## Environment variables
 
