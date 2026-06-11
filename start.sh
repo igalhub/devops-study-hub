@@ -25,7 +25,7 @@ trap cleanup EXIT INT TERM
 
 echo "Starting backend..."
 cd "$PROJECT_DIR/backend"
-"$PROJECT_DIR/.venv/bin/uvicorn" main:app --port 8000 &
+"$PROJECT_DIR/.venv/bin/uvicorn" main:app --host 127.0.0.1 --port 8000 &
 BACKEND_PID=$!
 
 # Probe the root path (/docs) — returns 200 as long as uvicorn is alive,
