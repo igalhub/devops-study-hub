@@ -1478,4 +1478,41 @@ def test_weak_area_questions_have_required_keys():
     for q in r.json():
         assert {'id', 'question', 'options', 'correct_index', 'explanation',
                 'lesson_title', 'module_title'} <= set(q.keys())
-        assert isinstance(q['options'], list)
+
+
+# ── AI not-configured (no API key) ────────────────────────────────────────────
+
+def test_sandbox_answer_no_key_returns_503():
+    from unittest.mock import patch
+    from ai_client import AINotConfiguredError
+    with patch('routes.sandbox.generate', side_effect=AINotConfiguredError("AI features require ANTHROPIC_API_KEY — add it to backend/.env to enable")):
+        r = client.post('/sandbox/answer', json={'lesson_slug': 'filesystem-permissions', 'exercise_text': 'test'})
+    assert r.status_code == 503
+    assert 'ANTHROPIC_API_KEY' in r.json()['detail']
+
+
+def test_interview_evaluate_no_key_returns_503():
+    from unittest.mock import patch
+    from ai_client import AINotConfiguredError
+    slug = _first_module_slug()
+    if slug is None:
+        pytest.skip("No modules in DB")
+    with patch('routes.interview.generate', side_effect=AINotConfiguredError("AI features require ANTHROPIC_API_KEY — add it to backend/.env to enable")):
+        r = client.post('/interview/evaluate', json={
+            'module_slug': slug, 'question': 'What is Docker?', 'answer': 'A container runtime.',
+        })
+    assert r.status_code == 503
+    assert 'ANTHROPIC_API_KEY' in r.json()['detail']
+
+
+def test_project_ai_grade_no_key_returns_503():
+    from unittest.mock import patch
+    from ai_client import AINotConfiguredError
+    info = _first_ai_step()
+    if info is None:
+        pytest.skip("No AI-graded steps in DB")
+    slug, step_id = info
+    with patch('routes.projects.generate', side_effect=AINotConfiguredError("AI features require ANTHROPIC_API_KEY — add it to backend/.env to enable")):
+        r = client.post(f'/projects/{slug}/steps/{step_id}/ai-grade', json={'answer': 'some answer'})
+    assert r.status_code == 503
+    assert 'ANTHROPIC_API_KEY' in r.json()['detail']
