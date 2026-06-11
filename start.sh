@@ -67,6 +67,11 @@ done
 if [[ $frontend_ready -eq 0 ]]; then
     echo "WARNING: Frontend did not respond after 10s — browser will open when Vite is ready."
 fi
+# Confirm it's our Vite process serving — another process may have answered the probe
+if ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
+    echo "ERROR: Port 5173 is already in use by another process. Stop it and try again."
+    exit 1
+fi
 
 # Open browser (xdg-open on Linux, open on macOS)
 if command -v xdg-open &>/dev/null; then
