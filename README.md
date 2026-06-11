@@ -31,6 +31,14 @@ An interactive, self-hosted study tool for learning DevOps. Covers 23 modules an
 - Node.js 18+
 - An [Anthropic API key](https://console.anthropic.com/)
 
+### macOS notes
+
+- Install Python and Node via Homebrew: `brew install python@3.12 node`
+- **Bash sandbox exercises:** macOS ships bash 3.2 (Apple won't update past GPL v2). Exercises that use bash 4+ features (`declare -A`, `mapfile`, `${var,,}`) will fail in the sandbox. Two options:
+  - **Recommended:** use Docker — the container runs Linux with bash 5.x, so all exercises work correctly
+  - **Alternative:** `brew install bash` — the sandbox PATH includes `/opt/homebrew/bin`, so Homebrew bash 5.x is picked up automatically on Apple Silicon and Intel Macs
+- **Desktop shortcut:** `.desktop` files don't work on macOS. Run `./start.sh` from Terminal, or drag it to the Dock.
+
 ## Setup
 
 ```bash
