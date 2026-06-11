@@ -186,7 +186,7 @@ integrated practice environments.
 ## Code Sandbox
 - Monaco Editor for inline code editing (Bash, Python, YAML)
 - Actual subprocess execution via FastAPI backend — no simulated output
-- Local-only; no container isolation for MVP
+- Local-only; backend binds to 127.0.0.1 in all run modes (bare-metal and Docker); Docker path provides container-level filesystem isolation; bare-metal path uses `unshare --user --net` for network namespace isolation when supported (Ubuntu 20.04+)
 
 ## Progress Tracking
 - SQLite via FastAPI backend
@@ -252,7 +252,7 @@ devops-study-hub/
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── .env.example         # Template — copy to .env and fill in API key
 │   ├── tests/
-│   │   └── test_api.py      # 97 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS + project completion bonus + reference cards + weak areas)
+│   │   └── test_api.py      # 100 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS + project completion bonus + reference cards + weak areas)
 │   └── routes/
 │       ├── ai.py            # AI Tutor (streaming Claude responses)
 │       ├── interview.py     # Interview Prep mode
