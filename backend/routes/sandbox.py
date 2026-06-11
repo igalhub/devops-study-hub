@@ -1,5 +1,6 @@
 import os
 import resource
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -41,12 +42,31 @@ def _apply_resource_limits():
     # RLIMIT_NPROC is per-UID and would starve other server subprocesses — intentionally omitted
 
 
+def _check_unshare() -> bool:
+    """Return True if `unshare --net` works unprivileged on this system."""
+    if sys.platform != 'linux' or not shutil.which('unshare'):
+        return False
+    try:
+        r = subprocess.run(['unshare', '--net', 'true'], capture_output=True, timeout=2)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+_USE_UNSHARE: bool = _check_unshare()
+
+
+def _net_isolate(cmd: list) -> list:
+    """Wrap cmd in a new network namespace when available — drops all network access."""
+    return ['unshare', '--net', '--'] + cmd if _USE_UNSHARE else cmd
+
+
 def _run_subprocess(code: str, language: str) -> dict:
     """Run code in a sandboxed subprocess. Returns {stdout, stderr, exit_code}."""
     try:
         if language == 'bash':
             result = subprocess.run(
-                ['bash', '--norc', '--noprofile', '-c', code],
+                _net_isolate(['bash', '--norc', '--noprofile', '-c', code]),
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
                 env=_SAFE_ENV,
@@ -68,7 +88,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                 'print(f"\\u2713 Valid YAML \\u2014 {type(data).__name__} ({n} item(s))")\n'
             )
             result = subprocess.run(
-                [sys.executable, '-c', validate],
+                _net_isolate([sys.executable, '-c', validate]),
                 input=code,
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
@@ -81,7 +101,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                 tmpfile = f.name
             try:
                 result = subprocess.run(
-                    [sys.executable, tmpfile],
+                    _net_isolate([sys.executable, tmpfile]),
                     capture_output=True, text=True, timeout=TIMEOUT,
                     preexec_fn=_apply_resource_limits,
                     env=_SAFE_ENV,
