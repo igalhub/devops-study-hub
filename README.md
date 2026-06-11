@@ -58,20 +58,20 @@ cp backend/.env.example backend/.env
 cd frontend && npm install && cd ..
 ```
 
-## Seed the database
+## Database
+
+The repo ships with a pre-seeded `backend/hub.db` containing all 455 quiz questions, 184 interview questions, and 10 projects — no API calls required on first run. Your study progress is stored in the same file and stays local.
+
+**For contributors:** to prevent your personal progress from appearing as a pending commit, run once after cloning:
 
 ```bash
-cd backend
+git update-index --skip-worktree backend/hub.db
+```
 
-# Modules and lessons
-../.venv/bin/python seed.py
+If you ever need to reset the database to its clean pre-seeded state:
 
-# AI-generated quiz questions (5 per lesson — calls Anthropic API)
-set -a && source .env && set +a
-../.venv/bin/python seed_curriculum.py --quiz-only
-
-# Interview questions (8 per module — calls Anthropic API)
-../.venv/bin/python seed_interview.py
+```bash
+cd backend && ../.venv/bin/python reset_progress.py --yes
 ```
 
 ## Run
