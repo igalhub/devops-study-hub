@@ -2,7 +2,7 @@
 
 An interactive, self-hosted learning tool for anyone transitioning into DevOps or SRE. Covers 23 topics, 91 structured lessons, 455 quiz questions, and 184 interview questions — all running locally on your machine.
 
-<!-- Add screenshot: ![DevOps Study Hub](docs/screenshot.png) -->
+![DevOps Study Hub](docs/screenshot.png)
 
 ---
 

@@ -25,6 +25,7 @@ frontend/.env
 # Playwright MCP output
 .playwright-mcp/
 *.png
+!docs/*.png
 
 # Test artifacts
 frontend/test-results/
