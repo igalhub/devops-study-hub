@@ -210,6 +210,7 @@ devops-study-hub/
 │   │   │   ├── ThemeToggle.jsx
 │   │   │   └── __tests__/           # Vitest component tests (123 tests)
 │   │   ├── pages/
+│   │   │   ├── Drill.jsx         # Cross-module weak-area drill (/quiz/weak-areas)
 │   │   │   ├── InterviewPrep.jsx
 │   │   │   ├── LessonViewer.jsx
 │   │   │   ├── ModuleQuiz.jsx
