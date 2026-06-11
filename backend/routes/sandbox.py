@@ -43,11 +43,16 @@ def _apply_resource_limits():
 
 
 def _check_unshare() -> bool:
-    """Return True if `unshare --net` works unprivileged on this system."""
+    """Return True if unprivileged network namespace isolation works on this system.
+
+    `unshare --net` alone requires CAP_SYS_ADMIN. Combined with `--user` it
+    works unprivileged on kernels where user namespaces are enabled (Ubuntu
+    20.04+, Debian 11+, most modern Linux). We probe the --user --net form.
+    """
     if sys.platform != 'linux' or not shutil.which('unshare'):
         return False
     try:
-        r = subprocess.run(['unshare', '--net', 'true'], capture_output=True, timeout=2)
+        r = subprocess.run(['unshare', '--user', '--net', 'true'], capture_output=True, timeout=2)
         return r.returncode == 0
     except Exception:
         return False
@@ -57,8 +62,8 @@ _USE_UNSHARE: bool = _check_unshare()
 
 
 def _net_isolate(cmd: list) -> list:
-    """Wrap cmd in a new network namespace when available — drops all network access."""
-    return ['unshare', '--net', '--'] + cmd if _USE_UNSHARE else cmd
+    """Wrap cmd in a new user+network namespace when available — drops all network access."""
+    return ['unshare', '--user', '--net', '--'] + cmd if _USE_UNSHARE else cmd
 
 
 def _run_subprocess(code: str, language: str) -> dict:
