@@ -20,7 +20,7 @@ XP_EXERCISE_CHECK = 5
 
 
 _SAFE_ENV = {
-    'PATH': '/usr/local/bin:/usr/bin:/bin',
+    'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',  # /opt/homebrew/bin covers Apple Silicon Macs
     'HOME': '/tmp',
     'TERM': 'dumb',
     'PYTHONDONTWRITEBYTECODE': '1',
