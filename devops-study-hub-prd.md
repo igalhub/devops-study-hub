@@ -250,6 +250,7 @@ devops-study-hub/
 │   ├── Dockerfile           # Python 3.12-slim image; copies backend/ + content/ + reference/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
+│   ├── .env.example         # Template — copy to .env and fill in API key
 │   ├── tests/
 │   │   └── test_api.py      # 97 tests (infra + per-feature + parser + SRS unit + projects + quiz + notes + search + integrity + error handling + quick wins + gap coverage + full-curriculum + exercise SRS + project completion bonus + reference cards + weak areas)
 │   └── routes/
@@ -305,6 +306,8 @@ devops-study-hub/
 │   └── docs-manifest.sh       # Ground-truth outputs for /update-docs
 ├── devops-study-hub-prd.md
 ├── CLAUDE.md
+├── CONTRIBUTING.md          # Fork/branch/test/lint contribution guide
+├── LICENSE                  # MIT
 ├── docker-compose.yml       # Compose file: backend + frontend services
 ├── .dockerignore
 ├── start.sh                 # Unified launcher: starts backend + frontend, opens browser
