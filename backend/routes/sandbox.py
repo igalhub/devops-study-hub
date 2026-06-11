@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from db import get_conn
-from ai_client import generate, AITimeoutError
+from ai_client import generate, AITimeoutError, AINotConfiguredError
 from srs import update_exercise_srs
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -224,6 +224,8 @@ def get_exercise_answer(request: AnswerRequest):
 
     try:
         answer = generate(prompt, max_tokens=600)
+    except AINotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except AITimeoutError:
         raise HTTPException(status_code=504, detail='Request timed out — please try again')
 

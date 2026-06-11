@@ -2,7 +2,7 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from ai_client import generate, AITimeoutError
+from ai_client import generate, AITimeoutError, AINotConfiguredError
 from db import get_conn
 from srs import update_srs
 
@@ -89,7 +89,10 @@ def get_interview_questions(module_slug: str):
     if cached:
         return cached
 
-    _generate_and_store(mod["id"], mod["title"])
+    try:
+        _generate_and_store(mod["id"], mod["title"])
+    except AINotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     return _fetch_questions(mod["id"])
 
 
@@ -124,6 +127,8 @@ def evaluate_answer(req: EvaluateRequest):
     for attempt in range(2):
         try:
             text = generate(prompt, max_tokens=1024, timeout=45.0)
+        except AINotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except AITimeoutError:
             raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
         # Strip markdown fences (```json ... ``` or ``` ... ```)

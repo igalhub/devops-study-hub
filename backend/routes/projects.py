@@ -2,7 +2,7 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from ai_client import generate, AITimeoutError
+from ai_client import generate, AITimeoutError, AINotConfiguredError
 from db import get_conn
 from routes.sandbox import _run_subprocess
 
@@ -243,6 +243,8 @@ def grade_ai_step(slug: str, step_id: int, req: AiGradeRequest):
     )
     try:
         text = generate(prompt, max_tokens=1500, timeout=45.0)
+    except AINotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except AITimeoutError:
         raise HTTPException(status_code=504, detail="Evaluation timed out — please try again")
     if text.startswith("```"):
