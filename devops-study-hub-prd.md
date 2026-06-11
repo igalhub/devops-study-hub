@@ -229,6 +229,8 @@ devops-study-hub/
 │   │   ├── main.jsx
 │   │   ├── test-setup.js            # Vitest global setup (@testing-library/jest-dom)
 │   │   └── index.css
+│   ├── Dockerfile           # Multi-stage: Node 18 build → nginx:alpine serve
+│   ├── nginx.conf           # SPA routing (try_files → index.html)
 │   ├── e2e/
 │   │   └── app.spec.js          # Playwright E2E suite (39 flows)
 │   └── package.json
@@ -244,6 +246,7 @@ devops-study-hub/
 │   ├── seed_exercise_hints.py  # Adds 2 Claude hints to Quick Check exercises in lesson markdown
 │   ├── seed_projects.py     # Seeds 10 projects + steps (runs at startup)
 │   ├── reset_progress.py    # Wipes all progress tables; preserves content (quiz/interview/projects)
+│   ├── Dockerfile           # Python 3.12-slim image; copies backend/ + content/ + reference/
 │   ├── requirements.txt
 │   ├── .env                 # ANTHROPIC_API_KEY (never committed)
 │   ├── tests/
@@ -301,6 +304,9 @@ devops-study-hub/
 │   └── docs-manifest.sh       # Ground-truth outputs for /update-docs
 ├── devops-study-hub-prd.md
 ├── CLAUDE.md
+├── docker-compose.yml       # Compose file: backend + frontend services
+├── .dockerignore
+├── start.sh                 # Unified launcher: starts backend + frontend, opens browser
 ├── start-backend.sh
 └── start-frontend.sh
 ```
@@ -444,3 +450,10 @@ exercises: 3
 - Frontend: `Reference.jsx` fetches and renders markdown via ReactMarkdown + remarkGfm; prose-styled tables, inline code, and code blocks
 - Route `/reference/:moduleSlug` in App.jsx; entry point is "Reference" button on ModuleView header
 - Files live in `reference/` (not `content/`) to avoid the pre-commit 100-line minimum hook
+
+### Phase 12 — Docker Containerization ✅
+- `backend/Dockerfile`: Python 3.12-slim image; copies `backend/`, `content/`, `reference/` into `/app`; runs uvicorn on port 8000
+- `frontend/Dockerfile`: multi-stage — Node 18 build (VITE_API_URL as build arg) → nginx:alpine serve; `nginx.conf` handles SPA routing via `try_files`
+- `docker-compose.yml`: two services (`backend`, `frontend`); API key injected at runtime via `env_file: backend/.env`; SQLite DB mounted as volume (`./backend/hub.db:/app/backend/hub.db`)
+- `.dockerignore`: excludes `backend/.env`, `hub.db`, `node_modules/`, `.git/`, `.claude/`
+- `start.sh`: unified single-terminal launcher (background backend + foreground frontend + auto browser open); `Ctrl-C` kills both
