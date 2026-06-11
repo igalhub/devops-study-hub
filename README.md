@@ -46,6 +46,22 @@ All study data stays local. No account or subscription required.
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/lesson-viewer.png" width="48%" alt="Lesson viewer with inline code sandbox">
+  <img src="docs/ai-tutor.png" width="48%" alt="AI Tutor — streaming answers scoped to the current lesson">
+</p>
+<p align="center">
+  <img src="docs/interview-prep.png" width="48%" alt="Interview Prep — AI grades answers Weak / Adequate / Strong">
+  <img src="docs/project-detail.png" width="48%" alt="Project steps — Sandbox and AI-graded tasks">
+</p>
+<p align="center">
+  <img src="docs/stats.png" width="48%" alt="Stats — XP timeline, streaks, and quiz weak areas">
+</p>
+
+---
+
 ## Prerequisites
 
 | Tool | Minimum version | Notes |
