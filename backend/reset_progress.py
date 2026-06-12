@@ -54,7 +54,7 @@ CONTENT_TABLES = [
 def _counts(conn) -> dict[str, int]:
     result = {}
     for t in PROGRESS_TABLES:
-        result[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        result[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]  # nosec B608 — t is from a hardcoded constant list
     return result
 
 
@@ -91,7 +91,7 @@ def main() -> None:
     conn = get_conn()
     try:
         for t in PROGRESS_TABLES:
-            conn.execute(f"DELETE FROM {t}")
+            conn.execute(f"DELETE FROM {t}")  # nosec B608 — t is from a hardcoded constant list
         conn.commit()
     finally:
         conn.close()
@@ -112,7 +112,7 @@ def main() -> None:
     print("\nContent tables (must be unchanged):")
     content_ok = True
     for table, expected in CONTENT_TABLES:
-        actual = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        actual = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # nosec B608 — table is from a hardcoded constant list
         status = "OK" if actual == expected else f"FAIL (expected {expected})"
         print(f"  {table:<32} {actual:>4} rows  {status}")
         if actual != expected:

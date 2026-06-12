@@ -43,5 +43,7 @@ jobs:
 
       - name: npm audit
         working-directory: frontend
-        # high/critical only — avoids noise from dev-tool moderate advisories
-        run: npm audit --audit-level=high
+        # --omit=dev: esbuild/vite/vitest are dev-only tools, never served to users.
+        # Their high/critical issues (esbuild dev-server CORS) have no attack surface here.
+        # --audit-level=high: remaining prod dep issues (dompurify via monaco-editor) are moderate.
+        run: npm audit --omit=dev --audit-level=high
