@@ -113,7 +113,7 @@ export default function ModuleView({ modules, progress, onProgressUpdate, readin
                   {lesson.title}
                 </Link>
                 <div className="text-xs text-gray-400 mt-0.5">
-                  {lesson.duration_min} min · {lesson.difficulty}
+                  ~{lesson.duration_min} min read · {lesson.difficulty}
                 </div>
               </div>
               {!done && (

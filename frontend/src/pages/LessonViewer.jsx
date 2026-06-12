@@ -287,7 +287,7 @@ export default function LessonViewer({ modules, progress, onProgressUpdate }) {
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DIFFICULTY_COLOR[lesson.difficulty] ?? DIFFICULTY_COLOR.beginner}`}>
             {lesson.difficulty}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{lesson.duration_min} min</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">~{lesson.duration_min} min read</span>
           {done && <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ Complete</span>}
           <button
             onClick={toggleBookmark}
