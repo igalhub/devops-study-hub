@@ -145,7 +145,7 @@ def get_weak_area_questions():
 
         lesson_ids = [r['lesson_id'] for r in weak_lessons]
         placeholders = ','.join('?' * len(lesson_ids))
-        rows = conn.execute(f"""
+        rows = conn.execute(f"""  # nosec B608 — placeholders is only '?' chars, values are parameterized
             SELECT q.id, q.question, q.options, q.correct_index, q.explanation,
                    l.title AS lesson_title, m.title AS module_title
             FROM quiz_questions q

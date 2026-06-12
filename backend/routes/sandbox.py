@@ -22,7 +22,7 @@ XP_EXERCISE_CHECK = 5
 
 _SAFE_ENV = {
     'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',  # /opt/homebrew/bin covers Apple Silicon Macs
-    'HOME': '/tmp',
+    'HOME': '/tmp',  # nosec B108 — intentional sandbox isolation
     'TERM': 'dumb',
     'PYTHONDONTWRITEBYTECODE': '1',
     'GIT_AUTHOR_NAME': 'sandbox',
@@ -75,7 +75,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
                 env=_SAFE_ENV,
-                cwd='/tmp',
+                cwd='/tmp',  # nosec B108 — intentional sandbox isolation
             )
         elif language == 'yaml':
             validate = (
@@ -98,7 +98,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                 capture_output=True, text=True, timeout=TIMEOUT,
                 preexec_fn=_apply_resource_limits,
                 env=_SAFE_ENV,
-                cwd='/tmp',
+                cwd='/tmp',  # nosec B108 — intentional sandbox isolation
             )
         else:  # python
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -110,7 +110,7 @@ def _run_subprocess(code: str, language: str) -> dict:
                     capture_output=True, text=True, timeout=TIMEOUT,
                     preexec_fn=_apply_resource_limits,
                     env=_SAFE_ENV,
-                    cwd='/tmp',
+                    cwd='/tmp',  # nosec B108 — intentional sandbox isolation
                 )
             finally:
                 os.unlink(tmpfile)
