@@ -20,7 +20,7 @@ cleanup() {
     [[ -n "$BACKEND_PID" ]]  && wait "$BACKEND_PID"  2>/dev/null
     [[ -n "$FRONTEND_PID" ]] && wait "$FRONTEND_PID" 2>/dev/null
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT INT TERM HUP
 
 
 echo "Starting backend..."
