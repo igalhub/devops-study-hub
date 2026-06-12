@@ -1,0 +1,47 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  python-security:
+    name: Python — bandit + pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install security tools
+        run: pip install bandit pip-audit
+
+      - name: bandit (SAST)
+        # -ll = medium severity and above; exclude test file (intentional patterns)
+        run: bandit -r backend/ -x backend/test_api.py -ll
+
+      - name: pip-audit (dependency CVEs)
+        run: pip-audit -r backend/requirements.txt
+
+  frontend-security:
+    name: Frontend — npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: npm audit
+        working-directory: frontend
+        # high/critical only — avoids noise from dev-tool moderate advisories
+        run: npm audit --audit-level=high
