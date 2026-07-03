@@ -33,3 +33,6 @@ frontend/coverage/
 .pytest_cache/
 frontend/.pytest_cache/
 backend/.coverage
+
+# Claude Code session handoff — machine-local, never committed
+HANDOFF.md
