@@ -45,7 +45,7 @@ An interactive study hub to learn the DevOps skills required to land a job in th
 Rigorous, direct, no fluff. Cover things properly but don't pad. Breadth and rigor equally — cast a wide net, do it well.
 
 ## Architecture Authority
-Always reference `docs/devops-study-hub-prd.md` for authoritative architecture and component specs before making any structural changes.
+Always reference `docs/PRD.md` for authoritative architecture and component specs before making any structural changes.
 
 ## Content Expansion
 Use `/expand-content` to expand thin lesson content. The skill enforces code-review after patches and a single-module smoke test before the full run — do not bypass it by running `seed_curriculum.py` directly for a full batch.
