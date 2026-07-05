@@ -306,7 +306,8 @@ devops-study-hub/
 │   │   └── verifier-stats.md
 │   ├── verify-data.sh         # Data integrity checks (run via /verify-data)
 │   └── docs-manifest.sh       # Ground-truth outputs for /update-docs
-├── devops-study-hub-prd.md
+├── docs/
+│   └── devops-study-hub-prd.md
 ├── CLAUDE.md
 ├── CONTRIBUTING.md          # Fork/branch/test/lint contribution guide
 ├── LICENSE                  # MIT
