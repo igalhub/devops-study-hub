@@ -67,3 +67,13 @@ fix — flagging it here so it doesn't get lost.
 - [ ] Or: accept the README workaround as sufficient and close this with
       a note explaining why (e.g. low actual user count, Docker path
       already solves it cleanly)
+
+---
+
+## Ticket status
+
+| Ticket | Title | Status |
+|---|---|---|
+| DSH-001 | No schema migration framework | OPEN |
+| DSH-002 | Windows/WSL2 support unverified | OPEN |
+| DSH-003 | Bash sandbox version gap on macOS | OPEN |
